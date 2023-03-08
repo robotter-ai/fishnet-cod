@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Union
 
-from aleph.sdk import AuthenticatedAlephClient
+from aleph.sdk.client import AuthenticatedUserSessionSync
 from aleph.sdk.types import StorageEnum
 from aleph_message.models import MessageType, StoreMessage, ItemHash
 from semver import VersionInfo
@@ -22,9 +22,9 @@ class SourceType(Enum):
     API = "api"
 
 
-async def fetch_latest_source(deployer_session: AuthenticatedAlephClient, source_code_refs: List[Union[str, ItemHash]]):
+def fetch_latest_source(deployer_session: AuthenticatedUserSessionSync, source_code_refs: List[Union[str, ItemHash]]):
     # Get latest version executors and source code
-    source_messages = await deployer_session.get_messages(
+    source_messages = deployer_session.get_messages(
         hashes=source_code_refs, message_type=MessageType.store
     )
     latest_source: Optional[StoreMessage] = None
@@ -44,8 +44,8 @@ async def fetch_latest_source(deployer_session: AuthenticatedAlephClient, source
     return latest_source
 
 
-async def upload_source(
-    deployer_session: AuthenticatedAlephClient,
+def upload_source(
+    deployer_session: AuthenticatedUserSessionSync,
     path: Path,
     source_type: SourceType,
     channel=FISHNET_DEPLOYMENT_CHANNEL,
@@ -59,7 +59,7 @@ async def upload_source(
         else StorageEnum.storage
     )
     logger.debug(f"Uploading {source_type.name} sources to {storage_engine}")
-    user_code, status = await deployer_session.create_store(
+    user_code, status = deployer_session.create_store(
         file_content=file_content,
         storage_engine=storage_engine,
         channel=channel,
@@ -73,9 +73,9 @@ async def upload_source(
     return user_code
 
 
-async def build_and_upload_requirements(
+def build_and_upload_requirements(
     requirements_path: Path,
-    deployer_session: AuthenticatedAlephClient,
+    deployer_session: AuthenticatedUserSessionSync,
     source_type: SourceType,
     channel: str = FISHNET_DEPLOYMENT_CHANNEL,
 ) -> StoreMessage:
@@ -107,6 +107,6 @@ async def build_and_upload_requirements(
     # remove temporary directory
     shutil.rmtree(opt_packages)
     # upload requirements
-    return await upload_source(
+    return upload_source(
         deployer_session, path=squashfs_path, source_type=source_type, channel=channel
     )
