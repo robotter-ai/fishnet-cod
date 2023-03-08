@@ -7,8 +7,8 @@ from aleph.sdk.vm.app import AlephApp
 
 from fastapi import FastAPI
 from aars import AARS
-from fishnet_cod.core.model import Execution
-from fishnet_cod.core.execution import run_execution, try_get_execution_from_message
+from ..core.model import Execution
+from ..core.execution import run_execution, try_get_execution_from_message
 
 logger = logging.getLogger(__name__)
 logger.debug("imports done")

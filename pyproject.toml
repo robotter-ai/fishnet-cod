@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fishnet-cod"
-version = "1.0.0-beta.1"
+version = "1.0.0-beta.3"
 authors = [
   { name="Mike Hukiewitz", email="mike.hukiewitz@robotter.ai" },
 ]
@@ -17,9 +17,6 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-]
-packages = [
-    { include = "my_package", from = "lib" },
 ]
 
 [dependencies]

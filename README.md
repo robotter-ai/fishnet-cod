@@ -4,14 +4,16 @@ P2P Financial Signal Hosting Network on Aleph
 ## Initial setup
 Install the FastAPI library and Uvicorn: 
 ```shell
-pip install -r ./api/requirements.txt
+pip install -r requirements.txt
 ```
 
 Uvicorn is used to run ASGI compatible web applications, such as the `app`
 web application from the example above. You need to specify it the name of the
 Python module to use and the name of the app:
 ```shell
-python -m uvicorn api:app --reload
+cd src  # the following command must be run from the src folder
+
+python -m uvicorn fishnet_cod.api.main:app --reload
 ```
 
 Then open the app in a web browser on http://localhost:8000

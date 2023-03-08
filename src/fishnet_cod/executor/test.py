@@ -5,10 +5,10 @@ from aleph.sdk.client import AlephClient
 from aleph.sdk.conf import settings
 from fastapi.testclient import TestClient
 
-from fishnet_cod.core.model import ExecutionStatus
-from fishnet_cod.api.api_model import UploadTimeseriesRequest, TimeseriesItem, UploadDatasetRequest, \
+from ..core.model import ExecutionStatus
+from ..api.api_model import UploadTimeseriesRequest, TimeseriesItem, UploadDatasetRequest, \
     UploadAlgorithmRequest, RequestExecutionRequest
-from fishnet_cod.api.main import app
+from ..api.main import app
 
 from main import handle_execution
 

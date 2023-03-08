@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 
 from pydantic import BaseModel
 
-from fishnet_cod.core.model import Execution, Permission, Timeseries
+from ..core.model import Execution, Permission, Timeseries
 
 
 class TimeseriesItem(BaseModel):

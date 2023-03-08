@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
-from fishnet_cod.core.model import *
+from ..core.model import *
 
 from .requests import *
 import numpy as np
