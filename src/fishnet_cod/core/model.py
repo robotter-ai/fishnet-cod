@@ -9,6 +9,7 @@ class UserInfo(Record):
     executionIDs: List[str]
     algorithmIDs: List[str]
     username: str
+    address: str
     bio: Optional[str]
     email: Optional[str]
     link: Optional[str]

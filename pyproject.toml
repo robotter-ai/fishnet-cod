@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fishnet-cod"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 authors = [
   { name="Mike Hukiewitz", email="mike.hukiewitz@robotter.ai" },
 ]
