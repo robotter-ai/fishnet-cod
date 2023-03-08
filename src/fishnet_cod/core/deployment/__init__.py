@@ -199,7 +199,7 @@ async def deploy_executors(
                 volumes=volumes,
                 subscriptions=EXECUTOR_MESSAGE_FILTER,
                 metadata={
-                    "tags": ["fishnet", SourceType.EXECUTOR.name, VERSION_STRING],
+                    "tags": ["fishnet_cod", SourceType.EXECUTOR.name, VERSION_STRING],
                     "time_slice": slice_string,
                 },
             )
@@ -288,7 +288,7 @@ async def deploy_api(
             volumes=volumes,
             subscriptions=API_MESSAGE_FILTER,
             metadata={
-                "tags": ["fishnet", SourceType.API.name, VERSION_STRING],
+                "tags": ["fishnet_cod", SourceType.API.name, VERSION_STRING],
                 "executors": [executor.item_hash for executor in executors],
             },
         )

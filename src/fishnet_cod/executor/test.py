@@ -2,13 +2,15 @@ import asyncio
 import time
 
 from aleph.sdk.client import AlephClient
+from aleph.sdk.conf import settings
 from fastapi.testclient import TestClient
 
-from fishnet_api.main import app
-from main import handle_execution
-from fishnet_cod import *
-from fishnet_api.api_model import *
+from fishnet_cod.core.model import ExecutionStatus
+from fishnet_cod.api.api_model import UploadTimeseriesRequest, TimeseriesItem, UploadDatasetRequest, \
+    UploadAlgorithmRequest, RequestExecutionRequest
+from fishnet_cod.api.main import app
 
+from main import handle_execution
 
 client = TestClient(app)
 aleph_client = AlephClient(settings.API_HOST)

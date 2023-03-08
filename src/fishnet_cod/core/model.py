@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any
 
 from aars import Record, Index
 
@@ -9,7 +9,9 @@ class UserInfo(Record):
     executionIDs: List[str]
     algorithmIDs: List[str]
     username: str
-    bio: str
+    bio: Optional[str]
+    email: Optional[str]
+    link: Optional[str]
 
 
 class Timeseries(Record):
@@ -51,7 +53,6 @@ class Algorithm(Record):
     desc: str
     owner: str
     code: str
-    executionIDs: List[str] = []
 
 
 class ExecutionStatus(str, Enum):
@@ -97,7 +98,7 @@ class Permission(Record):
 
 class Result(Record):
     executionID: str
-    data: str
+    data: Any
 
 
 # indexes to fetch by owner

@@ -26,20 +26,21 @@ support other execution environments (e.g. PyTorch, Tensorflow).
   - [x] Permission management
   - [x] Local VM caching
   - [ ] Signature verification of requests
-  - [ ] Discovery of other API instances
-  - [ ] Dedicated API deploy function
+  - [x] Discovery of other API instances
+  - [x] Dedicated API deploy function
   - [ ] Timeslice distribution across Executor nodes
 - [x] Executor VM
   - [x] Listens for Aleph "Execution" messages and executes them
   - [x] Uploads results to Aleph
   - [x] Pandas support
-  - [ ] Dedicated Executor deploy function
+  - [x] Dedicated Executor deploy function
   - [ ] Distributed execution & aggregation
     - [x] Discovery of other Executor instances
-    - [ ] Uploading executors with metadata: assigned timeslice, code version
+    - [x] Uploading executors with metadata: assigned timeslice, code version
+    - [ ] Deploy multiple executors
   - [ ] Different execution environments (e.g. PyTorch, Tensorflow)
   - [ ] GPU support
 - [ ] Versioning and immutable VMs
-  - [ ] Automatic Versioning & Deprecation
-  - [ ] Version Manifest & Message metadata
+  - [x] Automatic Versioning & Deprecation
+  - [x] Version Manifest & Message metadata
   - [ ] Make all deployments immutable

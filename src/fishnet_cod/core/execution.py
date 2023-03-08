@@ -10,7 +10,7 @@ async def try_get_execution_from_message(message: PostMessage) -> Optional[Execu
         execution = await Execution.from_post(message)
     else:  # amend
         try:
-            execution = await Execution.fetch(message.content.ref)
+            execution = await Execution.fetch(message.content.ref).first()
         except ValidationError:
             return None
     if isinstance(execution, Execution):
@@ -34,7 +34,7 @@ async def run_execution(execution: Execution) -> Optional[Execution]:
 
     try:
         try:
-            algorithm = (await Algorithm.fetch(execution.algorithmID))[0]
+            algorithm = await Algorithm.fetch(execution.algorithmID).first()
         except IndexError:
             return await set_failed(
                 execution, f"Algorithm {execution.algorithmID} not found"
@@ -52,13 +52,13 @@ async def run_execution(execution: Execution) -> Optional[Execution]:
             )
 
         try:
-            dataset = (await Dataset.fetch(execution.datasetID))[0]
+            dataset = await Dataset.fetch(execution.datasetID).first()
         except IndexError:
             return await set_failed(
                 execution, f"Dataset {execution.datasetID} not found"
             )
 
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs)
+        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
         if len(timeseries) != len(dataset.timeseriesIDs):
             if len(timeseries) == 0:
                 return await set_failed(
