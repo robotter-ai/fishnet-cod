@@ -49,9 +49,9 @@ async def deploy_executors(
     executor_messages = await discover_executors(
         deployer_session.account.get_address(), deployer_session, channel
     )
-    source_code_refs = set(
+    source_code_refs = list(set(
         [executor.content.code.ref for executor in executor_messages]
-    )
+    ))
 
     # Get latest version executors and source code
     latest_source = await fetch_latest_source(deployer_session, source_code_refs)
@@ -102,25 +102,24 @@ async def deploy_executors(
         # Register the program
         # TODO: Update existing VMs (if mutable deployment)
         # TODO: Otherwise create new VMs
-        with deployer_session:
-            message, status = deployer_session.create_program(
-                program_ref=user_code.item_hash,
-                entrypoint="main:app",
-                runtime=settings.DEFAULT_RUNTIME_ID,
-                storage_engine=StorageEnum.storage,
-                channel=channel,
-                memory=memory,
-                vcpus=vcpus,
-                timeout_seconds=timeout_seconds,
-                persistent=persistent,
-                encoding=encoding,
-                volumes=volumes,
-                subscriptions=EXECUTOR_MESSAGE_FILTER,
-                metadata={
-                    "tags": ["fishnet_cod", SourceType.EXECUTOR.name, VERSION_STRING],
-                    "time_slice": slice_string,
-                },
-            )
+        message, status = await deployer_session.create_program(
+            program_ref=user_code.item_hash,
+            entrypoint="main:app",
+            runtime=settings.DEFAULT_RUNTIME_ID,
+            storage_engine=StorageEnum.storage,
+            channel=channel,
+            memory=memory,
+            vcpus=vcpus,
+            timeout_seconds=timeout_seconds,
+            persistent=persistent,
+            encoding=encoding,
+            volumes=volumes,
+            subscriptions=EXECUTOR_MESSAGE_FILTER,
+            metadata={
+                "tags": ["fishnet_cod", SourceType.EXECUTOR.name, VERSION_STRING],
+                "time_slice": slice_string,
+            },
+        )
         logger.debug("Upload finished")
 
         hash: str = message.item_hash
@@ -142,8 +141,9 @@ async def deploy_executors(
 
 async def deploy_api(
     api_path: Path,
-    deployer_session: AuthenticatedAlephClient,
+    requirements: StoreMessage,
     executors: List[ProgramMessage],
+    deployer_session: AuthenticatedAlephClient,
     channel: str = FISHNET_DEPLOYMENT_CHANNEL,
     vcpus: int = 1,
     memory: int = 1024 * 4,
@@ -176,12 +176,6 @@ async def deploy_api(
     user_code = await upload_source(
         deployer_session, path=path_object, source_type=SourceType.API
     )
-    # Upload the requirements
-    requirements = await build_and_upload_requirements(
-        requirements_path=api_path / "requirements.txt",
-        deployer_session=deployer_session,
-        source_type=SourceType.API_REQUIREMENTS,
-    )
 
     # Create immutable volume with python dependencies
     volumes = [
@@ -191,25 +185,24 @@ async def deploy_api(
     name = f"api-v{VERSION_STRING}"
 
     # Register the program
-    with deployer_session as session:
-        message, status = session.create_program(
-            program_ref=user_code.item_hash,
-            entrypoint="main:app",
-            runtime="latest",
-            storage_engine=StorageEnum(user_code.content.item_type),
-            channel=channel,
-            memory=memory,
-            vcpus=vcpus,
-            timeout_seconds=timeout_seconds,
-            persistent=persistent,
-            encoding=encoding,
-            volumes=volumes,
-            subscriptions=API_MESSAGE_FILTER,
-            metadata={
-                "tags": ["fishnet_cod", SourceType.API.name, VERSION_STRING],
-                "executors": [executor.item_hash for executor in executors],
-            },
-        )
+    message, status = await deployer_session.create_program(
+        program_ref=user_code.item_hash,
+        entrypoint="main:app",
+        runtime="latest",
+        storage_engine=StorageEnum(user_code.content.item_type),
+        channel=channel,
+        memory=memory,
+        vcpus=vcpus,
+        timeout_seconds=timeout_seconds,
+        persistent=persistent,
+        encoding=encoding,
+        volumes=volumes,
+        subscriptions=API_MESSAGE_FILTER,
+        metadata={
+            "tags": ["fishnet_cod", SourceType.API.name, VERSION_STRING],
+            "executors": [executor.item_hash for executor in executors],
+        },
+    )
 
     logger.debug("Upload finished")
 

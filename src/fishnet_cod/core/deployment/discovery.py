@@ -13,13 +13,12 @@ async def discover_executors(
     tags: Optional[List[str]] = None,
 ) -> List[ProgramMessage]:
     tags = tags if tags else ["executor"]
-    with session:
-        resp = await session.get_messages(
-            channels=[channel],
-            addresses=[owner],
-            tags=tags,
-            message_type=MessageType.program,
-        )
+    resp = await session.get_messages(
+        channels=[channel],
+        addresses=[owner],
+        tags=tags,
+        message_type=MessageType.program,
+    )
     return resp.messages
 
 
@@ -30,11 +29,10 @@ async def discover_apis(
     tags: Optional[List[str]] = None,
 ) -> List[ProgramMessage]:
     tags = tags if tags else ["api"]
-    with session:
-        resp = await session.get_messages(
-            channels=[channel],
-            addresses=[owner],
-            tags=tags,
-            message_type=MessageType.program,
-        )
+    resp = await session.get_messages(
+        channels=[channel],
+        addresses=[owner],
+        tags=tags,
+        message_type=MessageType.program,
+    )
     return resp.messages

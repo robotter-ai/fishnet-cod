@@ -3,11 +3,11 @@ import shutil
 import subprocess
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Union
 
 from aleph.sdk import AuthenticatedAlephClient
 from aleph.sdk.types import StorageEnum
-from aleph_message.models import MessageType, StoreMessage
+from aleph_message.models import MessageType, StoreMessage, ItemHash
 from semver import VersionInfo
 
 from ..constants import FISHNET_DEPLOYMENT_CHANNEL
@@ -22,12 +22,11 @@ class SourceType(Enum):
     API = "api"
 
 
-async def fetch_latest_source(deployer_session, source_code_refs):
+async def fetch_latest_source(deployer_session: AuthenticatedAlephClient, source_code_refs: List[Union[str, ItemHash]]):
     # Get latest version executors and source code
-    with deployer_session:
-        source_messages = await deployer_session.get_messages(
-            hashes=source_code_refs, message_type=MessageType.store
-        )
+    source_messages = await deployer_session.get_messages(
+        hashes=source_code_refs, message_type=MessageType.store
+    )
     latest_source: Optional[StoreMessage] = None
     for source in source_messages.messages:
         source: StoreMessage
@@ -46,7 +45,7 @@ async def fetch_latest_source(deployer_session, source_code_refs):
 
 
 async def upload_source(
-    deployer_session,
+    deployer_session: AuthenticatedAlephClient,
     path: Path,
     source_type: SourceType,
     channel=FISHNET_DEPLOYMENT_CHANNEL,
@@ -54,25 +53,24 @@ async def upload_source(
     logger.debug(f"Reading {source_type.name} file")
     with open(path, "rb") as fd:
         file_content = fd.read()
-        storage_engine = (
-            StorageEnum.ipfs
-            if len(file_content) > 4 * 1024 * 1024
-            else StorageEnum.storage
-        )
-        logger.debug(f"Uploading {source_type.name} sources to {storage_engine}")
-        with deployer_session as session:
-            user_code, status = session.create_store(
-                file_content=file_content,
-                storage_engine=storage_engine,
-                channel=channel,
-                guess_mime_type=True,
-                extra_fields={
-                    "source_type": source_type.name,
-                    "protocol_version": VERSION_STRING,
-                },
-            )
-        logger.debug(f"{source_type.name} upload finished")
-        return user_code
+    storage_engine = (
+        StorageEnum.ipfs
+        if len(file_content) > 4 * 1024 * 1024
+        else StorageEnum.storage
+    )
+    logger.debug(f"Uploading {source_type.name} sources to {storage_engine}")
+    user_code, status = await deployer_session.create_store(
+        file_content=file_content,
+        storage_engine=storage_engine,
+        channel=channel,
+        guess_mime_type=True,
+        extra_fields={
+            "source_type": source_type.name,
+            "protocol_version": VERSION_STRING,
+        },
+    )
+    logger.debug(f"{source_type.name} upload finished")
+    return user_code
 
 
 async def build_and_upload_requirements(
