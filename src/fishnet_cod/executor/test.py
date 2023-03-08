@@ -6,8 +6,13 @@ from aleph.sdk.conf import settings
 from fastapi.testclient import TestClient
 
 from ..core.model import ExecutionStatus
-from ..api.api_model import UploadTimeseriesRequest, TimeseriesItem, UploadDatasetRequest, \
-    UploadAlgorithmRequest, RequestExecutionRequest
+from ..api.api_model import (
+    UploadTimeseriesRequest,
+    TimeseriesItem,
+    UploadDatasetRequest,
+    UploadAlgorithmRequest,
+    RequestExecutionRequest,
+)
 from ..api.main import app
 
 from main import handle_execution
@@ -70,9 +75,9 @@ def run(df: pd.DataFrame):
     assert response.json()["execution"]["status"] == ExecutionStatus.PENDING
 
     time.sleep(3)
-    execution_post = asyncio.run(aleph_client.get_messages(
-        hashes=[response.json()["execution"]["id_hash"]]
-    ))
+    execution_post = asyncio.run(
+        aleph_client.get_messages(hashes=[response.json()["execution"]["id_hash"]])
+    )
 
     assert execution_post.messages is not None
 

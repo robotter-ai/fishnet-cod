@@ -104,10 +104,10 @@ async def index():
 
 @app.get("/datasets")
 async def datasets(
-        view_as: Optional[str] = None,
-        by: Optional[str] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+    view_as: Optional[str] = None,
+    by: Optional[str] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
 ) -> List[Tuple[Dataset, Optional[DatasetPermissionStatus]]]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
@@ -157,7 +157,7 @@ async def datasets(
 
 @app.get("/user/{userAddress}/permissions/incoming")
 async def in_permission_requests(
-        userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
     permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
@@ -167,7 +167,7 @@ async def in_permission_requests(
 
 @app.get("/user/{userAddress}/permissions/outgoing")
 async def out_permission_requests(
-        userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
     permission_records = await Permission.where_eq(requestor=userAddress).page(
         page=page, page_size=page_size
@@ -177,11 +177,11 @@ async def out_permission_requests(
 
 @app.get("/algorithms")
 async def query_algorithms(
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        by: Optional[str] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+    id: Optional[str] = None,
+    name: Optional[str] = None,
+    by: Optional[str] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
 ) -> List[Algorithm]:
     """
     - query for own algos
@@ -220,18 +220,18 @@ async def query_algorithms(
 
 @app.get("/user/{address}/algorithms")
 async def get_user_algorithms(
-        address: str, page: Optional[int] = None, page_size: Optional[int] = None
+    address: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Algorithm]:
     return await Algorithm.where_eq(owner=address).page(page=page, page_size=page_size)
 
 
 @app.get("/executions")
 async def get_executions(
-        dataset_id: Optional[str],
-        by: Optional[str] = None,
-        status: Optional[ExecutionStatus] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+    dataset_id: Optional[str],
+    by: Optional[str] = None,
+    status: Optional[ExecutionStatus] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
 ) -> List[Execution]:
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
@@ -248,7 +248,7 @@ async def get_executions(
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-        address: str, page: Optional[int] = None, page_size: Optional[int] = None
+    address: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
@@ -352,7 +352,7 @@ async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
 
 @app.post("/executions/request")
 async def request_execution(
-        execution: RequestExecutionRequest,
+    execution: RequestExecutionRequest,
 ) -> RequestExecutionResponse:
     """
     This endpoint is used to request an execution.
