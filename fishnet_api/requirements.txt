@@ -1,0 +1,4 @@
+aleph-sdk-python==0.6.0
+aars
+fishnet-cod
+fastapi
