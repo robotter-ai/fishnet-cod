@@ -1,11 +1,9 @@
 import asyncio
 import logging
 import os
+from datetime import datetime
 from os import listdir, getenv
 
-from aleph.sdk import AuthenticatedAlephClient
-from aleph.sdk.chains.sol import get_fallback_account
-from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
 
 logger = logging.getLogger(__name__)
@@ -22,8 +20,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
-from ..core.model import *
 
+from ..core.model import *
+from ..core.constants import *
 from .requests import *
 import numpy as np
 
@@ -46,8 +45,7 @@ if getenv("TEST_CACHE") is not None and getenv("TEST_CACHE").lower() == "true":
 else:
     cache = VmCache()
 app = AlephApp(http_app=http_app)
-session = AuthenticatedAlephClient(get_fallback_account(), settings.API_HOST)
-aars = AARS(channel="FISHNET_TEST", cache=cache, session=session)
+aars = AARS(channel=FISHNET_MESSAGE_CHANNEL, cache=cache)
 
 
 async def re_index():
@@ -68,7 +66,7 @@ async def index():
     else:
         opt_venv = []
     return {
-        "vm_name": "api",
+        "vm_name": "fishnet_api",
         "endpoints": [
             "/timeseries/upload",
             "/datasets",
@@ -223,6 +221,155 @@ async def get_user_algorithms(
     address: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Algorithm]:
     return await Algorithm.where_eq(owner=address).page(page=page, page_size=page_size)
+
+####------------>>Debug<<----------------------##
+@app.post("/post/debug/datasets")
+async def post_ds():
+    await asyncio.sleep(1)
+    await Dataset(name='Dataset004',
+                  owner='Ds_owner004',
+                  desc='Desc for 004',
+                  availabe=False,
+                  ownsAllTimeseries=True,
+                  timeseriesIDs=["778dec63cf37cfb23a4ea53ef9c67e3931a5536687b44cc30148d16913aa02ea",
+                                 "d481de53da312f875a550e695d7a54cfad8b65e68b8e99f44617c2b725a99d19"],
+                  views=["5ef639d13325f2628852c543a7834c23c966f1c0905dcc1aa7f8bf806862e150",
+                         "e339f1500070cd82cec452a9cc2fb52a2fdca2443f3b188a80f0aee8ff4c62f7"]).save()
+    return "Posted"
+
+
+@app.get('/get/debug/datasets')
+async def get_datasets():
+    return await Dataset.fetch_objects().all()
+
+
+@app.post("/post/debug/views")
+async def post_views():
+    await asyncio.sleep(1)
+    await View(
+        startTime=int(datetime.timestamp(datetime.now())),
+        endTime=int(datetime.timestamp(datetime.now())),
+        granularity=Granularity.YEAR,
+        values={"d481de53da312f875a550e695d7a54cfad8b65e68b8e99f44617c2b725a99d19": [(1, 3.42231)]}).save()
+    return "Posted"
+
+
+@app.get('/get/debug/views')
+async def get_Views():
+    return await View.fetch_objects().all()
+
+
+@app.post("/post/debug/Permission")
+async def post_permission():
+    await asyncio.sleep(1)
+    await Permission(
+        timeseriesID="c470221cf21e4f6fd8a1bf329532cad886aaac330915419033a6e17433bb3bc2",
+        algorithmID="60b5e790149d12d0f4b1b7af0c27f3eeb9fa0d56edb7bd56832ef536e36c6115",
+        authorizer="Owner_of_TimeseriesId004",
+        status=PermissionStatus.DENIED,
+        executionCount=0,
+        maxExecutionCount=-1,
+        requestor="Wa005",
+    ).save()
+    return "Posted"
+
+
+@app.get('/get/debug/permission')
+async def get_permission():
+    return await Permission.fetch_objects().all()
+
+
+@app.post("/post/debug/results")
+async def post_result():
+    await asyncio.sleep(1)
+    await Result(
+        executionID="fbd8b2289f01740fde2251ad3de7f349396f523880e4a0887981046910c87cdb",
+        data="Result data ",
+    ).save()
+    return "Posted"
+
+
+@app.get('/get/debug/result')
+async def get_results():
+    return await Result.fetch_objects().all()
+
+
+@app.post("/post/debug/execution")
+async def post_execution():
+    await asyncio.sleep(1)
+    await Execution(
+        algorithmID="ef72bd7720ecaf357d1d39077ad199817def6a1811e828934a61d33996b98db7",
+        datasetID="8caa4855024e68d19549d924d14fdb39c795ab649296401a077833e3094c6c89",
+        owner="Executor003",
+        status=ExecutionStatus.REQUESTED,
+        resultID="130225c09d9372a6e007232d5e3a4ca2f6612eb4bdd89f0dda1a8c71b6d2f84a",
+        params={"param1": "This is param1",
+                "param2": "This is param2"}
+    ).save()
+    return "Posted"
+
+
+@app.get('/get/debug/executions')
+async def get_execution():
+    return await Execution.fetch_objects().all()
+
+
+@app.post('/post/debug/Algorithms')
+async def post_algo():
+    await Algorithm(
+        name="Al004",
+        desc="Desc for Al004",
+        owner="Owner for Al004",
+        code="""
+def run(df: pd.DataFrame):
+    return df.sum(axis=0)
+""").save()
+
+
+@app.get('/get/debug/algorithm')
+async def get_algo():
+    return await Algorithm.fetch_objects().all()
+
+
+@app.post('/delete/debug/records')
+async def delete_records():
+    records = Execution.fetch_objects()
+    async for i in records:
+        await i.forget()
+
+    return "Delete the records"
+
+####------------>>Debug<<----------------------##
+
+
+
+# @app.get('/timeviews')
+# # async def generate_view(view_rec: List[ViewsRequest])->List[View]:
+#     #get all the timeseries
+#     timeseries_rec = [rec.timeseries_ids for rec in view_rec]
+#     ts_ids_np = np.array(timeseries_rec)
+#     ts_ids_lists = np.hstack(ts_ids_np)
+#     ts_ids_unique = np.unique(ts_ids_lists)
+
+
+# ts_ids_lst = list(ts_ids_unique)
+# filter each value which are inside the timeframe
+# for rec in view_rec:
+# rec.start_time
+
+# Calculate min and max ]
+# normalize to 0 and 1
+# where min =0 and max =1
+# round to 2 decimals
+# return
+
+
+@app.put('/userInfo')
+async def _user_info():
+
+
+
+
 
 
 @app.get("/executions")
