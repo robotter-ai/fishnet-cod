@@ -133,41 +133,45 @@ async def get_datasets(
     :param page: page number to fetch
     """
     if by:
-        datasets = await Dataset.where_eq(owner=by).all()
+        datasets_resp = Dataset.where_eq(owner=by)
     else:
-        datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
+        datasets_resp = Dataset.fetch_objects()
+    datasets = await datasets_resp.page(page=page, page_size=page_size)
 
-    ts_ids = []
-    for rec in datasets:
-        ts_ids.extend(rec.timeseriesIDs)
-    ts_ids_unique = list(set(ts_ids))
+    if view_as:
+        ts_ids = []
+        for rec in datasets:
+            ts_ids.extend(rec.timeseriesIDs)
+        ts_ids_unique = list(set(ts_ids))
 
-    req = [
-        Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
-        for ts_id in ts_ids_unique
-    ]
-    resp = await asyncio.gather(*req)
-    permissions = [item for sublist in resp for item in sublist]
+        req = [
+            Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
+            for ts_id in ts_ids_unique
+        ]
+        resp = await asyncio.gather(*req)
+        permissions = [item for sublist in resp for item in sublist]
 
-    returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
-    for rec in datasets:
-        dataset_permissions = []
-        for ts_id in rec.timeseriesIDs:
-            dataset_permissions.extend(
-                list(filter(lambda x: x.timeseriesID == ts_id, permissions))
-            )
-        if not dataset_permissions:
-            returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
-            continue
+        returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
+        for rec in datasets:
+            dataset_permissions = []
+            for ts_id in rec.timeseriesIDs:
+                dataset_permissions.extend(
+                    list(filter(lambda x: x.timeseriesID == ts_id, permissions))
+                )
+            if not dataset_permissions:
+                returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
+                continue
 
-        permission_status = [perm_rec for perm_rec in dataset_permissions]
-        if all(status == PermissionStatus.GRANTED for status in permission_status):
-            returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
-        elif PermissionStatus.DENIED in permission_status:
-            returned_datasets.append((rec, DatasetPermissionStatus.DENIED))
-        elif PermissionStatus.REQUESTED in permission_status:
-            returned_datasets.append((rec, DatasetPermissionStatus.REQUESTED))
-    return returned_datasets
+            permission_status = [perm_rec for perm_rec in dataset_permissions]
+            if all(status == PermissionStatus.GRANTED for status in permission_status):
+                returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
+            elif PermissionStatus.DENIED in permission_status:
+                returned_datasets.append((rec, DatasetPermissionStatus.DENIED))
+            elif PermissionStatus.REQUESTED in permission_status:
+                returned_datasets.append((rec, DatasetPermissionStatus.REQUESTED))
+        return returned_datasets
+    else:
+        return [(rec, None) for rec in datasets]
 
 
 @app.get("/user/{user_id}/permissions/incoming")
