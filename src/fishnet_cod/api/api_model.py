@@ -26,6 +26,17 @@ class UploadDatasetRequest(BaseModel):
     timeseriesIDs: List[str]
 
 
+class PutUserInfo(BaseModel):
+    datasetIDs: List[str]
+    executionIDs: List[str]
+    algorithmIDs: List[str]
+    username: str
+    address: str
+    bio: Optional[str]
+    email: Optional[str]
+    link: Optional[str]
+
+
 class UploadAlgorithmRequest(BaseModel):
     id_hash: Optional[str]
     name: str
@@ -39,6 +50,17 @@ class RequestExecutionRequest(BaseModel):
     datasetID: str
     owner: str
     status: Optional[str]
+
+
+class ExecutionStatusHistory(BaseModel):
+    revision_hash: str
+    status: str
+    timestamp: float
+
+
+class ExecutionResponse(BaseModel):
+    execution: Execution
+    statusHistory: List[ExecutionStatusHistory]
 
 
 class RequestExecutionResponse(BaseModel):

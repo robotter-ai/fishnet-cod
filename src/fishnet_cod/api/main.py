@@ -2,18 +2,36 @@ import asyncio
 import logging
 import os
 from typing import List, Optional, Tuple
+from datetime import datetime
 from os import listdir, getenv
 
 from aleph.sdk import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
-from .api_model import UploadTimeseriesRequest, UploadDatasetRequest, UploadAlgorithmRequest, RequestExecutionRequest, \
-    RequestExecutionResponse
-from ..core.model import Timeseries, UserInfo, Algorithm, Execution, Permission, DatasetPermissionStatus, \
-    PermissionStatus, ExecutionStatus, Result
-
-from src.fishnet_cod.core.model import Dataset
+from .api_model import (
+    UploadTimeseriesRequest,
+    UploadDatasetRequest,
+    UploadAlgorithmRequest,
+    RequestExecutionRequest,
+    RequestExecutionResponse,
+    PutUserInfo,
+)
+from ..core.model import (
+    Timeseries,
+    UserInfo,
+    Algorithm,
+    Execution,
+    Permission,
+    DatasetPermissionStatus,
+    PermissionStatus,
+    ExecutionStatus,
+    Result,
+    Dataset,
+    Granularity,
+    View,
+)
+from ..core.constants import FISHNET_MESSAGE_CHANNEL
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +47,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
-
-import numpy as np
 
 logger.debug("imports done")
 
@@ -53,7 +69,7 @@ else:
     cache = VmCache()
 app = AlephApp(http_app=http_app)
 session = AuthenticatedAlephClient(get_fallback_account(), settings.API_HOST)
-aars = AARS(channel="FISHNET_TEST", cache=cache, session=session)
+aars = AARS(channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session)
 
 
 async def re_index():
@@ -75,7 +91,7 @@ async def index():
         opt_venv = []
     # TODO: Show actual config instead of endpoints
     return {
-        "vm_name": "api",
+        "vm_name": "fishnet_api",
         "endpoints": [
             "/docs",
         ],
@@ -102,49 +118,49 @@ async def reindex():
 
 
 @app.get("/datasets")
-async def datasets(
+async def get_datasets(
     view_as: Optional[str] = None,
     by: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Tuple[Dataset, Optional[DatasetPermissionStatus]]]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
     If `view_as` is not given, the permission status will be `none` for all datasets.
-    :param `view_as`: address of the user to view the datasets as and give additional permission information
-    :param `by`: address of the dataset owner to filter by
-    :param `page_size´: size of the pages to fetch
-    :param `page`: page number to fetch
+    :param view_as: address of the user to view the datasets as and give additional permission information
+    :param by: address of the dataset owner to filter by
+    :param page_size: size of the pages to fetch
+    :param page: page number to fetch
     """
     if by:
         datasets = await Dataset.where_eq(owner=by).all()
-
     else:
         datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
 
-    datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
-    ts_ids = [rec.timeseriesIDs for rec in datasets]
+    ts_ids = []
+    for rec in datasets:
+        ts_ids.extend(rec.timeseriesIDs)
+    ts_ids_unique = list(set(ts_ids))
 
-    ts_ids_np = np.array(ts_ids)
-    ts_ids_lists = np.hstack(ts_ids_np)
-    ts_ids_unique = np.unique(ts_ids_lists)
+    req = [
+        Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
+        for ts_id in ts_ids_unique
+    ]
+    resp = await asyncio.gather(*req)
+    permissions = [item for sublist in resp for item in sublist]
 
-    ts_ids_lst = list(ts_ids_unique)
-
-    dataset_by_requestor = await Dataset.where_eq(timeseriesIDs=ts_ids_lst).all()
-
-    returned_datasets = []
-
-    for rec in dataset_by_requestor:
-        permission_records = await Permission.where_eq(
-            timeseriesID=rec.timeseriesIDs, requestor=view_as
-        ).page(page=page, page_size=page_size)
-
-        if not permission_records:
+    returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
+    for rec in datasets:
+        dataset_permissions = []
+        for ts_id in rec.timeseriesIDs:
+            dataset_permissions.extend(
+                list(filter(lambda x: x.timeseriesID == ts_id, permissions))
+            )
+        if not dataset_permissions:
             returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
             continue
 
-        permission_status = [perm_rec.status for perm_rec in permission_records]
+        permission_status = [perm_rec for perm_rec in dataset_permissions]
         if all(status == PermissionStatus.GRANTED for status in permission_status):
             returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
         elif PermissionStatus.DENIED in permission_status:
@@ -156,12 +172,10 @@ async def datasets(
 
 @app.get("/user/{userAddress}/permissions/incoming")
 async def in_permission_requests(
-    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    if page is None:
-        page = 1
-    if page_size is None:
-        page_size = 20
     permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
@@ -170,12 +184,10 @@ async def in_permission_requests(
 
 @app.get("/user/{userAddress}/permissions/outgoing")
 async def out_permission_requests(
-    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    if page is None:
-        page = 1
-    if page_size is None:
-        page_size = 20
     permission_records = await Permission.where_eq(requestor=userAddress).page(
         page=page, page_size=page_size
     )
@@ -187,8 +199,8 @@ async def query_algorithms(
     id: Optional[str] = None,
     name: Optional[str] = None,
     by: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Algorithm]:
     """
     - query for own algos
@@ -248,7 +260,9 @@ async def get_executions(
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-    address: str, page: Optional[int] = None, page_size: Optional[int] = None
+    address: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
@@ -370,7 +384,7 @@ async def request_execution(
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
             permissionRequests=None,
-            unavailableTimeseries=None
+            unavailableTimeseries=None,
         )
 
     requested_timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
@@ -418,18 +432,22 @@ async def request_execution(
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
             unavailableTimeseries=unavailable_timeseries,
+            permissionRequests=None,
         )
     if requests:
         new_permission_requests = await asyncio.gather(*requests)
         execution.status = ExecutionStatus.REQUESTED
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
+            unavailableTimeseries=None,
             permissionRequests=new_permission_requests,
         )
     else:
         execution.status = ExecutionStatus.PENDING
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save()
+            execution=await Execution(**execution.dict()).save(),
+            unavailableTimeseries = None,
+            permissionRequests = None,
         )
 
 
