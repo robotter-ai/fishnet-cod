@@ -12,10 +12,8 @@ from aleph_message.models import PostMessage
 from .api_model import UploadTimeseriesRequest, UploadDatasetRequest, UploadAlgorithmRequest, RequestExecutionRequest, \
     RequestExecutionResponse
 from ..core.model import Timeseries, UserInfo, Algorithm, Execution, Permission, DatasetPermissionStatus, \
-    PermissionStatus, ExecutionStatus, Result
+    PermissionStatus, ExecutionStatus, Result, Dataset
 from ..core.constants import FISHNET_MESSAGE_CHANNEL
-
-from src.fishnet_cod.core.model import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +102,7 @@ async def reindex():
 
 
 @app.get("/datasets")
-async def datasets(
+async def get_datasets(
     view_as: Optional[str] = None,
     by: Optional[str] = None,
     page: Optional[int] = None,
@@ -118,23 +116,10 @@ async def datasets(
     :param `page_size´: size of the pages to fetch
     :param `page`: page number to fetch
     """
-    print("These are the Inputs")
-    print(view_as, "view_as")
-    print(by, "by")
-    print(page, "page")
-    print(page_size, "page_size")
     if by:
         datasets = await Dataset.where_eq(owner=by).all()
-
-
     else:
         datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
-    print("--\n")
-    print("These are the Inputs")
-    print(view_as, "view_as")
-    print(by, "by")
-    print(page, "page")
-    print(page_size, "page_size")
 
     ts_ids = [rec.timeseriesIDs for rec in datasets]
 
@@ -149,9 +134,6 @@ async def datasets(
     for id in ts_ids_lst:
         perm= Permission.where_eq(timeseriesID=id, authorizer=view_as).all()
         requests.append(perm)
-
-
-
 
     permissions = await asyncio.gather(*requests)
     print(permissions,"These are the permissions")
