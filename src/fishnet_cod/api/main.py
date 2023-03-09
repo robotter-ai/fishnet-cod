@@ -78,7 +78,7 @@ async def re_index():
     logger.info("API re-indexing done")
 
 
-@http_app.on_event("startup")
+@app.on_event("startup")
 async def startup():
     await re_index()
 
@@ -231,9 +231,7 @@ async def get_executions(
         )
     else:
         execution_requests = Execution.fetch_objects()
-    return await execution_requests.page(
-        page=page, page_size=page_size
-    )
+    return await execution_requests.page(page=page, page_size=page_size)
 
 
 @app.get("/user/{address}/results")
@@ -424,8 +422,8 @@ async def request_execution(
         execution.status = ExecutionStatus.PENDING
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
-            unavailableTimeseries = None,
-            permissionRequests = None,
+            unavailableTimeseries=None,
+            permissionRequests=None,
         )
 
 
