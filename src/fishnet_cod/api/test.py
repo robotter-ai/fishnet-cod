@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
-from ..core.model import ExecutionStatus, PermissionStatus
 
-from .main import app
 from .api_model import *
+from .main import app
+from ..core.model import ExecutionStatus, PermissionStatus
 
 client = TestClient(app)
 
@@ -46,7 +46,10 @@ def test_full_request_execution_flow_with_own_dataset():
 def test_requests_approval_deny():
     authorizer_address = "Approve_test_authorizer"
     timeseries_item = TimeseriesItem(
-        name="Approve_test", owner=authorizer_address, available=True, data=[[1.0, 2.0], [3.0, 4.0]]
+        name="Approve_test",
+        owner=authorizer_address,
+        available=True,
+        data=[[1.0, 2.0], [3.0, 4.0]],
     )
     response = client.post("/Timeseries", json=timeseries_item.dict())
     assert response.status_code == 200
@@ -83,12 +86,14 @@ def test_requests_approval_deny():
     assert permission.status == PermissionStatus.REQUESTED
     permission_ids = [permission.id_hash]
 
-    response = client.put("/permissions/approve", params={"permission_hashes": permission_ids})
+    response = client.put(
+        "/permissions/approve", params={"permission_hashes": permission_ids}
+    )
     assert response.status_code == 200
     new_permission = response.json()[0]
     assert new_permission.status == PermissionStatus.GRANTED
 
-    #TODO: Check execution is now pending
+    # TODO: Check execution is now pending
 
 
 def test_execution_dataset():
@@ -102,4 +107,33 @@ def test_execution_dataset():
 def test_dataset():
     page = 1
     page_size = 1
-    response = client.get("/datasets")
+    view_as = "Owner_of_TimeseriesId"
+    by = "Ds_owner004"
+    req = {"view_as": view_as, "by": by}
+    response = client.get("/datasets", params=req)
+    assert response.status_code == 200
+
+
+def test_incoming_permission():
+    userAddress = "Owner_of_TimeseriesId004"
+
+    req = {"userAddress": userAddress, "page": 1}
+    response = client.get(f"/user/{userAddress}/permissions/incoming")
+    assert response.status_code == 200
+
+
+def test_outgoing_permission():
+    userAddress = "Wa005"
+
+    response = client.get(f"/user/{userAddress}/permissions/outgoing")
+    assert response.status_code == 200
+
+
+def test_get_algorithms():
+    id ="60b5e790149d12d0f4b1b7af0c27f3eeb9fa0d56edb7bd56832ef536e36c6115"
+    name ="Al004"
+    by ="Owner for Al004"
+    req = {"id":id,"name":name,"by":by}
+    response = client.get('/algorithms', params=req)
+    assert response.status_code == 200
+    print(response.json(),"these are the json objects")
