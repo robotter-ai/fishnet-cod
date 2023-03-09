@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from typing import List, Optional, Union
 from os import listdir, getenv
 
 from aleph.sdk import AuthenticatedAlephClient
@@ -23,8 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
 from ..core.model import *
+from .api_model import *
 
-from .requests import *
 import numpy as np
 
 logger.debug("imports done")
@@ -67,18 +68,11 @@ async def index():
         opt_venv = list(listdir("/opt/venv"))
     else:
         opt_venv = []
+    # TODO: Show actual config instead of endpoints
     return {
         "vm_name": "api",
         "endpoints": [
-            "/timeseries/upload",
-            "/datasets",
-            "/user/{address}/datasets",
-            "/datasets/upload",
-            "/algorithms",
-            "/user/{address}/algorithms",
-            "/algorithms/upload",
-            "/executions",
-            "/user/{address}/executions",
+            "/docs",
         ],
         "files_in_volumes": {
             "/opt/venv": opt_venv,
@@ -159,6 +153,7 @@ async def datasets(
 async def in_permission_requests(
     userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
+    # TODO: Sanitize page and page_size
     permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
@@ -169,6 +164,7 @@ async def in_permission_requests(
 async def out_permission_requests(
     userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
+    # TODO: Sanitize page and page_size
     permission_records = await Permission.where_eq(requestor=userAddress).page(
         page=page, page_size=page_size
     )
@@ -216,13 +212,6 @@ async def query_algorithms(
 
     else:
         return await Algorithm.fetch_objects().page(page=1)
-
-
-@app.get("/user/{address}/algorithms")
-async def get_user_algorithms(
-    address: str, page: Optional[int] = None, page_size: Optional[int] = None
-) -> List[Algorithm]:
-    return await Algorithm.where_eq(owner=address).page(page=page, page_size=page_size)
 
 
 @app.get("/executions")
@@ -368,7 +357,9 @@ async def request_execution(
     if dataset.owner == execution.owner and dataset.ownsAllTimeseries:
         execution.status = ExecutionStatus.PENDING
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save()
+            execution=await Execution(**execution.dict()).save(),
+            permissionRequests=None,
+            unavailableTimeseries=None
         )
 
     requested_timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
