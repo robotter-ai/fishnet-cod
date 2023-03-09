@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Tuple, Optional, Dict, Any
 
-from aars import Record, Index
+from aars import Record
 
 
 class UserInfo(Record):
@@ -100,4 +100,5 @@ class Permission(Record):
 class Result(Record):
     executionID: str
     data: Any
-
+    owner: str
+    executor_vm: str
