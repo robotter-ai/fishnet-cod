@@ -1,10 +1,21 @@
 import asyncio
 import logging
 import os
+from typing import List, Optional, Tuple
 from datetime import datetime
 from os import listdir, getenv
 
+from aleph.sdk import AuthenticatedAlephClient
+from aleph.sdk.chains.sol import get_fallback_account
+from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
+from .api_model import UploadTimeseriesRequest, UploadDatasetRequest, UploadAlgorithmRequest, RequestExecutionRequest, \
+    RequestExecutionResponse
+from ..core.model import Timeseries, UserInfo, Algorithm, Execution, Permission, DatasetPermissionStatus, \
+    PermissionStatus, ExecutionStatus, Result
+from ..core.constants import FISHNET_MESSAGE_CHANNEL
+
+from src.fishnet_cod.core.model import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -13,17 +24,13 @@ from aleph.sdk.vm.cache import VmCache, TestVmCache
 from aleph.sdk.vm.app import AlephApp
 
 logger.debug("import aars")
-from aars import AARS
+from aars import AARS, Record
 
 logger.debug("import fastapi")
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
-
-from ..core.model import *
-from ..core.constants import *
-from .api_model import *
 
 import numpy as np
 
@@ -41,12 +48,14 @@ http_app.add_middleware(
     allow_headers=["*"],
 )
 
-if getenv("TEST_CACHE") is not None and getenv("TEST_CACHE").lower() == "true":
+TEST_CACHE = getenv("TEST_CACHE")
+if TEST_CACHE is not None and TEST_CACHE.lower() == "true":
     cache = TestVmCache()
 else:
     cache = VmCache()
 app = AlephApp(http_app=http_app)
-aars = AARS(channel=FISHNET_MESSAGE_CHANNEL, cache=cache)
+session = AuthenticatedAlephClient(get_fallback_account(), settings.API_HOST)
+aars = AARS(channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session)
 
 
 async def re_index():
@@ -66,18 +75,11 @@ async def index():
         opt_venv = list(listdir("/opt/venv"))
     else:
         opt_venv = []
+    # TODO: Show actual config instead of endpoints
     return {
         "vm_name": "fishnet_api",
         "endpoints": [
-            "/timeseries/upload",
-            "/datasets",
-            "/user/{address}/datasets",
-            "/datasets/upload",
-            "/algorithms",
-            "/user/{address}/algorithms",
-            "/algorithms/upload",
-            "/executions",
-            "/user/{address}/executions",
+            "/docs",
         ],
         "files_in_volumes": {
             "/opt/venv": opt_venv,
@@ -86,7 +88,7 @@ async def index():
 
 
 @app.get("/indices")
-async def index():
+async def indices():
     ts = [list(index.hashmap.items()) for index in Timeseries.get_indices()]
     ui = [list(index.hashmap.items()) for index in UserInfo.get_indices()]
     ds = [list(index.hashmap.items()) for index in Dataset.get_indices()]
@@ -97,16 +99,16 @@ async def index():
 
 
 @app.get("/indices/reindex")
-async def index():
+async def reindex():
     await re_index()
 
 
 @app.get("/datasets")
 async def datasets(
-        view_as: Optional[str] = None,
-        by: Optional[str] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+    view_as: Optional[str] = None,
+    by: Optional[str] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
 ) -> List[Tuple[Dataset, Optional[DatasetPermissionStatus]]]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
@@ -155,8 +157,12 @@ async def datasets(
 
 @app.get("/user/{userAddress}/permissions/incoming")
 async def in_permission_requests(
-        userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
+    if page is None:
+        page = 1
+    if page_size is None:
+        page_size = 20
     permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
@@ -165,8 +171,12 @@ async def in_permission_requests(
 
 @app.get("/user/{userAddress}/permissions/outgoing")
 async def out_permission_requests(
-        userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
+    if page is None:
+        page = 1
+    if page_size is None:
+        page_size = 20
     permission_records = await Permission.where_eq(requestor=userAddress).page(
         page=page, page_size=page_size
     )
@@ -175,11 +185,11 @@ async def out_permission_requests(
 
 @app.get("/algorithms")
 async def query_algorithms(
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        by: Optional[str] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+    id: Optional[str] = None,
+    name: Optional[str] = None,
+    by: Optional[str] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
 ) -> List[Algorithm]:
     """
     - query for own algos
@@ -214,13 +224,6 @@ async def query_algorithms(
 
     else:
         return await Algorithm.fetch_objects().page(page=1)
-
-
-@app.get("/user/{address}/algorithms")
-async def get_user_algorithms(
-        address: str, page: Optional[int] = None, page_size: Optional[int] = None
-) -> List[Algorithm]:
-    return await Algorithm.where_eq(owner=address).page(page=page, page_size=page_size)
 
 
 ####------------>>Debug<<----------------------##
@@ -385,11 +388,11 @@ async def user_info(user_info: PutUserInfo) -> UserInfo:
 
 @app.get("/executions")
 async def get_executions(
-        dataset_id: Optional[str],
-        by: Optional[str] = None,
-        status: Optional[ExecutionStatus] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+    dataset_id: Optional[str],
+    by: Optional[str] = None,
+    status: Optional[ExecutionStatus] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
 ) -> List[Execution]:
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
@@ -406,7 +409,7 @@ async def get_executions(
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-        address: str, page: Optional[int] = None, page_size: Optional[int] = None
+    address: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
@@ -510,7 +513,7 @@ async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
 
 @app.post("/executions/request")
 async def request_execution(
-        execution: RequestExecutionRequest,
+    execution: RequestExecutionRequest,
 ) -> RequestExecutionResponse:
     """
     This endpoint is used to request an execution.
@@ -526,7 +529,9 @@ async def request_execution(
     if dataset.owner == execution.owner and dataset.ownsAllTimeseries:
         execution.status = ExecutionStatus.PENDING
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save()
+            execution=await Execution(**execution.dict()).save(),
+            permissionRequests=None,
+            unavailableTimeseries=None
         )
 
     requested_timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
