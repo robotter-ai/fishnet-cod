@@ -28,6 +28,8 @@ Index(Permission, "status")
 Index(Permission, "timeseriesID")
 Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["requestor", "timeseriesID", "status"])
+Index(Permission,'authorizer')
+Index(Permission,'requestor')
 
 
 class TimeseriesItem(BaseModel):

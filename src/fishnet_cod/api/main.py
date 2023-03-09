@@ -180,7 +180,7 @@ async def in_permission_requests(
         page = 1
     if page_size is None:
         page_size = 20
-    permission_records = await Permission.where_eq(owner=userAddress).page(
+    permission_records = await Permission.where_eq(authorizer=userAddress).page(
         page=page, page_size=page_size
     )
     return permission_records
