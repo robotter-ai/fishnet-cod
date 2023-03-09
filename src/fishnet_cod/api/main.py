@@ -9,10 +9,28 @@ from aleph.sdk import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
-from .api_model import UploadTimeseriesRequest, UploadDatasetRequest, UploadAlgorithmRequest, RequestExecutionRequest, \
-    RequestExecutionResponse
-from ..core.model import Timeseries, UserInfo, Algorithm, Execution, Permission, DatasetPermissionStatus, \
-    PermissionStatus, ExecutionStatus, Result, Dataset
+from .api_model import (
+    UploadTimeseriesRequest,
+    UploadDatasetRequest,
+    UploadAlgorithmRequest,
+    RequestExecutionRequest,
+    RequestExecutionResponse,
+    PutUserInfo,
+)
+from ..core.model import (
+    Timeseries,
+    UserInfo,
+    Algorithm,
+    Execution,
+    Permission,
+    DatasetPermissionStatus,
+    PermissionStatus,
+    ExecutionStatus,
+    Result,
+    Dataset,
+    Granularity,
+    View,
+)
 from ..core.constants import FISHNET_MESSAGE_CHANNEL
 
 logger = logging.getLogger(__name__)
@@ -29,8 +47,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
-
-import numpy as np
 
 logger.debug("imports done")
 
@@ -105,53 +121,46 @@ async def reindex():
 async def get_datasets(
     view_as: Optional[str] = None,
     by: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Tuple[Dataset, Optional[DatasetPermissionStatus]]]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
     If `view_as` is not given, the permission status will be `none` for all datasets.
-    :param `view_as`: address of the user to view the datasets as and give additional permission information
-    :param `by`: address of the dataset owner to filter by
-    :param `page_size´: size of the pages to fetch
-    :param `page`: page number to fetch
+    :param view_as: address of the user to view the datasets as and give additional permission information
+    :param by: address of the dataset owner to filter by
+    :param page_size: size of the pages to fetch
+    :param page: page number to fetch
     """
     if by:
         datasets = await Dataset.where_eq(owner=by).all()
     else:
         datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
 
-    ts_ids = [rec.timeseriesIDs for rec in datasets]
-
-    ts_ids_np = np.array(ts_ids)
-    ts_ids_lists = np.hstack(ts_ids_np)
-    ts_ids_unique = np.unique(ts_ids_lists)
-    requests = []
-
-    ts_ids_lst = list(ts_ids_unique)
-    print(ts_ids_lst)
-
-    for id in ts_ids_lst:
-        perm= Permission.where_eq(timeseriesID=id, authorizer=view_as).all()
-        requests.append(perm)
-
-    permissions = await asyncio.gather(*requests)
-    print(permissions,"These are the permissions")
-
-    returned_datasets = []
-
-    records = []
+    ts_ids = []
     for rec in datasets:
-        for id in rec.timeseriesIDs:
-            _permission_records = list(filter(lambda x: x.timeseriesID == id, permissions))
-            records.append(_permission_records)
-        print(records,"These are the records")
+        ts_ids.extend(rec.timeseriesIDs)
+    ts_ids_unique = list(set(ts_ids))
 
-        if not records:
+    req = [
+        Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
+        for ts_id in ts_ids_unique
+    ]
+    resp = await asyncio.gather(*req)
+    permissions = [item for sublist in resp for item in sublist]
+
+    returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
+    for rec in datasets:
+        dataset_permissions = []
+        for ts_id in rec.timeseriesIDs:
+            dataset_permissions.extend(
+                list(filter(lambda x: x.timeseriesID == ts_id, permissions))
+            )
+        if not dataset_permissions:
             returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
             continue
 
-        permission_status = [perm_rec for perm_rec in records]
+        permission_status = [perm_rec for perm_rec in dataset_permissions]
         if all(status == PermissionStatus.GRANTED for status in permission_status):
             returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
         elif PermissionStatus.DENIED in permission_status:
@@ -163,12 +172,10 @@ async def get_datasets(
 
 @app.get("/user/{userAddress}/permissions/incoming")
 async def in_permission_requests(
-    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    if page is None:
-        page = 1
-    if page_size is None:
-        page_size = 20
     permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
@@ -177,12 +184,10 @@ async def in_permission_requests(
 
 @app.get("/user/{userAddress}/permissions/outgoing")
 async def out_permission_requests(
-    userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
+    userAddress: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    if page is None:
-        page = 1
-    if page_size is None:
-        page_size = 20
     permission_records = await Permission.where_eq(requestor=userAddress).page(
         page=page, page_size=page_size
     )
@@ -194,8 +199,8 @@ async def query_algorithms(
     id: Optional[str] = None,
     name: Optional[str] = None,
     by: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Algorithm]:
     """
     - query for own algos
@@ -235,27 +240,30 @@ async def query_algorithms(
 ####------------>>Debug<<----------------------##
 
 
-@app.get('/timeseries/debug/get')
+@app.get("/timeseries/debug/get")
 async def get_timeseries():
     return await Timeseries.fetch_objects().all()
+
+
 @app.post("/post/debug/datasets")
 async def post_ds():
     await asyncio.sleep(1)
-    await Dataset(name='Dataset004',
-                  owner='Ds_owner004',
-                  desc='Desc for 004',
-                  availabe=False,
-                  ownsAllTimeseries=True,
-                  timeseriesIDs=["778dec63cf37cfb23a4ea53ef9c67e3931a5536687b44cc30148d16913aa02ea",
-                                 "d481de53da312f875a550e695d7a54cfad8b65e68b8e99f44617c2b725a99d19"],
-                  views=["5ef639d13325f2628852c543a7834c23c966f1c0905dcc1aa7f8bf806862e150",
-                         "e339f1500070cd82cec452a9cc2fb52a2fdca2443f3b188a80f0aee8ff4c62f7"]).save()
+    await Dataset(
+        name="Dataset004",
+        owner="Ds_owner004",
+        desc="Desc for 004",
+        availabe=False,
+        ownsAllTimeseries=True,
+        timeseriesIDs=[
+            "778dec63cf37cfb23a4ea53ef9c67e3931a5536687b44cc30148d16913aa02ea",
+            "d481de53da312f875a550e695d7a54cfad8b65e68b8e99f44617c2b725a99d19",
+        ],
+        views=[
+            "5ef639d13325f2628852c543a7834c23c966f1c0905dcc1aa7f8bf806862e150",
+            "e339f1500070cd82cec452a9cc2fb52a2fdca2443f3b188a80f0aee8ff4c62f7",
+        ],
+    ).save()
     return "Posted"
-
-
-@app.get('/get/debug/datasets')
-async def get_datasets():
-    return await Dataset.fetch_objects().all()
 
 
 @app.post("/post/debug/views")
@@ -265,11 +273,16 @@ async def post_views():
         startTime=int(datetime.timestamp(datetime.now())),
         endTime=int(datetime.timestamp(datetime.now())),
         granularity=Granularity.YEAR,
-        values={"d481de53da312f875a550e695d7a54cfad8b65e68b8e99f44617c2b725a99d19": [(1, 3.42231)]}).save()
+        values={
+            "d481de53da312f875a550e695d7a54cfad8b65e68b8e99f44617c2b725a99d19": [
+                (1, 3.42231)
+            ]
+        },
+    ).save()
     return "Posted"
 
 
-@app.get('/get/debug/views')
+@app.get("/get/debug/views")
 async def get_Views():
     return await View.fetch_objects().all()
 
@@ -289,7 +302,7 @@ async def post_permission():
     return "Posted"
 
 
-@app.get('/get/debug/permission')
+@app.get("/get/debug/permission")
 async def get_permission():
     return await Permission.fetch_objects().all()
 
@@ -304,7 +317,7 @@ async def post_result():
     return "Posted"
 
 
-@app.get('/get/debug/result')
+@app.get("/get/debug/result")
 async def get_results():
     return await Result.fetch_objects().all()
 
@@ -318,18 +331,17 @@ async def post_execution():
         owner="Executor003",
         status=ExecutionStatus.REQUESTED,
         resultID="130225c09d9372a6e007232d5e3a4ca2f6612eb4bdd89f0dda1a8c71b6d2f84a",
-        params={"param1": "This is param1",
-                "param2": "This is param2"}
+        params={"param1": "This is param1", "param2": "This is param2"},
     ).save()
     return "Posted"
 
 
-@app.get('/get/debug/executions')
+@app.get("/get/debug/executions")
 async def get_execution():
     return await Execution.fetch_objects().all()
 
 
-@app.post('/post/debug/Algorithms')
+@app.post("/post/debug/Algorithms")
 async def post_algo():
     await Algorithm(
         name="Al004",
@@ -338,15 +350,16 @@ async def post_algo():
         code="""
 def run(df: pd.DataFrame):
     return df.sum(axis=0)
-""").save()
+""",
+    ).save()
 
 
-@app.get('/get/debug/algorithm')
+@app.get("/get/debug/algorithm")
 async def get_algo():
     return await Algorithm.fetch_objects().all()
 
 
-@app.post('/delete/debug/records')
+@app.post("/delete/debug/records")
 async def delete_records():
     records = Execution.fetch_objects()
     async for i in records:
@@ -379,7 +392,7 @@ async def delete_records():
 # return
 
 
-@app.put('/userInfo')
+@app.put("/userInfo")
 async def user_info(user_info: PutUserInfo) -> UserInfo:
     if user_info.address:
         user_records = await UserInfo.where_eq(address=user_info.address).first()
@@ -402,8 +415,8 @@ async def get_executions(
     dataset_id: Optional[str],
     by: Optional[str] = None,
     status: Optional[ExecutionStatus] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Execution]:
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
@@ -420,7 +433,9 @@ async def get_executions(
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-    address: str, page: Optional[int] = None, page_size: Optional[int] = None
+    address: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
@@ -542,7 +557,7 @@ async def request_execution(
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
             permissionRequests=None,
-            unavailableTimeseries=None
+            unavailableTimeseries=None,
         )
 
     requested_timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
@@ -590,18 +605,22 @@ async def request_execution(
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
             unavailableTimeseries=unavailable_timeseries,
+            permissionRequests=None,
         )
     if requests:
         new_permission_requests = await asyncio.gather(*requests)
         execution.status = ExecutionStatus.REQUESTED
         return RequestExecutionResponse(
             execution=await Execution(**execution.dict()).save(),
+            unavailableTimeseries=None,
             permissionRequests=new_permission_requests,
         )
     else:
         execution.status = ExecutionStatus.PENDING
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save()
+            execution=await Execution(**execution.dict()).save(),
+            unavailableTimeseries = None,
+            permissionRequests = None,
         )
 
 

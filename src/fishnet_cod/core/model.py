@@ -109,8 +109,8 @@ Index(Execution, "owner")
 Index(Permission, "authorizer")
 Index(Timeseries, "owner")
 
-#index to fetch userInfo
-Index(UserInfo,"address")
+# index to fetch userInfo
+Index(UserInfo, "address")
 
 # index to fetch permissions by timeseriesID and requestor
 Index(Permission, ["requestor", "timeseriesID", "status"])

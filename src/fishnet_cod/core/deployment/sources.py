@@ -22,7 +22,10 @@ class SourceType(Enum):
     API = "api"
 
 
-def fetch_latest_source(deployer_session: AuthenticatedUserSessionSync, source_code_refs: List[Union[str, ItemHash]]):
+def fetch_latest_source(
+    deployer_session: AuthenticatedUserSessionSync,
+    source_code_refs: List[Union[str, ItemHash]],
+):
     # Get latest version executors and source code
     source_messages = deployer_session.get_messages(
         hashes=source_code_refs, message_type=MessageType.store
@@ -54,9 +57,7 @@ def upload_source(
     with open(path, "rb") as fd:
         file_content = fd.read()
     storage_engine = (
-        StorageEnum.ipfs
-        if len(file_content) > 4 * 1024 * 1024
-        else StorageEnum.storage
+        StorageEnum.ipfs if len(file_content) > 4 * 1024 * 1024 else StorageEnum.storage
     )
     logger.debug(f"Uploading {source_type.name} sources to {storage_engine}")
     user_code, status = deployer_session.create_store(

@@ -46,7 +46,10 @@ def test_full_request_execution_flow_with_own_dataset():
 def test_requests_approval_deny():
     authorizer_address = "Approve_test_authorizer"
     timeseries_item = TimeseriesItem(
-        name="Approve_test", owner=authorizer_address, available=True, data=[[1.0, 2.0], [3.0, 4.0]]
+        name="Approve_test",
+        owner=authorizer_address,
+        available=True,
+        data=[[1.0, 2.0], [3.0, 4.0]],
     )
     response = client.post("/Timeseries", json=timeseries_item.dict())
     assert response.status_code == 200
@@ -83,12 +86,14 @@ def test_requests_approval_deny():
     assert permission.status == PermissionStatus.REQUESTED
     permission_ids = [permission.id_hash]
 
-    response = client.put("/permissions/approve", params={"permission_hashes": permission_ids})
+    response = client.put(
+        "/permissions/approve", params={"permission_hashes": permission_ids}
+    )
     assert response.status_code == 200
     new_permission = response.json()[0]
     assert new_permission.status == PermissionStatus.GRANTED
 
-    #TODO: Check execution is now pending
+    # TODO: Check execution is now pending
 
 
 def test_execution_dataset():
