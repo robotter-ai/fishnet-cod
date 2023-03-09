@@ -101,26 +101,3 @@ class Result(Record):
     executionID: str
     data: Any
 
-
-# indexes to fetch by owner
-Index(Dataset, "owner")
-Index(Algorithm, "owner")
-Index(Execution, "owner")
-Index(Permission, "authorizer")
-Index(Timeseries, "owner")
-
-# index to fetch userInfo
-Index(UserInfo, "address")
-
-# index to fetch permissions by timeseriesID and requestor
-Index(Permission, ["requestor", "timeseriesID", "status"])
-Index(Permission, "id_hash")
-Index(Permission, "status")
-Index(Execution, "datasetID")
-Index(Dataset, "timeseriesIDs")
-Index(Permission, "requestor")
-
-# index to fetch execution by the status
-Index(Execution, "status")
-Index(Permission, "timeseriesID")
-Index(Permission, ["timeseriesID", "authorizer"])

@@ -2,7 +2,32 @@ from typing import List, Optional, Tuple
 
 from pydantic import BaseModel
 
-from ..core.model import Execution, Permission, Timeseries
+from aars import Index
+from ..core.model import Dataset, Algorithm, Execution, Permission, Timeseries
+
+# indexes to fetch by timeseries
+Index(Timeseries, "owner")
+
+# indexes to fetch by algorithm
+Index(Algorithm, "owner")
+Index(Algorithm, "name")
+
+# indexes to fetch by dataset
+Index(Dataset, "owner")
+Index(Dataset, "timeseriesIDs")
+
+# indexes to fetch by execution
+Index(Execution, "datasetID")
+Index(Execution, "owner")
+Index(Execution, "status")
+
+
+# index to fetch permissions by timeseriesID and requestor
+Index(Permission, "id_hash")
+Index(Permission, "status")
+Index(Permission, "timeseriesID")
+Index(Permission, ["timeseriesID", "requestor"])
+Index(Permission, ["requestor", "timeseriesID", "status"])
 
 
 class TimeseriesItem(BaseModel):

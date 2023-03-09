@@ -176,7 +176,11 @@ async def in_permission_requests(
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(authorizer=userAddress).page(
+    if page is None:
+        page = 1
+    if page_size is None:
+        page_size = 20
+    permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
     return permission_records
@@ -209,32 +213,12 @@ async def query_algorithms(
     """
 
     if id:
-        algo_id = await Algorithm.fetch(id).page(page=page, page_size=page_size)
-        if not algo_id:
-            raise HTTPException(status_code=404, detail="No Algorithms found")
-        return algo_id
-
-    if name:
-        algo_name = await Algorithm.where_eq(name=name).page(
-            page=page, page_size=page_size
-        )
-        if not algo_name:
-            raise HTTPException(status_code=404, detail="No Algorithms found")
-        return algo_name
-
-    elif by:
-        algo_owner = await Algorithm.where_eq(owner=by).page(
-            page=page, page_size=page_size
-        )
-        if not algo_owner:
-            raise HTTPException(status_code=404, detail="No Algorithm found")
-        return algo_owner
-
-    elif page or page_size:
-        return await Algorithm.fetch_objects().page(page=page, page_size=page_size)
-
+        algo_request = Algorithm.fetch(id)
+    elif name or by:
+        algo_request = Algorithm.where_eq(name=name, owner=by)
     else:
-        return await Algorithm.fetch_objects().page(page=1)
+        algo_request = Algorithm.fetch_objects()
+    return await algo_request.page(page=page, page_size=page_size)
 
 
 ####------------>>Debug<<----------------------##
@@ -412,7 +396,7 @@ async def user_info(user_info: PutUserInfo) -> UserInfo:
 
 @app.get("/executions")
 async def get_executions(
-    dataset_id: Optional[str],
+    dataset_id: Optional[str] = None,
     by: Optional[str] = None,
     status: Optional[ExecutionStatus] = None,
     page: int = 1,
@@ -423,12 +407,10 @@ async def get_executions(
             datasetID=dataset_id, owner=by, status=status
         )
     else:
-        execution_requests = Execution.fetch_objects().page(
-            page=page, page_size=page_size
-        )
-    if not execution_requests:
-        raise HTTPException(status_code=404, detail="No Execution found")
-    return await execution_requests
+        execution_requests = Execution.fetch_objects()
+    return await execution_requests.page(
+        page=page, page_size=page_size
+    )
 
 
 @app.get("/user/{address}/results")
