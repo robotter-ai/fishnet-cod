@@ -170,51 +170,51 @@ async def get_datasets(
     return returned_datasets
 
 
-@app.get("/user/{userAddress}/permissions/incoming")
+@app.get("/user/{user_id}/permissions/incoming")
 async def in_permission_requests(
-    userAddress: str,
+    user_id: str,
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(owner=userAddress).page(
+    return await Permission.where_eq(authorizer=user_id).page(
         page=page, page_size=page_size
     )
-    return permission_records
 
 
-@app.get("/user/{userAddress}/permissions/outgoing")
+@app.get("/user/{user_id}/permissions/outgoing")
 async def out_permission_requests(
-    userAddress: str,
+    user_id: str,
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(requestor=userAddress).page(
+    return await Permission.where_eq(requestor=user_id).page(
         page=page, page_size=page_size
     )
-    return permission_records
 
 
 @app.get("/algorithms")
 async def query_algorithms(
-    id: Optional[str] = None,
     name: Optional[str] = None,
     by: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> List[Algorithm]:
     """
-    - query for own algos
-    - query other algos
-    - page, page_size and by
+    Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
     """
-
-    if id:
-        algo_request = Algorithm.fetch(id)
-    elif name or by:
+    if name or by:
         algo_request = Algorithm.where_eq(name=name, owner=by)
     else:
         algo_request = Algorithm.fetch_objects()
     return await algo_request.page(page=page, page_size=page_size)
+
+
+@app.get("/algorithms/{algorithm_id}")
+async def get_algorithm(algorithm_id: str) -> Algorithm:
+    algorithm = await Algorithm.fetch(algorithm_id).first()
+    if algorithm is None:
+        raise HTTPException(status_code=404, detail="Algorithm not found")
+    return algorithm
 
 
 @app.get("/executions")
