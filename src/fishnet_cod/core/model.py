@@ -100,4 +100,3 @@ class Permission(Record):
 class Result(Record):
     executionID: str
     data: Any
-

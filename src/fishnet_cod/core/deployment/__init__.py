@@ -49,9 +49,9 @@ def deploy_executors(
     executor_messages = discover_executors(
         deployer_session.async_session.account.get_address(), deployer_session, channel
     )
-    source_code_refs = list(set(
-        [executor.content.code.ref for executor in executor_messages]
-    ))
+    source_code_refs = list(
+        set([executor.content.code.ref for executor in executor_messages])
+    )
 
     # Get latest version executors and source code
     latest_source = fetch_latest_source(deployer_session, source_code_refs)
