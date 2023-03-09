@@ -209,46 +209,31 @@ async def query_algorithms(
     """
 
     if id:
-        algo_id = await Algorithm.fetch(id).page(page=page, page_size=page_size)
-        if not algo_id:
-            raise HTTPException(status_code=404, detail="No Algorithm found")
-        return algo_id
-
-    if name:
-        algo_name = await Algorithm.where_eq(name=name).page(
-            page=page, page_size=page_size
-        )
-        return algo_name
-
-    elif by:
-        algo_owner = await Algorithm.where_eq(owner=by).page(
-            page=page, page_size=page_size
-        )
-        return algo_owner
-
+        algo_request = Algorithm.fetch(id)
+    elif name or by:
+        algo_request = Algorithm.where_eq(name=name, owner=by)
     else:
-        return await Algorithm.fetch_objects().page(page=page, page_size=page_size)
+        algo_request = Algorithm.fetch_objects()
+    return await algo_request.page(page=page, page_size=page_size)
 
 
 @app.get("/executions")
 async def get_executions(
-    dataset_id: Optional[str],
+    dataset_id: Optional[str] = None,
     by: Optional[str] = None,
     status: Optional[ExecutionStatus] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Execution]:
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
             datasetID=dataset_id, owner=by, status=status
         )
     else:
-        execution_requests = Execution.fetch_objects().page(
-            page=page, page_size=page_size
-        )
-    if not execution_requests:
-        raise HTTPException(status_code=404, detail="No Execution found")
-    return await execution_requests
+        execution_requests = Execution.fetch_objects()
+    return await execution_requests.page(
+        page=page, page_size=page_size
+    )
 
 
 @app.get("/user/{address}/results")
