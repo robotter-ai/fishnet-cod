@@ -171,98 +171,26 @@ async def get_datasets(
     return returned_datasets
 
 
-@app.put("/datasets/upload")
-async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
-    """
-    Upload a dataset.
-    If an `id_hash` is provided, it will update the dataset with that id.
-    """
-    if dataset.ownsAllTimeseries:
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-        dataset.ownsAllTimeseries = all(
-            [ts.owner == dataset.owner for ts in timeseries]
-        )
-    if dataset.id_hash is not None:
-        old_dataset = await Dataset.fetch(dataset.id_hash).first()
-        if old_dataset is not None:
-            if old_dataset.owner != dataset.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite dataset that is not owned by you",
-                )
-            old_dataset.name = dataset.name
-            old_dataset.desc = dataset.desc
-            old_dataset.timeseriesIDs = dataset.timeseriesIDs
-            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            return await old_dataset.save()
-    return await Dataset(**dataset.dict()).save()
-
-
-@app.put("/datasets/{dataset_id}/available/{available}")
-async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
-    """
-    Set a dataset to be available or not. This will also update the status of all
-    executions that are waiting for permission on this dataset.
-    param `dataset_id':put the dataset hash here
-    param 'available':put the Boolean value
-    """
-
-    requests = []
-    dataset = await Dataset.fetch(dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="No Dataset found")
-    dataset.available = available
-    requests.append(dataset.save())
-
-    ts_list = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    if not ts_list:
-        raise HTTPException(status_code=424, detail="No Timeseries found")
-
-    for rec in ts_list:
-        if rec.available != available:
-            rec.available = available
-            requests.append(rec.save())
-    executions_records = await Execution.fetch(dataset_id).all()
-    for rec in executions_records:
-        if rec.status == ExecutionStatus.PENDING:
-            rec.status = ExecutionStatus.DENIED
-            requests.append(rec.save())
-
-    await asyncio.gather(*requests)
-    return dataset
-
-
-@app.get("/permissions")
-async def get_permission():
-    return await Permission.fetch_objects().all()
-
-
 @app.get("/user/{userAddress}/permissions/incoming")
 async def in_permission_requests(
-        userAddress: str,
-        page: int = 1,
-        page_size: int = 20,
+    userAddress: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    if page is None:
-        page = 1
-    if page_size is None:
-        page_size = 20
-    permission_records = await Permission.where_eq(authorizer=userAddress).page(
+    permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
-    return permission_records
 
 
-@app.get("/user/{userAddress}/permissions/outgoing")
+@app.get("/user/{user_id}/permissions/outgoing")
 async def out_permission_requests(
-        userAddress: str,
-        page: int = 1,
-        page_size: int = 20,
+    userAddress: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(requestor=userAddress).page(
+    return await Permission.where_eq(requestor=user_id).page(
         page=page, page_size=page_size
     )
-    return permission_records
 
 
 @app.put("/permissions/approve")
@@ -343,21 +271,16 @@ async def deny_permissions(permission_hashes: List[str]) -> List[Permission]:
 
 @app.get("/algorithms")
 async def query_algorithms(
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        by: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 20,
+    id: Optional[str] = None,
+    name: Optional[str] = None,
+    by: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Algorithm]:
     """
-    - query for own algos
-    - query other algos
-    - page, page_size and by
+    Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
     """
-
-    if id:
-        algo_request = Algorithm.fetch(id)
-    elif name or by:
+    if name or by:
         algo_request = Algorithm.where_eq(name=name, owner=by)
     else:
         algo_request = Algorithm.fetch_objects()
