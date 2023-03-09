@@ -106,7 +106,7 @@ class Result(Record):
 Index(Dataset, "owner")
 Index(Algorithm, "owner")
 Index(Execution, "owner")
-Index(Permission, "owner")
+Index(Permission, "authorizer")
 Index(Timeseries, "owner")
 
 #index to fetch userInfo
@@ -122,4 +122,4 @@ Index(Dataset, "timeseriesIDs")
 # index to fetch execution by the status
 Index(Execution, "status")
 Index(Permission, "timeseriesID")
-Index(Permission, ["timeseriesID", "requestor"])
+Index(Permission, ["timeseriesID", "authorizer"])
