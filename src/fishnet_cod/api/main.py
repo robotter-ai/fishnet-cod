@@ -1,13 +1,19 @@
 import asyncio
 import logging
 import os
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple
 from os import listdir, getenv
 
 from aleph.sdk import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
+from .api_model import UploadTimeseriesRequest, UploadDatasetRequest, UploadAlgorithmRequest, RequestExecutionRequest, \
+    RequestExecutionResponse
+from ..core.model import Timeseries, UserInfo, Algorithm, Execution, Permission, DatasetPermissionStatus, \
+    PermissionStatus, ExecutionStatus, Result
+
+from src.fishnet_cod.core.model import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +22,13 @@ from aleph.sdk.vm.cache import VmCache, TestVmCache
 from aleph.sdk.vm.app import AlephApp
 
 logger.debug("import aars")
-from aars import AARS
+from aars import AARS, Record
 
 logger.debug("import fastapi")
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
-from ..core.model import *
-from .api_model import *
 
 import numpy as np
 
@@ -42,7 +46,8 @@ http_app.add_middleware(
     allow_headers=["*"],
 )
 
-if getenv("TEST_CACHE") is not None and getenv("TEST_CACHE").lower() == "true":
+TEST_CACHE = getenv("TEST_CACHE")
+if TEST_CACHE is not None and TEST_CACHE.lower() == "true":
     cache = TestVmCache()
 else:
     cache = VmCache()
@@ -81,7 +86,7 @@ async def index():
 
 
 @app.get("/indices")
-async def index():
+async def indices():
     ts = [list(index.hashmap.items()) for index in Timeseries.get_indices()]
     ui = [list(index.hashmap.items()) for index in UserInfo.get_indices()]
     ds = [list(index.hashmap.items()) for index in Dataset.get_indices()]
@@ -92,7 +97,7 @@ async def index():
 
 
 @app.get("/indices/reindex")
-async def index():
+async def reindex():
     await re_index()
 
 
@@ -153,7 +158,10 @@ async def datasets(
 async def in_permission_requests(
     userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
-    # TODO: Sanitize page and page_size
+    if page is None:
+        page = 1
+    if page_size is None:
+        page_size = 20
     permission_records = await Permission.where_eq(owner=userAddress).page(
         page=page, page_size=page_size
     )
@@ -164,7 +172,10 @@ async def in_permission_requests(
 async def out_permission_requests(
     userAddress: str, page: Optional[int] = None, page_size: Optional[int] = None
 ) -> List[Permission]:
-    # TODO: Sanitize page and page_size
+    if page is None:
+        page = 1
+    if page_size is None:
+        page_size = 20
     permission_records = await Permission.where_eq(requestor=userAddress).page(
         page=page, page_size=page_size
     )
