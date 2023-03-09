@@ -116,34 +116,58 @@ async def datasets(
     :param `page_size´: size of the pages to fetch
     :param `page`: page number to fetch
     """
+    print("These are the Inputs")
+    print(view_as, "view_as")
+    print(by, "by")
+    print(page, "page")
+    print(page_size, "page_size")
     if by:
         datasets = await Dataset.where_eq(owner=by).all()
 
+
     else:
         datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
+    print("--\n")
+    print("These are the Inputs")
+    print(view_as, "view_as")
+    print(by, "by")
+    print(page, "page")
+    print(page_size, "page_size")
 
     ts_ids = [rec.timeseriesIDs for rec in datasets]
 
     ts_ids_np = np.array(ts_ids)
     ts_ids_lists = np.hstack(ts_ids_np)
     ts_ids_unique = np.unique(ts_ids_lists)
+    requests = []
 
     ts_ids_lst = list(ts_ids_unique)
+    print(ts_ids_lst)
 
-    dataset_by_requestor = await Dataset.where_eq(timeseriesIDs=ts_ids_lst).all()
+    for id in ts_ids_lst:
+        perm= Permission.where_eq(timeseriesID=id, authorizer=view_as).all()
+        requests.append(perm)
+
+
+
+
+    permissions = await asyncio.gather(*requests)
+    print(permissions,"These are the permissions")
 
     returned_datasets = []
 
-    for rec in dataset_by_requestor:
-        permission_records = await Permission.where_eq(
-            timeseriesID=rec.timeseriesIDs, requestor=view_as
-        ).page(page=page, page_size=page_size)
+    records = []
+    for rec in datasets:
+        for id in rec.timeseriesIDs:
+            _permission_records = list(filter(lambda x: x.timeseriesID == id, permissions))
+            records.append(_permission_records)
+        print(records,"These are the records")
 
-        if not permission_records:
+        if not records:
             returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
             continue
 
-        permission_status = [perm_rec.status for perm_rec in permission_records]
+        permission_status = [perm_rec for perm_rec in records]
         if all(status == PermissionStatus.GRANTED for status in permission_status):
             returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
         elif PermissionStatus.DENIED in permission_status:
@@ -224,6 +248,11 @@ async def get_user_algorithms(
 
 
 ####------------>>Debug<<----------------------##
+
+
+@app.get('/timeseries/debug/get')
+async def get_timeseries():
+    return await Timeseries.fetch_objects().all()
 @app.post("/post/debug/datasets")
 async def post_ds():
     await asyncio.sleep(1)
