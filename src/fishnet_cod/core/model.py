@@ -118,6 +118,7 @@ Index(Permission, "id_hash")
 Index(Permission, "status")
 Index(Execution, "datasetID")
 Index(Dataset, "timeseriesIDs")
+Index(Permission, "requestor")
 
 # index to fetch execution by the status
 Index(Execution, "status")

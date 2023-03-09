@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
-from ..core.model import ExecutionStatus, PermissionStatus
 
-from .main import app
 from .api_model import *
+from .main import app
+from ..core.model import ExecutionStatus, PermissionStatus
 
 client = TestClient(app)
 
@@ -107,4 +107,33 @@ def test_execution_dataset():
 def test_dataset():
     page = 1
     page_size = 1
-    response = client.get("/datasets")
+    view_as = "Owner_of_TimeseriesId"
+    by = "Ds_owner004"
+    req = {"view_as": view_as, "by": by}
+    response = client.get("/datasets", params=req)
+    assert response.status_code == 200
+
+
+def test_incoming_permission():
+    userAddress = "Owner_of_TimeseriesId004"
+
+    req = {"userAddress": userAddress, "page": 1}
+    response = client.get(f"/user/{userAddress}/permissions/incoming")
+    assert response.status_code == 200
+
+
+def test_outgoing_permission():
+    userAddress = "Wa005"
+
+    response = client.get(f"/user/{userAddress}/permissions/outgoing")
+    assert response.status_code == 200
+
+
+def test_get_algorithms():
+    id =""
+    name =""
+    by =""
+    page = ""
+    page_size=""
+
+

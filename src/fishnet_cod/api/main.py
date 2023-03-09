@@ -176,7 +176,7 @@ async def in_permission_requests(
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(owner=userAddress).page(
+    permission_records = await Permission.where_eq(authorizer=userAddress).page(
         page=page, page_size=page_size
     )
     return permission_records
