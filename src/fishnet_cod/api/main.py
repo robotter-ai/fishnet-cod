@@ -211,30 +211,23 @@ async def query_algorithms(
     if id:
         algo_id = await Algorithm.fetch(id).page(page=page, page_size=page_size)
         if not algo_id:
-            raise HTTPException(status_code=404, detail="No Algorithms found")
+            raise HTTPException(status_code=404, detail="No Algorithm found")
         return algo_id
 
     if name:
         algo_name = await Algorithm.where_eq(name=name).page(
             page=page, page_size=page_size
         )
-        if not algo_name:
-            raise HTTPException(status_code=404, detail="No Algorithms found")
         return algo_name
 
     elif by:
         algo_owner = await Algorithm.where_eq(owner=by).page(
             page=page, page_size=page_size
         )
-        if not algo_owner:
-            raise HTTPException(status_code=404, detail="No Algorithm found")
         return algo_owner
 
-    elif page or page_size:
-        return await Algorithm.fetch_objects().page(page=page, page_size=page_size)
-
     else:
-        return await Algorithm.fetch_objects().page(page=1)
+        return await Algorithm.fetch_objects().page(page=page, page_size=page_size)
 
 
 @app.get("/executions")
