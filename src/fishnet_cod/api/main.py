@@ -150,7 +150,7 @@ async def get_datasets(
         resp = await asyncio.gather(*req)
         permissions = [item for sublist in resp for item in sublist]
 
-        returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
+        returned_datasets: List[Tuple[Dataset, Optional[DatasetPermissionStatus]]] = []
         for rec in datasets:
             dataset_permissions = []
             for ts_id in rec.timeseriesIDs:
@@ -196,7 +196,7 @@ async def out_permission_requests(
 
 
 @app.get("/algorithms")
-async def query_algorithms(
+async def get_algorithms(
     name: Optional[str] = None,
     by: Optional[str] = None,
     page: int = 1,
