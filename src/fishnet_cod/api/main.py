@@ -134,116 +134,54 @@ async def get_datasets(
     :param page: page number to fetch
     """
     if by:
-        datasets = await Dataset.where_eq(owner=by).all()
+        datasets_resp = Dataset.where_eq(owner=by)
     else:
-        datasets = await Dataset.fetch_objects().page(page=page, page_size=page_size)
+        datasets_resp = Dataset.fetch_objects()
+    datasets = await datasets_resp.page(page=page, page_size=page_size)
 
-    ts_ids = []
-    for rec in datasets:
-        ts_ids.extend(rec.timeseriesIDs)
-    ts_ids_unique = list(set(ts_ids))
+    if view_as:
+        ts_ids = []
+        for rec in datasets:
+            ts_ids.extend(rec.timeseriesIDs)
+        ts_ids_unique = list(set(ts_ids))
 
-    req = [
-        Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
-        for ts_id in ts_ids_unique
-    ]
-    resp = await asyncio.gather(*req)
-    permissions = [item for sublist in resp for item in sublist]
+        req = [
+            Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
+            for ts_id in ts_ids_unique
+        ]
+        resp = await asyncio.gather(*req)
+        permissions = [item for sublist in resp for item in sublist]
 
-    returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
-    for rec in datasets:
-        dataset_permissions = []
-        for ts_id in rec.timeseriesIDs:
-            dataset_permissions.extend(
-                list(filter(lambda x: x.timeseriesID == ts_id, permissions))
-            )
-        if not dataset_permissions:
-            returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
-            continue
-
-        permission_status = [perm_rec for perm_rec in dataset_permissions]
-        if all(status == PermissionStatus.GRANTED for status in permission_status):
-            returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
-        elif PermissionStatus.DENIED in permission_status:
-            returned_datasets.append((rec, DatasetPermissionStatus.DENIED))
-        elif PermissionStatus.REQUESTED in permission_status:
-            returned_datasets.append((rec, DatasetPermissionStatus.REQUESTED))
-    return returned_datasets
-
-
-@app.put("/datasets/upload")
-async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
-    """
-    Upload a dataset.
-    If an `id_hash` is provided, it will update the dataset with that id.
-    """
-    if dataset.ownsAllTimeseries:
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-        dataset.ownsAllTimeseries = all(
-            [ts.owner == dataset.owner for ts in timeseries]
-        )
-    if dataset.id_hash is not None:
-        old_dataset = await Dataset.fetch(dataset.id_hash).first()
-        if old_dataset is not None:
-            if old_dataset.owner != dataset.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite dataset that is not owned by you",
+        returned_datasets: List[Tuple[Dataset, DatasetPermissionStatus]] = []
+        for rec in datasets:
+            dataset_permissions = []
+            for ts_id in rec.timeseriesIDs:
+                dataset_permissions.extend(
+                    list(filter(lambda x: x.timeseriesID == ts_id, permissions))
                 )
-            old_dataset.name = dataset.name
-            old_dataset.desc = dataset.desc
-            old_dataset.timeseriesIDs = dataset.timeseriesIDs
-            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            return await old_dataset.save()
-    return await Dataset(**dataset.dict()).save()
+            if not dataset_permissions:
+                returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
+                continue
+
+            permission_status = [perm_rec for perm_rec in dataset_permissions]
+            if all(status == PermissionStatus.GRANTED for status in permission_status):
+                returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
+            elif PermissionStatus.DENIED in permission_status:
+                returned_datasets.append((rec, DatasetPermissionStatus.DENIED))
+            elif PermissionStatus.REQUESTED in permission_status:
+                returned_datasets.append((rec, DatasetPermissionStatus.REQUESTED))
+        return returned_datasets
+    else:
+        return [(rec, None) for rec in datasets]
 
 
-@app.put("/datasets/{dataset_id}/available/{available}")
-async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
-    """
-    Set a dataset to be available or not. This will also update the status of all
-    executions that are waiting for permission on this dataset.
-    param `dataset_id':put the dataset hash here
-    param 'available':put the Boolean value
-    """
-
-    requests = []
-    dataset = await Dataset.fetch(dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="No Dataset found")
-    dataset.available = available
-    requests.append(dataset.save())
-
-    ts_list = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    if not ts_list:
-        raise HTTPException(status_code=424, detail="No Timeseries found")
-
-    for rec in ts_list:
-        if rec.available != available:
-            rec.available = available
-            requests.append(rec.save())
-    executions_records = await Execution.fetch(dataset_id).all()
-    for rec in executions_records:
-        if rec.status == ExecutionStatus.PENDING:
-            rec.status = ExecutionStatus.DENIED
-            requests.append(rec.save())
-
-    await asyncio.gather(*requests)
-    return dataset
-
-
-@app.get("/permissions")
-async def get_permissions():
-    return await Permission.fetch_objects().all()
-
-
-@app.get("/user/{userAddress}/permissions/incoming")
+@app.get("/user/{user_id}/permissions/incoming")
 async def in_permission_requests(
-    userAddress: str,
+    user_id: str,
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    return await Permission.where_eq(owner=userAddress).page(
+    return await Permission.where_eq(authorizer=user_id).page(
         page=page, page_size=page_size
     )
 
@@ -337,7 +275,6 @@ async def deny_permissions(permission_hashes: List[str]) -> List[Permission]:
 
 @app.get("/algorithms")
 async def query_algorithms(
-    id: Optional[str] = None,
     name: Optional[str] = None,
     by: Optional[str] = None,
     page: int = 1,
