@@ -58,9 +58,6 @@ class UploadDatasetRequest(BaseModel):
 
 
 class PutUserInfo(BaseModel):
-    datasetIDs: List[str]
-    executionIDs: List[str]
-    algorithmIDs: List[str]
     username: str
     address: str
     bio: Optional[str]

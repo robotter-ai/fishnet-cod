@@ -5,9 +5,6 @@ from aars import Record
 
 
 class UserInfo(Record):
-    datasetIDs: List[str]
-    executionIDs: List[str]
-    algorithmIDs: List[str]
     username: str
     address: str
     bio: Optional[str]

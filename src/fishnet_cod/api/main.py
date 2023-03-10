@@ -529,22 +529,27 @@ async def get_user_info(address: str) -> Optional[UserInfo]:
     return await UserInfo.where_eq(address=address).first()
 
 
-@app.put("/user/{address}")
+@app.put("/user")
 async def put_user_info(user_info: PutUserInfo) -> UserInfo:
+    user_record = None
     if user_info.address:
-        user_records = await UserInfo.where_eq(address=user_info.address).first()
-    else:
-        user_records = await UserInfo(
-            datasetIDs=user_info.datasetIDs,
-            executionIDs=user_info.executionIDs,
-            algorithmIDs=user_info.algorithmIDs,
+        user_record = await UserInfo.where_eq(address=user_info.address).first()
+        if user_record:
+            user_record.username = user_info.username
+            user_record.address = user_info.address
+            user_record.bio = user_info.bio
+            user_record.email = user_info.email
+            user_record.link = user_info.link
+            await user_record.save()
+    elif user_record is None:
+        user_record = await UserInfo(
             username=user_info.username,
             address=user_info.address,
             bio=user_info.bio,
             email=user_info.email,
             link=user_info.link,
         ).save()
-    return user_records
+    return user_record
 
 
 filters = [
