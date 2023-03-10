@@ -29,8 +29,6 @@ Index(Permission, "requestor")
 Index(Permission, "authorizer")
 Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["requestor", "timeseriesID", "status"])
-Index(Permission, 'authorizer')
-Index(Permission, 'requestor')
 
 # index to fetch results with owner
 Index(Result, 'owner')
