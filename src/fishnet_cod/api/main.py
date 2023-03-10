@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 from typing import List, Optional, Tuple
-from datetime import datetime
 from os import listdir, getenv
 
 from aleph.sdk import AuthenticatedAlephClient
@@ -236,31 +235,6 @@ async def get_executions(
     else:
         execution_requests = Execution.fetch_objects()
     return await execution_requests.page(page=page, page_size=page_size)
-
-
-@app.get("/user/{address}/results")
-async def get_user_results(
-    address: str,
-    page: int = 1,
-    page_size: int = 20,
-) -> List[Result]:
-    return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
-
-
-@app.get("/executions/{execution_id}/possible_execution_count")
-async def get_possible_execution_count(execution_id: str) -> int:
-    """
-    THIS IS AN OPTIONAL ENDPOINT. It is a nice challenge to implement this endpoint, as the code is not trivial, and
-    it might be still good to have this code in the future.
-
-    This endpoint returns the number of times the execution can be executed.
-    This is the maximum number of times
-    the algorithm can be executed on the dataset, given the permissions of each timeseries.
-    It can only be executed
-    as many times as the least available timeseries can be executed.
-    """
-
-    return -1
 
 
 @app.put("/timeseries/upload")
@@ -539,6 +513,38 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
 
     await asyncio.gather(*requests)
     return dataset
+
+
+@app.get("/user/{address}/results")
+async def get_user_results(
+    address: str,
+    page: int = 1,
+    page_size: int = 20
+) -> List[Result]:
+    return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
+
+
+@app.get("/user/{address}")
+async def get_user_info(address: str) -> Optional[UserInfo]:
+    return await UserInfo.where_eq(address=address).first()
+
+
+@app.put("/user/{address}")
+async def put_user_info(user_info: PutUserInfo) -> UserInfo:
+    if user_info.address:
+        user_records = await UserInfo.where_eq(address=user_info.address).first()
+    else:
+        user_records = await UserInfo(
+            datasetIDs=user_info.datasetIDs,
+            executionIDs=user_info.executionIDs,
+            algorithmIDs=user_info.algorithmIDs,
+            username=user_info.username,
+            address=user_info.address,
+            bio=user_info.bio,
+            email=user_info.email,
+            link=user_info.link,
+        ).save()
+    return user_records
 
 
 filters = [
