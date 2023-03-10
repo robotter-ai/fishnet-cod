@@ -130,10 +130,43 @@ def test_outgoing_permission():
 
 
 def test_get_algorithms():
-    id = "60b5e790149d12d0f4b1b7af0c27f3eeb9fa0d56edb7bd56832ef536e36c6115"
-    name = "Al004"
-    by = "Owner for Al004"
-    req = {"id": id, "name": name, "by": by}
-    response = client.get("/algorithms", params=req)
+    id ="60b5e790149d12d0f4b1b7af0c27f3eeb9fa0d56edb7bd56832ef536e36c6115"
+    name ="Al004"
+    by ="Owner for Al004"
+    req = {"id":id,"name":name,"by":by}
+    response = client.get('/algorithms', params=req)
+    assert response.status_code == 200
+    print(response.json(),"these are the json objects")
+
+
+
+    view_as = "Owner_of_TimeseriesId"
+    by = "Ds_owner004"
+    req = {"view_as": view_as, "by": by}
+    response = client.get("/datasets", params=req)
+    assert response.status_code == 200
+
+
+def test_incoming_permission():
+    userAddress = "Owner_of_TimeseriesId004"
+
+    req = {"userAddress": userAddress, "page": 1}
+    response = client.get(f"/user/{userAddress}/permissions/incoming")
+    assert response.status_code == 200
+
+
+def test_outgoing_permission():
+    userAddress = "Wa005"
+
+    response = client.get(f"/user/{userAddress}/permissions/outgoing")
+    assert response.status_code == 200
+
+
+def test_get_algorithms():
+    id ="60b5e790149d12d0f4b1b7af0c27f3eeb9fa0d56edb7bd56832ef536e36c6115"
+    name ="Al004"
+    by ="Owner for Al004"
+    req = {"id":id,"name":name,"by":by}
+    response = client.get('/algorithms', params=req)
     assert response.status_code == 200
     print(response.json(), "these are the json objects")
