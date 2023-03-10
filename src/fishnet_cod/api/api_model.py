@@ -1,9 +1,9 @@
 from typing import List, Optional, Tuple
 
+from aars import Index
 from pydantic import BaseModel
 
-from aars import Index
-from ..core.model import Dataset, Algorithm, Execution, Permission, Timeseries
+from ..core.model import Dataset, Algorithm, Execution, Permission, Timeseries, Result
 
 # indexes to fetch by timeseries
 Index(Timeseries, "owner")
@@ -29,6 +29,9 @@ Index(Permission, "requestor")
 Index(Permission, "authorizer")
 Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["requestor", "timeseriesID", "status"])
+
+# index to fetch results with owner
+Index(Result, 'owner')
 
 
 class TimeseriesItem(BaseModel):
