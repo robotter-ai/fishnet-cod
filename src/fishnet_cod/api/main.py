@@ -541,7 +541,7 @@ async def put_user_info(user_info: PutUserInfo) -> UserInfo:
             user_record.email = user_info.email
             user_record.link = user_info.link
             await user_record.save()
-    elif user_record is None:
+    if user_record is None:
         user_record = await UserInfo(
             username=user_info.username,
             address=user_info.address,
