@@ -173,6 +173,14 @@ async def get_datasets(
         return [(rec, None) for rec in datasets]
 
 
+@app.get("/datasets/{dataset_id}")
+async def get_dataset(dataset_id: str) -> Dataset:
+    dataset = await Dataset.fetch(dataset_id).first()
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return dataset
+
+
 @app.get("/user/{user_id}/permissions/incoming")
 async def in_permission_requests(
     user_id: str,
