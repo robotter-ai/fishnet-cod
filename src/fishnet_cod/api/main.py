@@ -90,7 +90,6 @@ async def index():
         opt_venv = list(listdir("/opt/venv"))
     else:
         opt_venv = []
-    # TODO: Show actual config instead of endpoints
     return {
         "vm_name": "fishnet_api",
         "endpoints": [
@@ -102,20 +101,50 @@ async def index():
     }
 
 
-@app.get("/indices")
-async def indices():
-    ts = [list(index.hashmap.items()) for index in Timeseries.get_indices()]
-    ui = [list(index.hashmap.items()) for index in UserInfo.get_indices()]
-    ds = [list(index.hashmap.items()) for index in Dataset.get_indices()]
-    al = [list(index.hashmap.items()) for index in Algorithm.get_indices()]
-    ex = [list(index.hashmap.items()) for index in Execution.get_indices()]
-    pe = [list(index.hashmap.items()) for index in Permission.get_indices()]
-    return ts, ui, ds, al, ex, pe
+@app.get("/algorithms")
+async def get_algorithms(
+    name: Optional[str] = None,
+    by: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> List[Algorithm]:
+    """
+    Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
+    """
+    if name or by:
+        algo_request = Algorithm.where_eq(name=name, owner=by)
+    else:
+        algo_request = Algorithm.fetch_objects()
+    return await algo_request.page(page=page, page_size=page_size)
 
 
-@app.get("/indices/reindex")
-async def reindex():
-    await re_index()
+@app.get("/algorithms/{algorithm_id}")
+async def get_algorithm(algorithm_id: str) -> Algorithm:
+    algorithm = await Algorithm.fetch(algorithm_id).first()
+    if algorithm is None:
+        raise HTTPException(status_code=404, detail="Algorithm not found")
+    return algorithm
+
+
+@app.put("/algorithms/upload")
+async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
+    """
+    Upload an algorithm.
+    If an `id_hash` is provided, it will update the algorithm with that id.
+    """
+    if algorithm.id_hash is not None:
+        old_algorithm = await Algorithm.fetch(algorithm.id_hash).first()
+        if old_algorithm is not None:
+            if old_algorithm.owner != algorithm.owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot overwrite algorithm that is not owned by you",
+                )
+            old_algorithm.name = algorithm.name
+            old_algorithm.desc = algorithm.desc
+            old_algorithm.code = algorithm.code
+            return await old_algorithm.save()
+    return await Algorithm(**algorithm.dict()).save()
 
 
 @app.get("/datasets")
@@ -175,9 +204,64 @@ async def get_datasets(
         return [(rec, None) for rec in datasets]
 
 
-@app.get("/views")
-async def get_views(view_ids: List[str]) -> List[View]:
-    return await View.fetch(view_ids).all()
+@app.put("/timeseries/upload")
+async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
+    """
+    Upload a list of timeseries. If the passed timeseries has an `id_hash` and it already exists,
+    it will be overwritten. If the timeseries does not exist, it will be created.
+    A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
+    it might be that a passed timeseries contained illegal data.
+    """
+    ids_to_fetch = [ts.id_hash for ts in req.timeseries if ts.id_hash is not None]
+    requests = []
+    old_time_series = (
+        {ts.id_hash: ts for ts in await Timeseries.fetch(ids_to_fetch).all()}
+        if ids_to_fetch
+        else {}
+    )
+    for ts in req.timeseries:
+        if old_time_series.get(ts.id_hash) is None:
+            requests.append(Timeseries(**dict(ts)).save())
+            continue
+        old_ts: Timeseries = old_time_series[ts.id_hash]
+        if ts.owner != old_ts.owner:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot overwrite timeseries that is not owned by you",
+            )
+        old_ts.name = ts.name
+        old_ts.data = ts.data
+        old_ts.desc = ts.desc
+        requests.append(old_ts.save())
+    upserted_timeseries = await asyncio.gather(*requests)
+    return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
+
+
+@app.put("/datasets/upload")
+async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
+    """
+    Upload a dataset.
+    If an `id_hash` is provided, it will update the dataset with that id.
+    """
+    if dataset.ownsAllTimeseries:
+        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
+        dataset.ownsAllTimeseries = all(
+            [ts.owner == dataset.owner for ts in timeseries]
+        )
+    if dataset.id_hash is not None:
+        old_dataset = await Dataset.fetch(dataset.id_hash).first()
+        if old_dataset is not None:
+            if old_dataset.owner != dataset.owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot overwrite dataset that is not owned by you",
+                )
+            old_dataset.name = dataset.name
+            old_dataset.desc = dataset.desc
+            old_dataset.timeseriesIDs = dataset.timeseriesIDs
+            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
+            return await old_dataset.save()
+    return await Dataset(**dataset.dict()).save()
 
 
 def get_timestamps_by_granularity(
@@ -268,51 +352,38 @@ async def generate_view(dataset_id: str, view_params: List[PutViewRequest]) -> P
     return PutViewResponse(dataset=dataset, views=views)
 
 
-@app.get("/user/{user_id}/permissions/incoming")
-async def in_permission_requests(
-    user_id: str,
-    page: int = 1,
-    page_size: int = 20,
-) -> List[Permission]:
-    return await Permission.where_eq(authorizer=user_id).page(
-        page=page, page_size=page_size
-    )
-
-
-@app.get("/user/{user_id}/permissions/outgoing")
-async def out_permission_requests(
-    user_id: str,
-    page: int = 1,
-    page_size: int = 20,
-) -> List[Permission]:
-    return await Permission.where_eq(requestor=user_id).page(
-        page=page, page_size=page_size
-    )
-
-
-@app.get("/algorithms")
-async def get_algorithms(
-    name: Optional[str] = None,
-    by: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 20,
-) -> List[Algorithm]:
+@app.put("/datasets/{dataset_id}/available/{available}")
+async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
     """
-    Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
+    Set a dataset to be available or not. This will also update the status of all
+    executions that are waiting for permission on this dataset.
+    param `dataset_id':put the dataset hash here
+    param 'available':put the Boolean value
     """
-    if name or by:
-        algo_request = Algorithm.where_eq(name=name, owner=by)
-    else:
-        algo_request = Algorithm.fetch_objects()
-    return await algo_request.page(page=page, page_size=page_size)
 
+    requests = []
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="No Dataset found")
+    dataset.available = available
+    requests.append(dataset.save())
 
-@app.get("/algorithms/{algorithm_id}")
-async def get_algorithm(algorithm_id: str) -> Algorithm:
-    algorithm = await Algorithm.fetch(algorithm_id).first()
-    if algorithm is None:
-        raise HTTPException(status_code=404, detail="Algorithm not found")
-    return algorithm
+    ts_list = await Timeseries.fetch(dataset.timeseriesIDs).all()
+    if not ts_list:
+        raise HTTPException(status_code=424, detail="No Timeseries found")
+
+    for rec in ts_list:
+        if rec.available != available:
+            rec.available = available
+            requests.append(rec.save())
+    executions_records = await Execution.fetch(dataset_id).all()
+    for rec in executions_records:
+        if rec.status == ExecutionStatus.PENDING:
+            rec.status = ExecutionStatus.DENIED
+            requests.append(rec.save())
+
+    await asyncio.gather(*requests)
+    return dataset
 
 
 @app.get("/executions")
@@ -330,87 +401,6 @@ async def get_executions(
     else:
         execution_requests = Execution.fetch_objects()
     return await execution_requests.page(page=page, page_size=page_size)
-
-
-@app.put("/timeseries/upload")
-async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
-    """
-    Upload a list of timeseries. If the passed timeseries has an `id_hash` and it already exists,
-    it will be overwritten. If the timeseries does not exist, it will be created.
-    A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
-    it might be that a passed timeseries contained illegal data.
-    """
-    ids_to_fetch = [ts.id_hash for ts in req.timeseries if ts.id_hash is not None]
-    requests = []
-    old_time_series = (
-        {ts.id_hash: ts for ts in await Timeseries.fetch(ids_to_fetch).all()}
-        if ids_to_fetch
-        else {}
-    )
-    for ts in req.timeseries:
-        if old_time_series.get(ts.id_hash) is None:
-            requests.append(Timeseries(**dict(ts)).save())
-            continue
-        old_ts: Timeseries = old_time_series[ts.id_hash]
-        if ts.owner != old_ts.owner:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot overwrite timeseries that is not owned by you",
-            )
-        old_ts.name = ts.name
-        old_ts.data = ts.data
-        old_ts.desc = ts.desc
-        requests.append(old_ts.save())
-    upserted_timeseries = await asyncio.gather(*requests)
-    return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
-
-
-@app.put("/datasets/upload")
-async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
-    """
-    Upload a dataset.
-    If an `id_hash` is provided, it will update the dataset with that id.
-    """
-    if dataset.ownsAllTimeseries:
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-        dataset.ownsAllTimeseries = all(
-            [ts.owner == dataset.owner for ts in timeseries]
-        )
-    if dataset.id_hash is not None:
-        old_dataset = await Dataset.fetch(dataset.id_hash).first()
-        if old_dataset is not None:
-            if old_dataset.owner != dataset.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite dataset that is not owned by you",
-                )
-            old_dataset.name = dataset.name
-            old_dataset.desc = dataset.desc
-            old_dataset.timeseriesIDs = dataset.timeseriesIDs
-            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            return await old_dataset.save()
-    return await Dataset(**dataset.dict()).save()
-
-
-@app.put("/algorithms/upload")
-async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
-    """
-    Upload an algorithm.
-    If an `id_hash` is provided, it will update the algorithm with that id.
-    """
-    if algorithm.id_hash is not None:
-        old_algorithm = await Algorithm.fetch(algorithm.id_hash).first()
-        if old_algorithm is not None:
-            if old_algorithm.owner != algorithm.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite algorithm that is not owned by you",
-                )
-            old_algorithm.name = algorithm.name
-            old_algorithm.desc = algorithm.desc
-            old_algorithm.code = algorithm.code
-            return await old_algorithm.save()
-    return await Algorithm(**algorithm.dict()).save()
 
 
 @app.post("/executions/request")
@@ -576,38 +566,31 @@ async def deny_permissions(permission_hashes: List[str]) -> List[Permission]:
     return permission_records
 
 
-@app.put("/datasets/{dataset_id}/available/{available}")
-async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
-    """
-    Set a dataset to be available or not. This will also update the status of all
-    executions that are waiting for permission on this dataset.
-    param `dataset_id':put the dataset hash here
-    param 'available':put the Boolean value
-    """
+@app.get("/user/{address}")
+async def get_user_info(address: str) -> Optional[UserInfo]:
+    return await UserInfo.where_eq(address=address).first()
 
-    requests = []
-    dataset = await Dataset.fetch(dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="No Dataset found")
-    dataset.available = available
-    requests.append(dataset.save())
 
-    ts_list = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    if not ts_list:
-        raise HTTPException(status_code=424, detail="No Timeseries found")
+@app.get("/user/{user_id}/permissions/incoming")
+async def get_incoming_permission_requests(
+    user_id: str,
+    page: int = 1,
+    page_size: int = 20,
+) -> List[Permission]:
+    return await Permission.where_eq(authorizer=user_id).page(
+        page=page, page_size=page_size
+    )
 
-    for rec in ts_list:
-        if rec.available != available:
-            rec.available = available
-            requests.append(rec.save())
-    executions_records = await Execution.fetch(dataset_id).all()
-    for rec in executions_records:
-        if rec.status == ExecutionStatus.PENDING:
-            rec.status = ExecutionStatus.DENIED
-            requests.append(rec.save())
 
-    await asyncio.gather(*requests)
-    return dataset
+@app.get("/user/{user_id}/permissions/outgoing")
+async def get_outgoing_permission_requests(
+    user_id: str,
+    page: int = 1,
+    page_size: int = 20,
+) -> List[Permission]:
+    return await Permission.where_eq(requestor=user_id).page(
+        page=page, page_size=page_size
+    )
 
 
 @app.get("/user/{address}/results")
@@ -615,11 +598,6 @@ async def get_user_results(
     address: str, page: int = 1, page_size: int = 20
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
-
-
-@app.get("/user/{address}")
-async def get_user_info(address: str) -> Optional[UserInfo]:
-    return await UserInfo.where_eq(address=address).first()
 
 
 @app.put("/user")
@@ -643,6 +621,11 @@ async def put_user_info(user_info: PutUserInfo) -> UserInfo:
             link=user_info.link,
         ).save()
     return user_record
+
+
+@app.get("/views")
+async def get_views(view_ids: List[str]) -> List[View]:
+    return await View.fetch(view_ids).all()
 
 
 filters = [
