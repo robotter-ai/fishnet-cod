@@ -15,6 +15,8 @@ from .api_model import (
     RequestExecutionRequest,
     RequestExecutionResponse,
     PutUserInfo,
+    PutViewRequest,
+    PutViewResponse,
 )
 from ..core.model import (
     Timeseries,
@@ -173,12 +175,97 @@ async def get_datasets(
         return [(rec, None) for rec in datasets]
 
 
-@app.get("/datasets/{dataset_id}")
-async def get_dataset(dataset_id: str) -> Dataset:
+@app.get("/views")
+async def get_views(view_ids: List[str]) -> List[View]:
+    return await View.fetch(view_ids).all()
+
+
+def get_timestamps_by_granularity(
+    start: int, end: int, granularity: Granularity
+) -> List[int]:
+    """
+    Get timestamps by granularity
+    :param start: start timestamp
+    :param end: end timestamp
+    :param granularity: granularity
+    :return: list of timestamps
+    """
+    if granularity == Granularity.DAY:
+        interval = 60 * 5
+    elif granularity == Granularity.WEEK:
+        interval = 60 * 15
+    elif granularity == Granularity.MONTH:
+        interval = 60 * 60
+    elif granularity == Granularity.THREE_MONTHS:
+        interval = 60 * 60 * 3
+    else:  # granularity == Granularity.YEAR:
+        interval = 60 * 60 * 24
+    timestamps = []
+    for i in range(start, end, interval):
+        timestamps.append(i)
+    return timestamps
+
+
+@app.put("/datasets/{dataset_id}/views")
+async def generate_view(dataset_id: str, view_params: List[PutViewRequest]) -> PutViewResponse:
+    # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
-    if dataset is None:
+    if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    return dataset
+    view_requests = []
+    for view_req in view_params:
+        # get all the timeseries
+        timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
+        view_values = {}
+        for ts in timeseries:
+            # normalize and round values
+            values = [p[1] for p in ts.data]
+            ts.min = min(values)
+            ts.max = max(values)
+            normalized = [
+                (p[0], round((p[1] - ts.min) / (ts.max - ts.min)), 2) for p in ts.data
+            ]
+            # drop points according to granularity
+            thinned = []
+            i = 0  # cursor for normalized entries
+            timestamps = get_timestamps_by_granularity(
+                view_req.startTime, view_req.endTime, view_req.granularity
+            )
+            # append each point that is closest to the timestamp
+            for timestamp in timestamps:
+                while i < len(normalized) and normalized[i][0] < timestamp:
+                    i += 1
+                if i == len(normalized):
+                    break
+                if i == 0:
+                    thinned.append(normalized[i])
+                else:
+                    if abs(normalized[i][0] - timestamp) < abs(
+                        normalized[i - 1][0] - timestamp
+                    ):
+                        thinned.append(normalized[i])
+                    else:
+                        thinned.append(normalized[i - 1])
+
+            view_values[ts.id_hash] = thinned
+
+        # prepare view request
+        view_requests.append(
+            View(
+                id_hash=view_req.id_hash,
+                startTime=view_req.startTime,
+                endTime=view_req.endTime,
+                granularity=view_req.granularity,
+                values=view_values,
+            ).save()
+        )
+
+    # save all records
+    views = await asyncio.gather(*view_requests)
+    dataset.views = [view.id_hash for view in views]
+    await dataset.save()
+
+    return PutViewResponse(dataset=dataset, views=views)
 
 
 @app.get("/user/{user_id}/permissions/incoming")
@@ -525,9 +612,7 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-    address: str,
-    page: int = 1,
-    page_size: int = 20
+    address: str, page: int = 1, page_size: int = 20
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
