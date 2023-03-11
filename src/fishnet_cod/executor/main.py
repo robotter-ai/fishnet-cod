@@ -47,7 +47,9 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
             execution = await run_execution(execution)
         except Exception as e:
             if execution is not None:
-                logger.info(f"Failed to run execution: {execution.json(exclude_unset=True)}")
+                logger.info(
+                    f"Failed to run execution: {execution.json(exclude_unset=True)}"
+                )
             logger.exception(e)
         finally:
             # clean up globals
