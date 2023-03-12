@@ -118,3 +118,18 @@ class PutViewRequest(BaseModel):
 class PutViewResponse(BaseModel):
     dataset: Dataset
     views: List[View]
+
+
+class Attribute(BaseModel):
+    trait_type: str
+    value: str
+
+
+class FungibleAssetStandard(BaseModel):
+    name: str
+    symbol: str
+    description: Optional[str]
+    image: Optional[str]
+    animation_url: Optional[str]
+    external_url: Optional[str]
+    attributes: List[Attribute]

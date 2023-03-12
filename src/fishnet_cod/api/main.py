@@ -8,6 +8,7 @@ from aleph.sdk import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
+
 from .api_model import (
     UploadTimeseriesRequest,
     UploadDatasetRequest,
@@ -17,6 +18,8 @@ from .api_model import (
     PutUserInfo,
     PutViewRequest,
     PutViewResponse,
+    Attribute,
+    FungibleAssetStandard,
 )
 from ..core.model import (
     Timeseries,
@@ -205,6 +208,26 @@ async def get_datasets(
         return [(rec, None) for rec in datasets]
 
 
+@app.get("/dataset/{dataset_id}/metaplex")
+async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard:
+    dataset = await Dataset.fetch(dataset_id).first()
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return FungibleAssetStandard(
+        name=dataset.name,
+        symbol=dataset.id_hash,
+        description=dataset.desc,
+        image=None,
+        animation_url=None,
+        external_url=f"http://localhost:5173/data/{dataset.id_hash}/details",
+        attributes=[
+            Attribute(trait_type="Owner", value=dataset.owner),
+            Attribute(trait_type="Last Updated", value=dataset.timestamp),
+            Attribute(trait_type="Columns", value=str(len(dataset.timeseriesIDs))),
+        ],
+    )
+
+
 @app.put("/timeseries/upload")
 async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     """
@@ -292,7 +315,9 @@ def get_timestamps_by_granularity(
 
 
 @app.put("/datasets/{dataset_id}/views")
-async def generate_view(dataset_id: str, view_params: List[PutViewRequest]) -> PutViewResponse:
+async def generate_view(
+    dataset_id: str, view_params: List[PutViewRequest]
+) -> PutViewResponse:
     # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
