@@ -3,7 +3,17 @@ from typing import List, Optional, Tuple
 from aars import Index
 from pydantic import BaseModel
 
-from ..core.model import Dataset, Algorithm, Execution, Permission, Timeseries, Result, UserInfo
+from ..core.model import (
+    Dataset,
+    Algorithm,
+    Execution,
+    Permission,
+    Timeseries,
+    Result,
+    UserInfo,
+    View,
+    Granularity,
+)
 
 # indexes to fetch by timeseries
 Index(Timeseries, "owner")
@@ -31,9 +41,9 @@ Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["requestor", "timeseriesID", "status"])
 
 # index to fetch results with owner
-Index(Result, 'owner')
+Index(Result, "owner")
 
-Index(UserInfo, 'address')
+Index(UserInfo, "address")
 
 
 class TimeseriesItem(BaseModel):
@@ -95,3 +105,16 @@ class RequestExecutionResponse(BaseModel):
     execution: Execution
     permissionRequests: Optional[List[Permission]]
     unavailableTimeseries: Optional[List[Timeseries]]
+
+
+class PutViewRequest(BaseModel):
+    id_hash: Optional[str]
+    timeseriesIDs: List[str]
+    granularity: Granularity
+    startTime: int
+    endTime: int
+
+
+class PutViewResponse(BaseModel):
+    dataset: Dataset
+    views: List[View]
