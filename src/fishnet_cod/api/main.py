@@ -208,8 +208,22 @@ async def get_datasets(
         return [(rec, None) for rec in datasets]
 
 
+@app.get("/datasets/{dataset_id}/permissions")
+async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
+    """
+    Get all granted permissions for a given dataset.
+    """
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="No Dataset found")
+    return await Permission.where_eq(timeseriesID=dataset.timeseriesIDs, status=PermissionStatus.GRANTED).all()
+
+
 @app.get("/dataset/{dataset_id}/metaplex")
 async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard:
+    """
+    Get the metaplex metadata for a given dataset.
+    """
     dataset = await Dataset.fetch(dataset_id).first()
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")

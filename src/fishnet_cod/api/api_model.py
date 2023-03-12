@@ -32,13 +32,11 @@ Index(Execution, "owner")
 Index(Execution, "status")
 
 # index to fetch permissions by timeseriesID and requestor
-Index(Permission, "id_hash")
-Index(Permission, "status")
-Index(Permission, "timeseriesID")
 Index(Permission, "requestor")
 Index(Permission, "authorizer")
 Index(Permission, ["timeseriesID", "requestor"])
-Index(Permission, ["requestor", "timeseriesID", "status"])
+Index(Permission, ["timeseriesID", "authorizer"])
+Index(Permission, ["timeseriesID", "status"])
 
 # index to fetch results with owner
 Index(Result, "owner")
