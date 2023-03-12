@@ -118,6 +118,7 @@ async def reindex():
 
 @app.get("/datasets")
 async def get_datasets(
+    id: Optional[str] = None,
     view_as: Optional[str] = None,
     by: Optional[str] = None,
     page: int = 1,
@@ -126,12 +127,12 @@ async def get_datasets(
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
     If `view_as` is not given, the permission status will be `none` for all datasets.
-    :param view_as: address of the user to view the datasets as and give additional permission information
-    :param by: address of the dataset owner to filter by
-    :param page_size: size of the pages to fetch
-    :param page: page number to fetch
+    If `id` is given, it will return the dataset with that id.
+    If `by` is given, it will return all datasets owned by that user.
     """
-    if by:
+    if id:
+        datasets_resp = Dataset.fetch(id)
+    elif by:
         datasets_resp = Dataset.where_eq(owner=by)
     else:
         datasets_resp = Dataset.fetch_objects()
