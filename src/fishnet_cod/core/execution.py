@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
@@ -18,10 +19,10 @@ async def try_get_execution_from_message(message: PostMessage) -> Optional[Execu
     return None
 
 
-async def run_execution(execution: Execution) -> Optional[Execution]:
+async def run_execution(execution: Execution, executor_vm: str = "test") -> Optional[Execution]:
     async def set_failed(execution, reason):
         execution.status = ExecutionStatus.FAILED
-        result = await Result(executionID=execution.id_hash, data=reason).save()
+        result = await Result(executionID=execution.id_hash, data=reason, owner=execution.owner, executor_vm=executor_vm).save()
         execution.resultID = result.id_hash
         return await execution.save()
 
@@ -41,9 +42,15 @@ async def run_execution(execution: Execution) -> Optional[Execution]:
             )
 
         try:
-            exec(algorithm.code)
+            # replace all \n with actual newlines
+            algorithm.code = algorithm.code.replace("\\n", "\n")
+            print(algorithm.code)
+            # TODO: Add caching of code compiles
+            # TODO: Add constraints of globals
+            code = compile(algorithm.code, algorithm.id_hash, 'exec')
+            exec(code)
         except Exception as e:
-            return await set_failed(execution, f"Failed to parse algorithm code: {e}")
+            return await set_failed(execution, f"Failed to parse algorithm code: {e} {algorithm.code}")
 
         if "run" not in locals():
             return await set_failed(

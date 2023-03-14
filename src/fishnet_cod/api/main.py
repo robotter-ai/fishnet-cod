@@ -535,6 +535,8 @@ async def request_execution(
     unavailable timeseries are returned.
     If the user has all permissions, the execution is started and the execution is returned.
     """
+    if not execution.owner:
+        raise HTTPException(status_code=400, detail="No owner specified")
     dataset = await Dataset.fetch(execution.datasetID).first()
 
     if dataset.owner == execution.owner and dataset.ownsAllTimeseries:

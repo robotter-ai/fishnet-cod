@@ -33,7 +33,7 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 async def listen():
     print(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
-        start_date=time.time() - 60 * 10,
+        start_date=time.time(),
         message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),
         content_types=EXECUTOR_MESSAGE_FILTER[0]["post_type"],
         channels=[EXECUTOR_MESSAGE_FILTER[0]["channel"]],
