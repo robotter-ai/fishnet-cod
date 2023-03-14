@@ -24,6 +24,7 @@ from .api_model import (
     FungibleAssetStandard,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
+    DatasetResponse,
 )
 from ..core.model import (
     Timeseries,
@@ -78,7 +79,9 @@ else:
 app = AlephApp(http_app=http_app)
 account = get_fallback_account()
 session = AuthenticatedAlephClient(account, settings.API_HOST)
-aars = AARS(account=account, channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session)
+aars = AARS(
+    account=account, channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session
+)
 
 
 async def re_index():
@@ -162,7 +165,7 @@ async def get_datasets(
     by: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-) -> List[Tuple[Dataset, Optional[DatasetPermissionStatus]]]:
+) -> List[DatasetResponse]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
     If `view_as` is not given, the permission status will be `none` for all datasets.
@@ -190,7 +193,7 @@ async def get_datasets(
         resp = await asyncio.gather(*req)
         permissions = [item for sublist in resp for item in sublist]
 
-        returned_datasets: List[Tuple[Dataset, Optional[DatasetPermissionStatus]]] = []
+        returned_datasets: List[DatasetResponse] = []
         for rec in datasets:
             dataset_permissions = []
             for ts_id in rec.timeseriesIDs:
@@ -198,19 +201,39 @@ async def get_datasets(
                     list(filter(lambda x: x.timeseriesID == ts_id, permissions))
                 )
             if not dataset_permissions:
-                returned_datasets.append((rec, DatasetPermissionStatus.NOT_REQUESTED))
+                returned_datasets.append(
+                    DatasetResponse(
+                        **rec.dict(),
+                        permission_status=DatasetPermissionStatus.NOT_REQUESTED,
+                    )
+                )
                 continue
 
             permission_status = [perm_rec for perm_rec in dataset_permissions]
             if all(status == PermissionStatus.GRANTED for status in permission_status):
-                returned_datasets.append((rec, DatasetPermissionStatus.GRANTED))
+                returned_datasets.append(
+                    DatasetResponse(
+                        **rec.dict(), permission_status=DatasetPermissionStatus.GRANTED
+                    )
+                )
             elif PermissionStatus.DENIED in permission_status:
-                returned_datasets.append((rec, DatasetPermissionStatus.DENIED))
+                returned_datasets.append(
+                    DatasetResponse(
+                        **rec.dict(), permission_status=DatasetPermissionStatus.DENIED
+                    )
+                )
             elif PermissionStatus.REQUESTED in permission_status:
-                returned_datasets.append((rec, DatasetPermissionStatus.REQUESTED))
+                returned_datasets.append(
+                    DatasetResponse(
+                        **rec.dict(),
+                        permission_status=DatasetPermissionStatus.REQUESTED,
+                    )
+                )
         return returned_datasets
     else:
-        return [(rec, None) for rec in datasets]
+        return [
+            DatasetResponse(**rec.dict(), permission_status=None) for rec in datasets
+        ]
 
 
 @app.get("/datasets/{dataset_id}/permissions")
@@ -238,6 +261,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
         name=dataset.name,
         symbol=dataset.id_hash,
         description=dataset.desc,
+        # TODO: Generate chart image
         image="https://ipfs.io/ipfs/Qma2eje8yY57pNuaUyo4dsjtB9xwPz5yV6pCbK2PxpjUzo",
         animation_url=None,
         external_url=f"http://localhost:5173/data/{dataset.id_hash}/details",

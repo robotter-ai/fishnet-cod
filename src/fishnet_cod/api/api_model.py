@@ -13,6 +13,7 @@ from ..core.model import (
     UserInfo,
     View,
     Granularity,
+    DatasetPermissionStatus,
 )
 
 # indexes to fetch by timeseries
@@ -63,6 +64,10 @@ class UploadDatasetRequest(BaseModel):
     owner: str
     ownsAllTimeseries: bool
     timeseriesIDs: List[str]
+
+
+class DatasetResponse(Dataset):
+    permission_status: Optional[DatasetPermissionStatus]
 
 
 class UploadDatasetTimeseriesRequest(BaseModel):
