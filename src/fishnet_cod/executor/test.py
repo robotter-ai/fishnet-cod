@@ -58,7 +58,7 @@ def test_execution():
         desc="sums all columns",
         owner="executooor",
         code="""
-def run(df: pd.DataFrame):
+def run(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     return df.sum(axis=0)
 """,
     )

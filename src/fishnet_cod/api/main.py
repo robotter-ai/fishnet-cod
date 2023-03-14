@@ -35,7 +35,7 @@ from ..core.model import (
     Granularity,
     View,
 )
-from ..core.constants import FISHNET_MESSAGE_CHANNEL
+from ..core.constants import FISHNET_MESSAGE_CHANNEL, API_MESSAGE_FILTER
 
 logger = logging.getLogger(__name__)
 
@@ -466,23 +466,23 @@ async def request_execution(
             unavailableTimeseries=None,
         )
 
-    requested_timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    permissions = {
-        permission.timeseriesID: permission
-        for permission in await Permission.where_eq(
-            timeseriesID=dataset.timeseriesIDs, requestor=execution.owner
-        ).all()
-    }
+    timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
+    requested_permissions = [
+        Permission.where_eq(timeseriesID=tsID, requestor=execution.owner).first()
+        for tsID in dataset.timeseriesIDs
+    ]
+    permissions: List[Permission] = list(await asyncio.gather(*requested_permissions))
+    ts_permission_map = {permission.timeseriesID: permission for permission in permissions}
     requests = []
     unavailable_timeseries = []
-    for ts in requested_timeseries:
+    for ts in timeseries:
         if ts.owner == execution.owner:
             continue
         if not ts.available:
             unavailable_timeseries.append(ts)
-        if requested_timeseries:
+        if timeseries:
             continue
-        if ts.id_hash not in permissions:
+        if ts.id_hash not in ts_permission_map:
             requests.append(
                 Permission(
                     timeseriesID=ts.id_hash,
@@ -491,16 +491,16 @@ async def request_execution(
                     requestor=execution.owner,
                     status=PermissionStatus.REQUESTED,
                     executionCount=0,
-                    maxExecutionCount=1,
+                    maxExecutionCount=-1,
                 ).save()
             )
         else:
-            permission = permissions[ts.id_hash]
+            permission = ts_permission_map[ts.id_hash]
             needs_update = False
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
-            if permission.maxExecutionCount <= permission.executionCount:
+            if 0 <= permission.maxExecutionCount <= permission.executionCount:
                 permission.maxExecutionCount = permission.executionCount + 1
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
@@ -668,23 +668,12 @@ async def get_views(view_ids: List[str]) -> List[View]:
     return await View.fetch(view_ids).all()
 
 
-filters = [
-    {
-        "channel": aars.channel,
-        "type": "POST",
-        "post_type": [
-            "Execution",
-            "Permission",
-            "Dataset",
-            "Timeseries",
-            "Algorithm",
-            "amend",
-        ],
-    }
-]
+@app.post("/event")
+async def event(event: PostMessage):
+    await fishnet_event(event)
 
 
-@app.event(filters=filters)
+@app.event(filters=API_MESSAGE_FILTER)
 async def fishnet_event(event: PostMessage):
     print("fishnet_event", event)
     if event.content.type in [
@@ -694,8 +683,13 @@ async def fishnet_event(event: PostMessage):
         "Timeseries",
         "Algorithm",
     ]:
+        if Record.is_indexed(event.item_hash):
+            return
         cls: Record = globals()[event.content.type]
         record = await cls.from_post(event)
-    else:
-        record = Record.fetch(event.content.ref)
-    [index.add_record(record) for index in record.get_indices()]
+    else:  # amend
+        if Record.is_indexed(event.content.ref):
+            return
+        record = await Record.fetch(event.content.ref).first()
+    for inx in record.get_indices():
+        inx.add_record(record)

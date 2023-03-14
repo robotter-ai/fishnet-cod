@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from aars import AARS
 
 from ..core.model import Execution
-from ..core.constants import FISHNET_MESSAGE_CHANNEL
+from ..core.constants import FISHNET_MESSAGE_CHANNEL, EXECUTOR_MESSAGE_FILTER
 from ..core.execution import run_execution, try_get_execution_from_message
 
 logger = logging.getLogger("uvicorn")
@@ -26,18 +26,10 @@ async def index():
     return {"status": "ok"}
 
 
-filters = [
-    {
-        "channel": aars_client.channel,
-        "type": "POST",
-        "post_type": ["Execution", "amend"],
-    }
-]
-
 globals_snapshot = globals().copy()
 
 
-@app.event(filters=filters)
+@app.event(filters=EXECUTOR_MESSAGE_FILTER)
 async def handle_execution(event: PostMessage) -> Optional[Execution]:
     logger.debug(f"Received event: {event.content.type}")
     execution = await try_get_execution_from_message(event)
@@ -61,11 +53,11 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 
 
 async def listen():
-    logger.info(f"Listening for events on {filters}")
+    logger.info(f"Listening for events on {EXECUTOR_FILTERS}")
     async for message in aars_client.session.watch_messages(
-        message_type=MessageType(filters[0]["type"]),
-        content_types=filters[0]["post_type"],
-        channels=[filters[0]["channel"]],
+        message_type=MessageType(EXECUTOR_FILTERS[0]["type"]),
+        content_types=EXECUTOR_FILTERS[0]["post_type"],
+        channels=[EXECUTOR_FILTERS[0]["channel"]],
     ):
         if isinstance(message, PostMessage):
             await handle_execution(message)

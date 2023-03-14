@@ -4,19 +4,11 @@ import time
 from aars import AARS
 from aleph_message.models import PostMessage, MessageType
 
-from core.constants import FISHNET_MESSAGE_CHANNEL
+from core.constants import FISHNET_MESSAGE_CHANNEL, EXECUTOR_MESSAGE_FILTER
 from core.model import Execution
 from core.execution import try_get_execution_from_message, run_execution
 
 aars_client = AARS(channel=FISHNET_MESSAGE_CHANNEL)
-
-filters = [
-    {
-        "channel": aars_client.channel,
-        "type": "POST",
-        "post_type": ["Execution", "amend"],
-    }
-]
 
 
 async def handle_execution(event: PostMessage) -> Optional[Execution]:
@@ -33,12 +25,12 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 
 
 async def listen():
-    print(f"Listening for events on {filters}")
+    print(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
         start_date=time.time(),
-        message_type=MessageType(filters[0]["type"]),
-        content_types=filters[0]["post_type"],
-        channels=[filters[0]["channel"]],
+        message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),
+        content_types=EXECUTOR_MESSAGE_FILTER[0]["post_type"],
+        channels=[EXECUTOR_MESSAGE_FILTER[0]["channel"]],
     ):
         if isinstance(message, PostMessage):
             await handle_execution(message)
