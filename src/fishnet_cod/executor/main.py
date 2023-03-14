@@ -53,11 +53,11 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 
 
 async def listen():
-    logger.info(f"Listening for events on {EXECUTOR_FILTERS}")
+    logger.info(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
-        message_type=MessageType(EXECUTOR_FILTERS[0]["type"]),
-        content_types=EXECUTOR_FILTERS[0]["post_type"],
-        channels=[EXECUTOR_FILTERS[0]["channel"]],
+        message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),
+        content_types=EXECUTOR_MESSAGE_FILTER[0]["post_type"],
+        channels=[EXECUTOR_MESSAGE_FILTER[0]["channel"]],
     ):
         if isinstance(message, PostMessage):
             await handle_execution(message)
