@@ -1,13 +1,16 @@
 import asyncio
 import logging
 import os
-from typing import List, Optional, Tuple
+from datetime import datetime
+from typing import List, Optional, Tuple, Dict
 from os import listdir, getenv
 
+import pandas as pd
 from aleph.sdk import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
+from pydantic import ValidationError
 
 from .api_model import (
     UploadTimeseriesRequest,
@@ -47,7 +50,7 @@ logger.debug("import aars")
 from aars import AARS, Record
 
 logger.debug("import fastapi")
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 
 logger.debug("import project modules")
@@ -216,7 +219,9 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="No Dataset found")
-    return await Permission.where_eq(timeseriesID=dataset.timeseriesIDs, status=PermissionStatus.GRANTED).all()
+    return await Permission.where_eq(
+        timeseriesID=dataset.timeseriesIDs, status=PermissionStatus.GRANTED
+    ).all()
 
 
 @app.get("/dataset/{dataset_id}/metaplex")
@@ -273,6 +278,50 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
         requests.append(old_ts.save())
     upserted_timeseries = await asyncio.gather(*requests)
     return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
+
+
+@app.post("/timeseries/csv/preprocess")
+async def upload_timeseries_csv(
+        owner: str = Form(...),
+        data_file: UploadFile = File(...)
+) -> List[Timeseries]:
+    """
+    Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
+    `id_hash`, `name`, `desc`, `data`. The `data` column must contain a json string with the timeseries data.
+    """
+    if data_file.filename and not data_file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a csv file")
+    df = pd.read_csv(data_file.file)
+    # find the first column with a timestamp or ISO8601 date and use it as the index
+    for col in df.columns:
+        if "unnamed" in col.lower():
+            df = df.drop(columns=col)
+            continue
+        if "date" in col.lower() or "time" in col.lower():
+            df.index = pd.to_datetime(df[col])
+            print(f"Using column {col} as index")
+            df = df.drop(columns=col)
+    # create a timeseries object for each column
+    timestamps = [dt.timestamp() for dt in df.index.to_pydatetime().tolist()]
+    timeseries = []
+    for col in df.columns:
+        try:
+            data = [
+                (timestamps[i], value)
+                for i, value in enumerate(df[col].tolist())
+            ]
+            timeseries.append(
+                Timeseries(
+                    id_hash=None,
+                    name=col,
+                    desc=None,
+                    data=data,
+                    owner=owner,
+                )
+            )
+        except ValidationError:
+            raise HTTPException(status_code=400, detail=f"Invalid data encountered in column {col}: {data}")
+    return timeseries
 
 
 @app.put("/datasets/upload")
@@ -472,7 +521,9 @@ async def request_execution(
         for tsID in dataset.timeseriesIDs
     ]
     permissions: List[Permission] = list(await asyncio.gather(*requested_permissions))
-    ts_permission_map = {permission.timeseriesID: permission for permission in permissions}
+    ts_permission_map: Dict[str, Permission] = {
+        permission.timeseriesID: permission for permission in permissions
+    }
     requests = []
     unavailable_timeseries = []
     for ts in timeseries:
