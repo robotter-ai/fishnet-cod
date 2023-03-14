@@ -2,13 +2,19 @@ from typing import Optional
 import time
 
 from aars import AARS
+from aleph.sdk import AuthenticatedAlephClient
+from aleph.sdk.chains.sol import get_fallback_account
+from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage, MessageType
 
 from core.constants import FISHNET_MESSAGE_CHANNEL, EXECUTOR_MESSAGE_FILTER
 from core.model import Execution
 from core.execution import try_get_execution_from_message, run_execution
 
-aars_client = AARS(channel=FISHNET_MESSAGE_CHANNEL)
+account = get_fallback_account()
+session = AuthenticatedAlephClient(account, settings.API_HOST)
+aars_client = AARS(account=account, channel=FISHNET_MESSAGE_CHANNEL, session=session)
+print(f"Using address: {account.get_address()}")
 
 
 async def handle_execution(event: PostMessage) -> Optional[Execution]:
@@ -27,7 +33,7 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 async def listen():
     print(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
-        start_date=time.time(),
+        start_date=time.time() - 60 * 10,
         message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),
         content_types=EXECUTOR_MESSAGE_FILTER[0]["post_type"],
         channels=[EXECUTOR_MESSAGE_FILTER[0]["channel"]],

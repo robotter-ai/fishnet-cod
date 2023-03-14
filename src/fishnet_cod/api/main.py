@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
 from typing import List, Optional, Tuple, Dict
 from os import listdir, getenv
 
@@ -77,8 +76,9 @@ if TEST_CACHE is not None and TEST_CACHE.lower() == "true":
 else:
     cache = VmCache()
 app = AlephApp(http_app=http_app)
-session = AuthenticatedAlephClient(get_fallback_account(), settings.API_HOST)
-aars = AARS(channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session)
+account = get_fallback_account()
+session = AuthenticatedAlephClient(account, settings.API_HOST)
+aars = AARS(account=account, channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session)
 
 
 async def re_index():
@@ -552,7 +552,7 @@ async def request_execution(
     ]
     permissions: List[Permission] = list(await asyncio.gather(*requested_permissions))
     ts_permission_map: Dict[str, Permission] = {
-        permission.timeseriesID: permission for permission in permissions
+        permission.timeseriesID: permission for permission in permissions if permission
     }
     requests = []
     unavailable_timeseries = []
