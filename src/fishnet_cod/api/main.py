@@ -23,6 +23,8 @@ from .api_model import (
     PutViewResponse,
     Attribute,
     FungibleAssetStandard,
+    UploadDatasetTimeseriesRequest,
+    UploadDatasetTimeseriesResponse,
 )
 from ..core.model import (
     Timeseries,
@@ -282,8 +284,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
 
 @app.post("/timeseries/csv/preprocess")
 async def upload_timeseries_csv(
-        owner: str = Form(...),
-        data_file: UploadFile = File(...)
+    owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
     """
     Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
@@ -306,10 +307,7 @@ async def upload_timeseries_csv(
     timeseries = []
     for col in df.columns:
         try:
-            data = [
-                (timestamps[i], value)
-                for i, value in enumerate(df[col].tolist())
-            ]
+            data = [(timestamps[i], value) for i, value in enumerate(df[col].tolist())]
             timeseries.append(
                 Timeseries(
                     id_hash=None,
@@ -320,7 +318,10 @@ async def upload_timeseries_csv(
                 )
             )
         except ValidationError:
-            raise HTTPException(status_code=400, detail=f"Invalid data encountered in column {col}: {data}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid data encountered in column {col}: {data}",
+            )
     return timeseries
 
 
@@ -349,6 +350,35 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
             old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
             return await old_dataset.save()
     return await Dataset(**dataset.dict()).save()
+
+
+@app.post("/datasets/upload/timeseries")
+async def upload_dataset_timeseries(
+    upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
+) -> UploadDatasetTimeseriesResponse:
+    """
+    Upload a dataset and timeseries at the same time.
+    """
+    if upload_dataset_timeseries_request.dataset.id_hash is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets/upload instead.",
+        )
+    if any([ts.id_hash is None for ts in upload_dataset_timeseries_request.timeseries]):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries/upload instead.",
+        )
+    timeseries = await upload_timeseries(
+        req=UploadTimeseriesRequest(
+            timeseries=upload_dataset_timeseries_request.timeseries
+        )
+    )
+    dataset = await upload_dataset(req=upload_dataset_timeseries_request.dataset)
+    return UploadDatasetTimeseriesResponse(
+        dataset=dataset,
+        timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
+    )
 
 
 def get_timestamps_by_granularity(

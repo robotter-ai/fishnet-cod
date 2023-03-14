@@ -65,6 +65,16 @@ class UploadDatasetRequest(BaseModel):
     timeseriesIDs: List[str]
 
 
+class UploadDatasetTimeseriesRequest(BaseModel):
+    dataset: UploadDatasetRequest
+    timeseries: List[TimeseriesItem]
+
+
+class UploadDatasetTimeseriesResponse(BaseModel):
+    dataset: Dataset
+    timeseries: List[Timeseries]
+
+
 class PutUserInfo(BaseModel):
     username: str
     address: str
