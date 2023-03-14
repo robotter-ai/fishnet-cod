@@ -238,7 +238,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
         name=dataset.name,
         symbol=dataset.id_hash,
         description=dataset.desc,
-        image=None,
+        image="https://ipfs.io/ipfs/Qma2eje8yY57pNuaUyo4dsjtB9xwPz5yV6pCbK2PxpjUzo",
         animation_url=None,
         external_url=f"http://localhost:5173/data/{dataset.id_hash}/details",
         attributes=[
