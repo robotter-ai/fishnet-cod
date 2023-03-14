@@ -607,7 +607,7 @@ async def request_execution(
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
-            if 0 <= permission.maxExecutionCount <= permission.executionCount:
+            if permission.maxExecutionCount and permission.maxExecutionCount <= permission.executionCount:
                 permission.maxExecutionCount = permission.executionCount + 1
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
