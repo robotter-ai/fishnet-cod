@@ -80,10 +80,11 @@ async def run_execution(
                 return await set_failed(
                     execution, f"Timeseries for dataset {dataset.id_hash} not found"
                 )
-            return await set_failed(
-                execution,
-                f"Timeseries incomplete: {len(timeseries)} out of {len(dataset.timeseriesIDs)} found",
-            )
+            # TODO: handle missing timeseries
+            #return await set_failed(
+            #    execution,
+            #    f"Timeseries incomplete: {len(timeseries)} out of {len(dataset.timeseriesIDs)} found",
+            #)
 
         try:
             # parse all timeseries as series and join them into a dataframe
