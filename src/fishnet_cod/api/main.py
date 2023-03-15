@@ -743,7 +743,7 @@ async def get_outgoing_permission_requests(
 @app.get("/results/{result_id}")
 async def get_result(
     result_id: str
-) -> Result:
+) -> Optional[Result]:
     return await Result.fetch(result_id).first()
 
 
