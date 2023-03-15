@@ -108,7 +108,10 @@ async def run_execution(
             return await set_failed(execution, f"Failed to run algorithm: {e}")
 
         result_message = await Result(
-            executionID=execution.id_hash, data=str(result)
+            executionID=execution.id_hash,
+            data=str(result),
+            owner=execution.owner,
+            executor_vm=executor_vm,
         ).save()
         execution.status = ExecutionStatus.SUCCESS
         execution.resultID = result_message.id_hash
