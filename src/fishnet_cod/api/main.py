@@ -740,6 +740,13 @@ async def get_outgoing_permission_requests(
     )
 
 
+@app.get("/results/{result_id}")
+async def get_result(
+    result_id: str
+) -> Result:
+    return await Result.fetch(result_id).first()
+
+
 @app.get("/user/{address}/results")
 async def get_user_results(
     address: str, page: int = 1, page_size: int = 20
