@@ -13,6 +13,7 @@ from ..core.model import (
     UserInfo,
     View,
     Granularity,
+    PermissionStatus,
     DatasetPermissionStatus,
 )
 
@@ -55,6 +56,16 @@ class TimeseriesItem(BaseModel):
 
 class UploadTimeseriesRequest(BaseModel):
     timeseries: List[TimeseriesItem]
+
+
+class PostPermission(BaseModel):
+    timeseriesID: str
+    algorithmID: Optional[str]
+    authorizer: str
+    status: PermissionStatus
+    executionCount: int
+    maxExecutionCount: Optional[int]
+    requestor: str
 
 
 class UploadDatasetRequest(BaseModel):

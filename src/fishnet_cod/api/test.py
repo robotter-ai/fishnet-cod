@@ -168,3 +168,8 @@ def test_get_algorithms():
     response = client.get("/algorithms", params=req)
     assert response.status_code == 200
     print(response.json(), "these are the json objects")
+
+def test_get_notification():
+    resp = client.get("user/{user_id}/notifications")
+    assert resp.status_code == 200
+
