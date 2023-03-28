@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, Optional, Tuple
 
 from aars import Index
@@ -13,6 +14,7 @@ from ..core.model import (
     UserInfo,
     View,
     Granularity,
+    PermissionStatus,
     DatasetPermissionStatus,
 )
 
@@ -70,6 +72,15 @@ class DatasetResponse(Dataset):
     permission_status: Optional[DatasetPermissionStatus]
 
 
+class UploadPermissionRecords:
+    timeseriesID: str
+    algorithmID: Optional[str]
+    authorizer: str
+    status: PermissionStatus
+    executionCount: int
+    maxExecutionCount: Optional[int]
+    requestor: str
+
 class UploadDatasetTimeseriesRequest(BaseModel):
     dataset: UploadDatasetRequest
     timeseries: List[TimeseriesItem]
@@ -107,6 +118,22 @@ class ExecutionStatusHistory(BaseModel):
     revision_hash: str
     status: str
     timestamp: float
+
+
+class NotificationType(str, Enum):
+    PermissionRequest = "PermissionRequest"
+
+
+class Notification(BaseModel):
+    message_text = str
+
+
+class PermissionRequestNotification(Notification):
+    type: NotificationType = NotificationType.PermissionRequest  # overrides type from parent
+    requestor: str
+    datasetID: str
+    uses: Optional[int]  # None, if unlimited uses requested
+    algorithmIDs: Optional[List[str]]
 
 
 class ExecutionResponse(BaseModel):
