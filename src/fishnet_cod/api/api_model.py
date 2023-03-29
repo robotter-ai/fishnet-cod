@@ -91,6 +91,7 @@ class UploadPermissionRecords:
     maxExecutionCount: Optional[int]
     requestor: str
 
+
 class UploadDatasetTimeseriesRequest(BaseModel):
     dataset: UploadDatasetRequest
     timeseries: List[TimeseriesItem]
@@ -139,7 +140,9 @@ class Notification(BaseModel):
 
 
 class PermissionRequestNotification(Notification):
-    type: NotificationType = NotificationType.PermissionRequest  # overrides type from parent
+    type: NotificationType = (
+        NotificationType.PermissionRequest
+    )  # overrides type from parent
     requestor: str
     datasetID: str
     uses: Optional[int]  # None, if unlimited uses requested

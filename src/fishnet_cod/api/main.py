@@ -25,7 +25,9 @@ from .api_model import (
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
     Notification,
-    DatasetResponse, PermissionRequestNotification, )
+    DatasetResponse,
+    PermissionRequestNotification,
+)
 from ..core.constants import FISHNET_MESSAGE_CHANNEL, API_MESSAGE_FILTER
 from ..core.model import (
     Timeseries,
@@ -41,7 +43,6 @@ from ..core.model import (
     Granularity,
     View,
 )
-from ..core.constants import FISHNET_MESSAGE_CHANNEL, API_MESSAGE_FILTER
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +116,10 @@ async def index():
 
 @app.get("/algorithms")
 async def get_algorithms(
-        name: Optional[str] = None,
-        by: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 20,
+    name: Optional[str] = None,
+    by: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Algorithm]:
     """
     Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
@@ -161,11 +162,11 @@ async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
 
 @app.get("/datasets")
 async def get_datasets(
-        id: Optional[str] = None,
-        view_as: Optional[str] = None,
-        by: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 20,
+    id: Optional[str] = None,
+    view_as: Optional[str] = None,
+    by: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[DatasetResponse]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
@@ -248,8 +249,9 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
     req = []
     ts_ids = [ids for ids in dataset.timeseriesIDs]
     for id in ts_ids:
-        req.append(Permission.where_eq(
-            timeseriesID=id, status=PermissionStatus.GRANTED).all())
+        req.append(
+            Permission.where_eq(timeseriesID=id, status=PermissionStatus.GRANTED).all()
+        )
 
     permission_records = await asyncio.gather(*req)
     returned_permission = []
@@ -416,7 +418,7 @@ async def upload_dataset_timeseries(
 
 
 def get_timestamps_by_granularity(
-        start: int, end: int, granularity: Granularity
+    start: int, end: int, granularity: Granularity
 ) -> List[int]:
     """
     Get timestamps by granularity
@@ -443,7 +445,7 @@ def get_timestamps_by_granularity(
 
 @app.put("/datasets/{dataset_id}/views")
 async def generate_view(
-        dataset_id: str, view_params: List[PutViewRequest]
+    dataset_id: str, view_params: List[PutViewRequest]
 ) -> PutViewResponse:
     # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
@@ -478,7 +480,7 @@ async def generate_view(
                     thinned.append(normalized[i])
                 else:
                     if abs(normalized[i][0] - timestamp) < abs(
-                            normalized[i - 1][0] - timestamp
+                        normalized[i - 1][0] - timestamp
                     ):
                         thinned.append(normalized[i])
                     else:
@@ -541,11 +543,11 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
 
 @app.get("/executions")
 async def get_executions(
-        dataset_id: Optional[str] = None,
-        by: Optional[str] = None,
-        status: Optional[ExecutionStatus] = None,
-        page: int = 1,
-        page_size: int = 20,
+    dataset_id: Optional[str] = None,
+    by: Optional[str] = None,
+    status: Optional[ExecutionStatus] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Execution]:
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
@@ -558,7 +560,7 @@ async def get_executions(
 
 @app.post("/executions/request")
 async def request_execution(
-        execution: RequestExecutionRequest,
+    execution: RequestExecutionRequest,
 ) -> RequestExecutionResponse:
     """
     This endpoint is used to request an execution.
@@ -617,7 +619,10 @@ async def request_execution(
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
-            if permission.maxExecutionCount and permission.maxExecutionCount <= permission.executionCount:
+            if (
+                permission.maxExecutionCount
+                and permission.maxExecutionCount <= permission.executionCount
+            ):
                 permission.maxExecutionCount = permission.executionCount + 1
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
@@ -741,9 +746,9 @@ async def get_incoming_permission_requests(
 
 @app.get("/user/{user_id}/permissions/outgoing")
 async def get_outgoing_permission_requests(
-        user_id: str,
-        page: int = 1,
-        page_size: int = 20,
+    user_id: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
     return await Permission.where_eq(requestor=user_id).page(
         page=page, page_size=page_size
@@ -751,15 +756,13 @@ async def get_outgoing_permission_requests(
 
 
 @app.get("/results/{result_id}")
-async def get_result(
-        result_id: str
-) -> Optional[Result]:
+async def get_result(result_id: str) -> Optional[Result]:
     return await Result.fetch(result_id).first()
 
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-        address: str, page: int = 1, page_size: int = 20
+    address: str, page: int = 1, page_size: int = 20
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
@@ -787,28 +790,34 @@ async def put_user_info(user_info: PutUserInfo) -> UserInfo:
     return user_record
 
 
-@app.get('/user/all')
+@app.get("/user/all")
 async def get_all_user():
     return await UserInfo.fetch_objects().all()
 
 
 @app.get("/user/notifications")
-async def get_notification(notification_req: PermissionRequestNotification) -> List[Notification]:
+async def get_notification(
+    notification_req: PermissionRequestNotification,
+) -> List[Notification]:
     # if someone requests permission for a whole dataset
-    permission_records = await Permission.where_eq(authorizer=notification_req.requestor).all()
+    permission_records = await Permission.where_eq(
+        authorizer=notification_req.requestor
+    ).all()
     # this can result in many permissions being requested
-    requested_permission = [rec for rec in permission_records if
-                            PermissionStatus.REQUESTED in rec.status]
-    timeseries_ids = [rec.timeseriesID for rec in requested_permission]
-    req = [
-        Permission.where_eq(timeseriesID=ts_id).all()
-        for ts_id in timeseries_ids
+    requested_permission = [
+        rec for rec in permission_records if PermissionStatus.REQUESTED in rec.status
     ]
+    timeseries_ids = [rec.timeseriesID for rec in requested_permission]
+    req = [Permission.where_eq(timeseriesID=ts_id).all() for ts_id in timeseries_ids]
     datasets_records = await asyncio.gather(*req)
     # Group them by datasetID and also requestor!
-    notifications = [item for sublist in datasets_records for item in sublist
-                     if item.id_hash == notification_req.datasetID
-                     and item.owner == notification_req.requestor]
+    notifications = [
+        item
+        for sublist in datasets_records
+        for item in sublist
+        if item.id_hash == notification_req.datasetID
+        and item.owner == notification_req.requestor
+    ]
 
     return notifications
 
