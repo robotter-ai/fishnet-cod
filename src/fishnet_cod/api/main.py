@@ -41,6 +41,7 @@ from ..core.model import (
     Granularity,
     View,
 )
+from ..core.constants import FISHNET_MESSAGE_CHANNEL, API_MESSAGE_FILTER
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +318,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
 
 @app.post("/timeseries/csv/preprocess")
 async def upload_timeseries_csv(
-        owner: str = Form(...), data_file: UploadFile = File(...)
+    owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
     """
     Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
@@ -387,7 +388,7 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
 
 @app.post("/datasets/upload/timeseries")
 async def upload_dataset_timeseries(
-        upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
+    upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
@@ -729,9 +730,9 @@ async def get_user_info(address: str) -> Optional[UserInfo]:
 
 @app.get("/user/{user_id}/permissions/incoming")
 async def get_incoming_permission_requests(
-        user_id: str,
-        page: int = 1,
-        page_size: int = 20,
+    user_id: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
     return await Permission.where_eq(authorizer=user_id).page(
         page=page, page_size=page_size
@@ -814,36 +815,6 @@ async def get_notification(notification_req: PermissionRequestNotification) -> L
 @app.get("/views")
 async def get_views(view_ids: List[str]) -> List[View]:
     return await View.fetch(view_ids).all()
-
-
-@app.get('/datasets/ALAAA')
-async def get_all_datasets():
-    return await Dataset.fetch_objects().all()
-
-
-@app.get('/Timeseries')
-async def get_all_Timeseries():
-    return await Timeseries.fetch_objects().all()
-
-
-@app.get('/Results')
-async def get_all_Result():
-    return await Result.fetch_objects().all()
-
-
-@app.get('/Permission')
-async def get_all_Permission():
-    return await Permission.fetch_objects().all()
-
-
-@app.get('/Algorithm')
-async def get_all_algo():
-    return await Algorithm.fetch_objects().all()
-
-
-
-
-
 
 
 @app.post("/event")
