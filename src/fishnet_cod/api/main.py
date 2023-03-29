@@ -809,6 +809,7 @@ async def get_notification(notification_req: PermissionRequestNotification) -> L
     notifications = [item for sublist in datasets_records for item in sublist
                      if item.id_hash == notification_req.datasetID
                      and item.owner == notification_req.requestor]
+
     return notifications
 
 
