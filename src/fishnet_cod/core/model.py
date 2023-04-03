@@ -87,7 +87,7 @@ class DatasetPermissionStatus(str, Enum):
 class Permission(Record):
     timeseriesID: str
     algorithmID: Optional[str]
-    authorizer: str
+    authorizer: Optional[str]
     status: PermissionStatus
     executionCount: int
     maxExecutionCount: Optional[int]
