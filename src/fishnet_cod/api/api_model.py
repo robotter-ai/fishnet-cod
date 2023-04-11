@@ -40,6 +40,7 @@ Index(Permission, "authorizer")
 Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["timeseriesID", "authorizer"])
 Index(Permission, ["timeseriesID", "status"])
+Index(Permission, ["authorizer", "status"])
 
 # index to fetch results with owner
 Index(Result, "owner")
@@ -136,16 +137,17 @@ class NotificationType(str, Enum):
 
 
 class Notification(BaseModel):
-    message_text = str
+    type: NotificationType
+    message_text: str
 
 
 class PermissionRequestNotification(Notification):
     type: NotificationType = (
         NotificationType.PermissionRequest
-    )  # overrides type from parent
+    )
     requestor: str
     datasetID: str
-    uses: Optional[int]  # None, if unlimited uses requested
+    uses: Optional[int]
     algorithmIDs: Optional[List[str]]
 
 
