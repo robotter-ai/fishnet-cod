@@ -842,48 +842,6 @@ async def get_user_dataset(user_id: str,
     return await Dataset.where_eq(owner=user_id).page(page=page, page_size=page_size)
 
 
-
-
-# @app.get("/up")
-# async def re_in():
-#     await re_index()
-
-
-# @app.get("/ts/all")
-# async def get_all_ts():
-#     return await Timeseries.fetch_objects().all()
-
-# @app.get("/permission/all")
-# async def get_all_permission():
-#     permissions = await Permission.fetch_objects().all()
-#     return permissions
-
-
-# @app.get("/algorithms/all")
-# async def get_all_algorithm():
-#     algo = await Algorithm.fetch_objects().all()
-#     return algo
-
-
-# @app.get("/ds/all")
-# async def get_all_ds():
-#     datasets = await Dataset.fetch_objects().all()
-#     return datasets
-
-
-# @app.post('/post/Permissions')
-# async def post_permission(ts_id: str, algo_id: str, authorizer: str, status: str, requestor: str):
-#     a = await Permission(timeseriesID=ts_id,
-#                          algorithmID=algo_id,
-#                          authorizer=authorizer,
-#                          status=status,
-#                          executionCount=10,
-#                          maxExecutionCount=44,
-#                          requestor=requestor).save()
-#
-#     return a + " Posted"
-
-
 @app.get("/views")
 async def get_views(view_ids: List[str]) -> List[View]:
     return await View.fetch(view_ids).all()
