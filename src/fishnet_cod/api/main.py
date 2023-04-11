@@ -814,7 +814,7 @@ async def get_notification(
 
     for record in datasets_list:
         notifications.append(Notification(type=NotificationType.PermissionRequest,
-                                          message_text=record.name + 'has requested by' + user_id
+                                          message_text=user_id + ' has requested to access ' + record.name
                                           )
                              )
     return notifications
