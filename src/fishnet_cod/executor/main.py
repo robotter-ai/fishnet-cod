@@ -1,24 +1,37 @@
 import logging
 from typing import Optional
 
+import asyncio
 from aleph_message.models import PostMessage, MessageType
-from aleph.sdk.vm.cache import VmCache
 from aleph.sdk.vm.app import AlephApp
 
 from fastapi import FastAPI
 from aars import AARS
 
 from ..core.model import Execution
-from ..core.constants import FISHNET_MESSAGE_CHANNEL, EXECUTOR_MESSAGE_FILTER
+from ..core.constants import EXECUTOR_MESSAGE_FILTER
 from ..core.execution import run_execution, try_get_execution_from_message
+from ..core.session import initialize_aars
 
 logger = logging.getLogger("uvicorn")
 logger.debug("imports done")
 
 http_app = FastAPI()
 app = AlephApp(http_app=http_app)
-cache = VmCache()
-aars_client = AARS(channel=FISHNET_MESSAGE_CHANNEL)
+global aars_client
+
+
+async def re_index():
+    logger.info("API re-indexing")
+    await asyncio.wait_for(AARS.sync_indices(), timeout=None)
+    logger.info("API re-indexing done")
+
+
+@app.on_event("startup")
+async def startup():
+    global aars_client
+    aars_client = initialize_aars()
+    await re_index()
 
 
 @app.get("/")
@@ -53,6 +66,7 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 
 
 async def listen():
+    global aars_client
     logger.info(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
         message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),

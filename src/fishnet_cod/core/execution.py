@@ -1,4 +1,3 @@
-import json
 import pandas as pd
 from aleph_message.models import PostMessage
 from pydantic import ValidationError

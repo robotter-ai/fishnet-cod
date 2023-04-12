@@ -2,7 +2,7 @@
 # Path: src/fishnet_cod/deployer.py
 
 from core.deployment import *
-from core.session import authorized_session
+from core.session import initialize_aars
 
 
 def main():
@@ -10,6 +10,8 @@ def main():
     squashfs_path = module_path.parent.parent / "packages.squashfs"
     executor_path = module_path / "executor"
     api_path = module_path / "api"
+    aars_client = initialize_aars()
+    authorized_session = aars_client.session
 
     with authorized_session as session:
         requirements = upload_source(

@@ -22,7 +22,7 @@ aleph_client = AlephClient(settings.API_HOST)
 
 
 def test_execution():
-    req: UploadTimeseriesRequest = UploadTimeseriesRequest(
+    timeseries_req = UploadTimeseriesRequest(
         timeseries=[
             TimeseriesItem(
                 name="test_execution_timeseries1",
@@ -36,24 +36,24 @@ def test_execution():
             ),
         ]
     )
-    req_body = req.dict()
+    req_body = timeseries_req.dict()
     response = client.put("/timeseries/upload", json=req_body)
     assert response.status_code == 200
     assert response.json()[0]["id_hash"] is not None
     timeseries_ids = [ts["id_hash"] for ts in response.json()]
 
-    req: UploadDatasetRequest = UploadDatasetRequest(
+    dataset_req = UploadDatasetRequest(
         name="test_execution_dataset",
         owner="executooor",
         ownsAllTimeseries=True,
         timeseriesIDs=timeseries_ids,
     )
-    response = client.put("/datasets/upload", json=req.dict())
+    response = client.put("/datasets/upload", json=dataset_req.dict())
     assert response.status_code == 200
     assert response.json()["id_hash"] is not None
     dataset_id = response.json()["id_hash"]
 
-    req: UploadAlgorithmRequest = UploadAlgorithmRequest(
+    algo_req = UploadAlgorithmRequest(
         name="test_execution_algorithm",
         desc="sums all columns",
         owner="executooor",
@@ -62,15 +62,15 @@ def run(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     return df.sum(axis=0)
 """,
     )
-    response = client.put("/algorithms/upload", json=req.dict())
+    response = client.put("/algorithms/upload", json=algo_req.dict())
     assert response.status_code == 200
     assert response.json()["id_hash"] is not None
     algorithm_id = response.json()["id_hash"]
 
-    req: RequestExecutionRequest = RequestExecutionRequest(
+    exec_req: RequestExecutionRequest = RequestExecutionRequest(
         algorithmID=algorithm_id, datasetID=dataset_id, owner="executooor"
     )
-    response = client.post("/executions/request", json=req.dict())
+    response = client.post("/executions/request", json=exec_req.dict())
     assert response.status_code == 200
     assert response.json()["execution"]["status"] == ExecutionStatus.PENDING
 

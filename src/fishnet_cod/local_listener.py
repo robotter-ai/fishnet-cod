@@ -2,14 +2,13 @@ from typing import Optional
 import time
 import requests
 
-from aars import AARS
 from aleph_message.models import PostMessage, MessageType
 
-from core.constants import FISHNET_MESSAGE_CHANNEL, API_MESSAGE_FILTER
+from core.constants import API_MESSAGE_FILTER
 from core.model import Execution
+from src.fishnet_cod.core.session import initialize_aars
 
-
-aars_client = AARS(channel=FISHNET_MESSAGE_CHANNEL)
+aars_client = initialize_aars()
 
 
 async def handle_message(event: PostMessage) -> Optional[Execution]:

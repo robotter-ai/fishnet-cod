@@ -1,20 +1,15 @@
 from typing import Optional
 import time
 
-from aars import AARS
-from aleph.sdk import AuthenticatedAlephClient
-from aleph.sdk.chains.sol import get_fallback_account
-from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage, MessageType
 
-from core.constants import FISHNET_MESSAGE_CHANNEL, EXECUTOR_MESSAGE_FILTER
+from core.constants import EXECUTOR_MESSAGE_FILTER
 from core.model import Execution
 from core.execution import try_get_execution_from_message, run_execution
+from core.session import initialize_aars
 
-aleph_account = get_fallback_account()
-aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
-aars_client = AARS(account=aleph_account, channel=FISHNET_MESSAGE_CHANNEL, session=aleph_session)
-print(f"Using address: {aleph_account.get_address()}")
+aars_client = initialize_aars()
+print(f"Using address: {aars_client.a.get_address()}")
 
 
 async def handle_execution(event: PostMessage) -> Optional[Execution]:

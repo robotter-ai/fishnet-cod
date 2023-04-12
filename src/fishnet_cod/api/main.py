@@ -1,13 +1,10 @@
 import asyncio
 import logging
 import os
-from os import listdir, getenv
+from os import listdir
 from typing import List, Optional, Dict
 
 import pandas as pd
-from aleph.sdk import AuthenticatedAlephClient
-from aleph.sdk.chains.sol import get_fallback_account
-from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
 
@@ -28,7 +25,7 @@ from .api_model import (
     UploadDatasetTimeseriesResponse,
     DatasetResponse,
 )
-from ..core.constants import FISHNET_MESSAGE_CHANNEL, API_MESSAGE_FILTER
+from ..core.constants import API_MESSAGE_FILTER
 from ..core.model import (
     Timeseries,
     UserInfo,
@@ -44,11 +41,11 @@ from ..core.model import (
     View,
 
 )
+from ..core.session import initialize_aars
 
 logger = logging.getLogger(__name__)
 
 logger.debug("import aleph_client")
-from aleph.sdk.vm.cache import VmCache, TestVmCache
 from aleph.sdk.vm.app import AlephApp
 
 logger.debug("import aars")
@@ -74,9 +71,8 @@ http_app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app = AlephApp(http_app=http_app)
-global aars, aleph_session, aleph_account
+global aars_client
 
 
 async def re_index():
@@ -87,27 +83,8 @@ async def re_index():
 
 @app.on_event("startup")
 async def startup():
-    test_cache_flag = getenv("TEST_CACHE")
-    if test_cache_flag is not None and test_cache_flag.lower() == "true":
-        cache = TestVmCache()
-    else:
-        cache = VmCache()
-
-    test_channel_flag = getenv("TEST_CHANNEL")
-    custom_channel = getenv("CUSTOM_CHANNEL")
-    if custom_channel:
-        channel = custom_channel
-    elif test_channel_flag is not None and test_channel_flag.lower() == "true":
-        channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
-    else:
-        channel = FISHNET_MESSAGE_CHANNEL
-
-    global aars, aleph_session, aleph_account
-    aleph_account = get_fallback_account()
-    aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
-    aars = AARS(
-        account=aleph_account, channel=channel, cache=cache, session=aleph_session
-    )
+    global aars_client
+    aars_client = initialize_aars()
     await re_index()
 
 
