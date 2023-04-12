@@ -74,26 +74,9 @@ http_app.add_middleware(
     allow_headers=["*"],
 )
 
-TEST_CACHE = getenv("TEST_CACHE")
-if TEST_CACHE is not None and TEST_CACHE.lower() == "true":
-    cache = TestVmCache()
-else:
-    cache = VmCache()
-
-TEST_CHANNEL = getenv("TEST_CHANNEL")
-if TEST_CHANNEL is not None and TEST_CHANNEL.lower() == "true":
-    FISHNET_MESSAGE_CHANNEL = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
-else:
-    ALEPH_CHANNEL = getenv("ALEPH_CHANNEL")
-    if ALEPH_CHANNEL is not None:
-        FISHNET_MESSAGE_CHANNEL = ALEPH_CHANNEL
 
 app = AlephApp(http_app=http_app)
-account = get_fallback_account()
-session = AuthenticatedAlephClient(account, settings.API_HOST)
-aars = AARS(
-    account=account, channel=FISHNET_MESSAGE_CHANNEL, cache=cache, session=session
-)
+global aars, aleph_session, aleph_account
 
 
 async def re_index():
@@ -104,6 +87,27 @@ async def re_index():
 
 @app.on_event("startup")
 async def startup():
+    test_cache_flag = getenv("TEST_CACHE")
+    if test_cache_flag is not None and test_cache_flag.lower() == "true":
+        cache = TestVmCache()
+    else:
+        cache = VmCache()
+
+    test_channel_flag = getenv("TEST_CHANNEL")
+    custom_channel = getenv("CUSTOM_CHANNEL")
+    if custom_channel:
+        channel = custom_channel
+    elif test_channel_flag is not None and test_channel_flag.lower() == "true":
+        channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
+    else:
+        channel = FISHNET_MESSAGE_CHANNEL
+
+    global aars, aleph_session, aleph_account
+    aleph_account = get_fallback_account()
+    aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
+    aars = AARS(
+        account=aleph_account, channel=channel, cache=cache, session=aleph_session
+    )
     await re_index()
 
 

@@ -26,41 +26,43 @@ client = TestClient(app)
 # - At the end, delete all data
 # IF YOU RELY ON DATA FROM A PREVIOUS TEST, THEN FUSE THE TESTS TOGETHER
 # TEST ALL THE ENDPOINTS
+# ALWAYS use "with client:" to ensure the client is correctly initialized and closed
 
 def test_full_request_execution_flow_with_own_dataset():
-    upload_timeseries_req = UploadTimeseriesRequest(
-        timeseries=[
-            TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
-        ]
-    )
-    req_body = upload_timeseries_req.dict()
-    response = client.put("/timeseries/upload", json=req_body)
-    assert response.status_code == 200
-    assert response.json()[0]["id_hash"] is not None
-    timeseries_id = response.json()[0]["id_hash"]
+    with client:
+        upload_timeseries_req = UploadTimeseriesRequest(
+            timeseries=[
+                TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            ]
+        )
+        req_body = upload_timeseries_req.dict()
+        response = client.put("/timeseries/upload", json=req_body)
+        assert response.status_code == 200
+        assert response.json()[0]["id_hash"] is not None
+        timeseries_id = response.json()[0]["id_hash"]
 
-    upload_dataset_req = UploadDatasetRequest(
-        name="test", owner="test", ownsAllTimeseries=True, timeseriesIDs=[timeseries_id]
-    )
-    response = client.put("/datasets/upload", json=upload_dataset_req.dict())
-    assert response.status_code == 200
-    assert response.json()["id_hash"] is not None
-    dataset_id = response.json()["id_hash"]
+        upload_dataset_req = UploadDatasetRequest(
+            name="test", owner="test", ownsAllTimeseries=True, timeseriesIDs=[timeseries_id]
+        )
+        response = client.put("/datasets/upload", json=upload_dataset_req.dict())
+        assert response.status_code == 200
+        assert response.json()["id_hash"] is not None
+        dataset_id = response.json()["id_hash"]
 
-    upload_algorithm_req = UploadAlgorithmRequest(
-        name="test", desc="test", owner="test", code="test"
-    )
-    response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
-    assert response.status_code == 200
-    assert response.json()["id_hash"] is not None
-    algorithm_id = response.json()["id_hash"]
+        upload_algorithm_req = UploadAlgorithmRequest(
+            name="test", desc="test", owner="test", code="test"
+        )
+        response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
+        assert response.status_code == 200
+        assert response.json()["id_hash"] is not None
+        algorithm_id = response.json()["id_hash"]
 
-    request_execution_req = RequestExecutionRequest(
-        algorithmID=algorithm_id, datasetID=dataset_id, owner="test"
-    )
-    response = client.post("/executions/request", json=request_execution_req.dict())
-    assert response.status_code == 200
-    assert response.json()["execution"]["status"] == ExecutionStatus.PENDING
+        request_execution_req = RequestExecutionRequest(
+            algorithmID=algorithm_id, datasetID=dataset_id, owner="test"
+        )
+        response = client.post("/executions/request", json=request_execution_req.dict())
+        assert response.status_code == 200
+        assert response.json()["execution"]["status"] == ExecutionStatus.PENDING
 
 
 def test_requests_approval_deny():
@@ -217,39 +219,40 @@ def test_outgoing_permission():
 
 
 def test_get_dataset_permission():
-    dataset_id = "8a716080c925619350ed153ee41d4a5c369fd6a61cb6a6fa0d204b0dfd89bb22"
-    dataset = Dataset(name="king",
-                      owner="Kingsley",
-                      ownsAllTimeseries=True,
-                      timeseriesIDs=["b29cb38fbf74a93eb33eef6741873ccbcfeff10b617356e0b2aec80b9e9e3755",
-                                     "d90963ee301338d448288a472deb51f4bbb6d5d7484069772a0e2e52ce815fd2",
-                                     "65ce1aad42a81e70f20725d090a90fd626aae977b5791d1b0f38839ce8eee3d6",
-                                     "db5fdcc22feef7085ab7c251d7cc546fc69cf01736cc51e1387df7d0579aa381",
-                                     "67f1e2575396869dd0a7862bd7988704a282798afbc61e29bb8282447f3e43bb",
-                                     "b87d0c547a228f4695497d98c918e8bead1978c8c47c1522d82ca6dc8ee3cf30",
-                                     "800cfde019f65a646ff4ab7859fe5bfca919050739d341dcb2b9065880341d4c",
-                                     "b64b5eeef99721d4d9b51baeeb4eb9c4874900bc4810336008dca601c40bc390",
-                                     "0bcb74f73e9a0c3d2b398a1236fc7b89fcf394506ee40a3981fb712668381dd5",
-                                     "d463d050981ae6162fd6a7750ba48adb3f34acff460091f5c6234b9c8a4c9d26",
-                                     "e6fe4f7745d470964718aa84e082400a8b76af2a83afe988fb586f34a70d64c6",
-                                     ])
-    permission1 = Permission(timeseriesID="b29cb38fbf74a93eb33eef6741873ccbcfeff10b617356e0b2aec80b9e9e3755",
-                             authorizer="authorizer001",
-                             status=PermissionStatus.REQUESTED,
-                             executionCount=10,
-                             requestor="requestor001")
-    permission2 = Permission(timeseriesID="0bcb74f73e9a0c3d2b398a1236fc7b89fcf394506ee40a3981fb712668381dd5",
-                             authorizer="authorizer003",
-                             status=PermissionStatus.REQUESTED,
-                             executionCount=10,
-                             requestor="requestor001")
+    with client:
+        dataset_id = "8a716080c925619350ed153ee41d4a5c369fd6a61cb6a6fa0d204b0dfd89bb22"
+        dataset = Dataset(name="king",
+                          owner="Kingsley",
+                          ownsAllTimeseries=True,
+                          timeseriesIDs=["b29cb38fbf74a93eb33eef6741873ccbcfeff10b617356e0b2aec80b9e9e3755",
+                                         "d90963ee301338d448288a472deb51f4bbb6d5d7484069772a0e2e52ce815fd2",
+                                         "65ce1aad42a81e70f20725d090a90fd626aae977b5791d1b0f38839ce8eee3d6",
+                                         "db5fdcc22feef7085ab7c251d7cc546fc69cf01736cc51e1387df7d0579aa381",
+                                         "67f1e2575396869dd0a7862bd7988704a282798afbc61e29bb8282447f3e43bb",
+                                         "b87d0c547a228f4695497d98c918e8bead1978c8c47c1522d82ca6dc8ee3cf30",
+                                         "800cfde019f65a646ff4ab7859fe5bfca919050739d341dcb2b9065880341d4c",
+                                         "b64b5eeef99721d4d9b51baeeb4eb9c4874900bc4810336008dca601c40bc390",
+                                         "0bcb74f73e9a0c3d2b398a1236fc7b89fcf394506ee40a3981fb712668381dd5",
+                                         "d463d050981ae6162fd6a7750ba48adb3f34acff460091f5c6234b9c8a4c9d26",
+                                         "e6fe4f7745d470964718aa84e082400a8b76af2a83afe988fb586f34a70d64c6",
+                                         ])
+        permission1 = Permission(timeseriesID="b29cb38fbf74a93eb33eef6741873ccbcfeff10b617356e0b2aec80b9e9e3755",
+                                 authorizer="authorizer001",
+                                 status=PermissionStatus.REQUESTED,
+                                 executionCount=10,
+                                 requestor="requestor001")
+        permission2 = Permission(timeseriesID="0bcb74f73e9a0c3d2b398a1236fc7b89fcf394506ee40a3981fb712668381dd5",
+                                 authorizer="authorizer003",
+                                 status=PermissionStatus.REQUESTED,
+                                 executionCount=10,
+                                 requestor="requestor001")
 
-    response = client.get(f"/datasets/{dataset_id}/permissions")
-    assert response.status_code == 200
-    returned_permissions = response.json()
-    assert len(returned_permissions) > 0
-    assert permission1.dict() in returned_permissions
-    assert permission2.dict() in returned_permissions
+        response = client.get(f"/datasets/{dataset_id}/permissions")
+        assert response.status_code == 200
+        returned_permissions = response.json()
+        assert len(returned_permissions) > 0
+        assert permission1.dict() in returned_permissions
+        assert permission2.dict() in returned_permissions
 
 
 def test_get_notification():

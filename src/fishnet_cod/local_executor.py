@@ -11,10 +11,10 @@ from core.constants import FISHNET_MESSAGE_CHANNEL, EXECUTOR_MESSAGE_FILTER
 from core.model import Execution
 from core.execution import try_get_execution_from_message, run_execution
 
-account = get_fallback_account()
-session = AuthenticatedAlephClient(account, settings.API_HOST)
-aars_client = AARS(account=account, channel=FISHNET_MESSAGE_CHANNEL, session=session)
-print(f"Using address: {account.get_address()}")
+aleph_account = get_fallback_account()
+aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
+aars_client = AARS(account=aleph_account, channel=FISHNET_MESSAGE_CHANNEL, session=aleph_session)
+print(f"Using address: {aleph_account.get_address()}")
 
 
 async def handle_execution(event: PostMessage) -> Optional[Execution]:
