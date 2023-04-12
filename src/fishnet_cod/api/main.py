@@ -79,6 +79,15 @@ if TEST_CACHE is not None and TEST_CACHE.lower() == "true":
     cache = TestVmCache()
 else:
     cache = VmCache()
+
+TEST_CHANNEL = getenv("TEST_CHANNEL")
+if TEST_CHANNEL is not None and TEST_CHANNEL.lower() == "true":
+    FISHNET_MESSAGE_CHANNEL = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
+else:
+    ALEPH_CHANNEL = getenv("ALEPH_CHANNEL")
+    if ALEPH_CHANNEL is not None:
+        FISHNET_MESSAGE_CHANNEL = ALEPH_CHANNEL
+
 app = AlephApp(http_app=http_app)
 account = get_fallback_account()
 session = AuthenticatedAlephClient(account, settings.API_HOST)
@@ -306,7 +315,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
                 detail="Cannot overwrite timeseries that is not owned by you",
             )
         old_ts.name = ts.name
-        old_ts.data = ts.datarecords
+        old_ts.data = ts.data
         old_ts.desc = ts.desc
         requests.append(old_ts.save())
     upserted_timeseries = await asyncio.gather(*requests)
@@ -734,7 +743,7 @@ async def get_incoming_permission_requests(
         page: int = 1,
         page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(requestor=user_id).page(page=page, page_size=page_size)
+    permission_records = await Permission.where_eq(authorizer=user_id).page(page=page, page_size=page_size)
     return permission_records
 
 
@@ -744,12 +753,7 @@ async def get_outgoing_permission_requests(
         page: int = 1,
         page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(requestor=user_id).page(
-        page=page, page_size=page_size
-
-    )
-    if not permission_records:
-        raise HTTPException(status_code=404, detail="No records found")
+    permission_records = await Permission.where_eq(requestor=user_id).page(page=page, page_size=page_size)
     return permission_records
 
 
@@ -820,27 +824,11 @@ async def get_notification(
     return notifications
 
 
-@app.get('/users/all')
-async def get_all_user() -> List[UserInfo]:
-    return await UserInfo.fetch_objects().all()
+# POST /permissions
+# Create a new permission as the authorizer
 
-
-# If a user is requesting data published by me - INCOMING
-
-@app.get('/dataset/{user_id}/incoming')
-async def get_own_dataset(user_id: str,
-                          page: int = 1,
-                          page_size: int = 20) -> List[Dataset]:
-    return await Dataset.where_eq(owner=user_id).page(page=page, page_size=page_size)
-
-
-# If I have requested data published by another user - OUTGOING
-@app.get('/dataset/{user_id}/outgoing')
-async def get_user_dataset(user_id: str,
-                           page: int = 1,
-                           page_size: int = 20) -> List[Dataset]:
-    return await Dataset.where_eq(owner=user_id).page(page=page, page_size=page_size)
-
+# POST /datasets/{dataset_id}/request
+# Create a new permission request as the requestor of a specific dataset
 
 @app.get("/views")
 async def get_views(view_ids: List[str]) -> List[View]:

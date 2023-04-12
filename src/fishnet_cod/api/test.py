@@ -1,11 +1,31 @@
 from fastapi.testclient import TestClient
 
+from os import putenv
+
+putenv("TEST_CHANNEL", "true")
+
 from .api_model import *
 from .main import app
 from ..core.model import ExecutionStatus, PermissionStatus
 
 client = TestClient(app)
 
+
+# TODO: Simulate a complete API lifecycle
+# For example:
+# - Reindex
+# - Upload timeseries
+# - Upload dataset
+# - Upload algorithm
+# - Request execution
+# - Approve execution
+# - Deny execution
+# - Get execution result & status
+# - Grant permission
+# - Test all endpoints
+# - At the end, delete all data
+# IF YOU RELY ON DATA FROM A PREVIOUS TEST, THEN FUSE THE TESTS TOGETHER
+# TEST ALL THE ENDPOINTS
 
 def test_full_request_execution_flow_with_own_dataset():
     upload_timeseries_req = UploadTimeseriesRequest(
@@ -51,7 +71,7 @@ def test_requests_approval_deny():
         available=True,
         data=[[1.0, 2.0], [3.0, 4.0]],
     )
-    response = client.post("/Timeseries", json=timeseries_item.dict())
+    response = client.put("/timeseries/upload", json=timeseries_item.dict())
 
     assert response.status_code == 200
     assert response.json()["id_hash"] is not None
@@ -97,13 +117,11 @@ def test_requests_approval_deny():
     # TODO: Check execution is now pending
 
 
-def test_execution_dataset():
-    dataset_Id = "5fecb379a0efdbd88a3d06f9b587dd3161dc8da6a8497f280f86bb3aa05eea94"
-    response = client.get(f"/executions/{dataset_Id}")
-    assert response.json()
-    data = response.json()
-    print("data", data)
-
+# Each test does the following:
+# - Create some data
+# - Check that the data is created correctly
+# - Maybe have some additional checks on other endpoints (like permissions when requested on an execution)
+# - (if possible) Delete the data
 
 def test_dataset():
     page = 1
@@ -133,7 +151,7 @@ def test_get_algorithm():
     assert isinstance(returned_Algorithms, list)
 
 
-async def test_incoming_permission():
+def test_incoming_permission():
     user_id = "authorizer001"
     page = 1
     page_size = 20
