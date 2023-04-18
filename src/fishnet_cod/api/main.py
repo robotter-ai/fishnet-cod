@@ -43,7 +43,7 @@ from ..core.model import (
 )
 from ..core.session import initialize_aars
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn")
 
 logger.debug("import aleph_client")
 from aleph.sdk.vm.app import AlephApp
@@ -76,7 +76,7 @@ global aars_client
 
 
 async def re_index():
-    logger.info("API re-indexing")
+    logger.info(f"API re-indexing channel {AARS.channel}")
     await asyncio.wait_for(AARS.sync_indices(), timeout=None)
     logger.info("API re-indexing done")
 
