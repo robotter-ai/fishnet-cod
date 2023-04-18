@@ -1,10 +1,13 @@
 import asyncio
 import logging
 import os
-from os import listdir
+from os import listdir, getenv
 from typing import List, Optional, Dict
 
 import pandas as pd
+from aleph.sdk import AuthenticatedAlephClient
+from aleph.sdk.chains.sol import get_fallback_account
+from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
 
@@ -20,6 +23,7 @@ from .api_model import (
     Attribute,
     NotificationType,
     Notification,
+    MultiplePermissions,
     FungibleAssetStandard,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
@@ -806,6 +810,22 @@ async def get_notification(
 
 
 # POST /permissions
+@app.post('/post/permissions')
+async def post_permission(permissions: MultiplePermissions) -> str:
+    req = []
+    for rec in permissions.permissions:
+        req.append(Permission(timeseriesID=rec.timeseriesID,
+                              algorithmID=rec.algorithmID,
+                              authorizer=rec.authorizer,
+                              status=rec.status,
+                              executionCount=rec.executionCount,
+                              maxExecutionCount=rec.maxExecutionCount,
+                              requestor=rec.requestor).save())
+    await asyncio.gather(*req)
+
+    return 'Permissions Posted Successfully'
+
+
 # Create a new permission as the authorizer
 
 # POST /datasets/{dataset_id}/request

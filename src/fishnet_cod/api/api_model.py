@@ -188,3 +188,7 @@ class FungibleAssetStandard(BaseModel):
     animation_url: Optional[str]
     external_url: Optional[str]
     attributes: List[Attribute]
+
+
+class MultiplePermissions(BaseModel):
+    permissions: List[PostPermission]
