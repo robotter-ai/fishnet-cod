@@ -162,6 +162,11 @@ class RequestExecutionResponse(BaseModel):
     unavailableTimeseries: Optional[List[Timeseries]]
 
 
+class PermissionPostedResponse(BaseModel):
+    sender: str
+    permissionResponse: PostPermission
+
+
 class PutViewRequest(BaseModel):
     id_hash: Optional[str]
     timeseriesIDs: List[str]

@@ -1,11 +1,11 @@
 from os import getenv
 
+import pandas as pd
 from aars import AARS
 from aleph.sdk import AuthenticatedAlephClient
-from aleph.sdk.conf import settings
 from aleph.sdk.chains.sol import get_fallback_account
+from aleph.sdk.conf import settings
 from aleph.sdk.vm.cache import TestVmCache, VmCache
-import pandas as pd
 
 from .constants import FISHNET_MESSAGE_CHANNEL
 
@@ -29,7 +29,6 @@ def initialize_aars():
     aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
 
     print(channel, 'channellll')
-
 
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session

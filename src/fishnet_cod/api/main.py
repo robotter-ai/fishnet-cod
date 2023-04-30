@@ -1,13 +1,10 @@
 import asyncio
 import logging
 import os
-from os import listdir, getenv
+from os import listdir
 from typing import List, Optional, Dict
 
 import pandas as pd
-from aleph.sdk import AuthenticatedAlephClient
-from aleph.sdk.chains.sol import get_fallback_account
-from aleph.sdk.conf import settings
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
 
@@ -27,7 +24,7 @@ from .api_model import (
     FungibleAssetStandard,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    DatasetResponse,
+    DatasetResponse, PostPermission, PermissionPostedResponse,
 )
 from ..core.constants import API_MESSAGE_FILTER
 from ..core.model import (
@@ -827,9 +824,59 @@ async def post_permission(permissions: MultiplePermissions) -> str:
 
 
 # Create a new permission as the authorizer
+@app.post('/authorizer/post/permission')
+async def post_authorizer_permission(permission: PostPermission) -> PermissionPostedResponse:
+    authorizer_permission = await Permission(timeseriesID=permission.timeseriesID,
+                                             algorithmID=permission.algorithmID,
+                                             authorizer=permission.authorizer,
+                                             status=permission.status,
+                                             executionCount=permission.executionCount,
+                                             maxExecutionCount=permission.maxExecutionCount,
+                                             requestor=permission.requestor).save()
+
+    return PermissionPostedResponse(sender=authorizer_permission.authorizer,
+                                    permissionResponse=authorizer_permission)
+
 
 # POST /datasets/{dataset_id}/request
+@app.post('/datasets/dataset_id/request')
+async def dataset_request(dataset_req: UploadDatasetRequest) -> Dataset:
+    posted_dataset = await Dataset(id_hash=dataset_req.id_hash,
+                                   name=dataset_req.name,
+                                   desc=dataset_req.desc,
+                                   owner=dataset_req.owner,
+                                   ownsAllTimeseries=dataset_req.ownsAllTimeseries,
+                                   timeseriesIDs=dataset_req.timeseriesIDs).save()
+    return posted_dataset
+
+
 # Create a new permission request as the requestor of a specific dataset
+
+@app.post('/requestor/permission/dataset')
+async def requestor_permission_dataset(permission: PostPermission) -> PermissionPostedResponse:
+    requestor_dataset = await Permission(timeseriesID=permission.timeseriesID,
+                                         algorithmID=permission.algorithmID,
+                                         authorizer=permission.authorizer,
+                                         status=permission.status,
+                                         executionCount=permission.executionCount,
+                                         maxExecutionCount=permission.maxExecutionCount,
+                                         requestor=permission.requestor).save()
+    return PermissionPostedResponse(sender=requestor_dataset.requestor,
+                                    permissionResponse=requestor_dataset)
+
+
+@app.delete('/clear/records/up')
+async def empty_records() -> Dict:
+    await UserInfo.forget_all()
+    await Timeseries.forget_all()
+    await View.forget_all()
+    await Dataset.forget_all()
+    await Algorithm.forget_all()
+    await Execution.forget_all()
+    await Permission.forget_all()
+    await Result.forget_all()
+    return {"message": "All records are cleared"}
+
 
 @app.get("/views")
 async def get_views(view_ids: List[str]) -> List[View]:
