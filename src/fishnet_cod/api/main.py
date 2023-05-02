@@ -779,6 +779,21 @@ async def get_all_user():
     return await UserInfo.fetch_objects().all()
 
 
+# Kingsley requirements
+
+# ACCESS REQUEST endpoint
+# If a user is requesting data published by me - INCOMING
+@app.get('/user/{user_id}/dataset/incoming')
+async def incoming_data_request(user_id: str) -> List[Dataset]:
+    return await Dataset.where_eq(owner=user_id).all()
+
+
+# If I have requested data published by another user - OUTGOING
+@app.get('/user/{user_id}/dataset/outgoing')
+async def outgoing_data_request(user_id: str) -> List[Dataset]:
+    return await Dataset.where_eq(name=user_id).all()
+
+
 @app.get("/user/{user_id}/notifications")
 async def get_notification(
         user_id: str
