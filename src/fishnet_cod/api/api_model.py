@@ -197,3 +197,7 @@ class FungibleAssetStandard(BaseModel):
 
 class MultiplePermissions(BaseModel):
     permissions: List[PostPermission]
+
+
+class MessageResponse(BaseModel):
+    response: str

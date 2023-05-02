@@ -24,7 +24,7 @@ from .api_model import (
     FungibleAssetStandard,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    DatasetResponse, PostPermission, PermissionPostedResponse,
+    DatasetResponse, PostPermission, PermissionPostedResponse, MessageResponse,
 )
 from ..core.constants import API_MESSAGE_FILTER
 from ..core.model import (
@@ -775,22 +775,27 @@ async def put_user_info(user_info: PutUserInfo) -> UserInfo:
 
 
 @app.get("/user/all")
-async def get_all_user():
+async def get_all_user() -> List[UserInfo]:
     return await UserInfo.fetch_objects().all()
 
 
-# Kingsley requirements
+#------------------>Kingsley requirements<---------------------------#
 
 # ACCESS REQUEST endpoint
-# If a user is requesting data published by me - INCOMING
 @app.get('/user/{user_id}/dataset/incoming')
 async def incoming_data_request(user_id: str) -> List[Dataset]:
+    '''
+     Requested data published by me - INCOMING
+    '''
     return await Dataset.where_eq(owner=user_id).all()
 
 
-# If I have requested data published by another user - OUTGOING
+# requested data published by another user - OUTGOING
 @app.get('/user/{user_id}/dataset/outgoing')
 async def outgoing_data_request(user_id: str) -> List[Dataset]:
+    '''
+    Requested data published by another user - OUTGOING
+    '''
     return await Dataset.where_eq(name=user_id).all()
 
 
@@ -823,7 +828,7 @@ async def get_notification(
 
 # POST /permissions
 @app.post('/post/permissions')
-async def post_permission(permissions: MultiplePermissions) -> str:
+async def post_permission(permissions: MultiplePermissions) -> MessageResponse:
     req = []
     for rec in permissions.permissions:
         req.append(Permission(timeseriesID=rec.timeseriesID,
@@ -835,7 +840,7 @@ async def post_permission(permissions: MultiplePermissions) -> str:
                               requestor=rec.requestor).save())
     await asyncio.gather(*req)
 
-    return 'Permissions Posted Successfully'
+    return MessageResponse(response='Permissions Posted Successfully')
 
 
 # Create a new permission as the authorizer
@@ -855,14 +860,14 @@ async def post_authorizer_permission(permission: PostPermission) -> PermissionPo
 
 # POST /datasets/{dataset_id}/request
 @app.post('/datasets/dataset_id/request')
-async def dataset_request(dataset_req: UploadDatasetRequest) -> Dataset:
+async def dataset_request(dataset_req: UploadDatasetRequest) -> MessageResponse:
     posted_dataset = await Dataset(id_hash=dataset_req.id_hash,
                                    name=dataset_req.name,
                                    desc=dataset_req.desc,
                                    owner=dataset_req.owner,
                                    ownsAllTimeseries=dataset_req.ownsAllTimeseries,
                                    timeseriesIDs=dataset_req.timeseriesIDs).save()
-    return posted_dataset
+    return MessageResponse(response=posted_dataset.id_hash + ' posted Successfully')
 
 
 # Create a new permission request as the requestor of a specific dataset
@@ -880,8 +885,8 @@ async def requestor_permission_dataset(permission: PostPermission) -> Permission
                                     permissionResponse=requestor_dataset)
 
 
-@app.delete('/clear/records/up')
-async def empty_records() -> Dict:
+@app.delete('/clear/records')
+async def empty_records() -> MessageResponse:
     await UserInfo.forget_all()
     await Timeseries.forget_all()
     await View.forget_all()
@@ -890,7 +895,7 @@ async def empty_records() -> Dict:
     await Execution.forget_all()
     await Permission.forget_all()
     await Result.forget_all()
-    return {"message": "All records are cleared"}
+    return MessageResponse(response="All records are cleared")
 
 
 @app.get("/views")
