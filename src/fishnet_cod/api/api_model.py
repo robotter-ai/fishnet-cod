@@ -27,6 +27,8 @@ Index(Algorithm, "name")
 
 # indexes to fetch by dataset
 Index(Dataset, "owner")
+Index(Dataset, "name")
+
 Index(Dataset, "timeseriesIDs")
 
 # indexes to fetch by execution
