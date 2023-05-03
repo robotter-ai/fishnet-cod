@@ -159,7 +159,7 @@ def test_get_algorithm():
         assert response.headers["content-type"] == "application/json"
         assert isinstance(algo_json, list)
         # Clearing up the all records
-        clear_response = client.delete('/records/clear/all')
+        clear_response = client.delete('/clear/records')
         assert clear_response.status == 200
 
 
@@ -251,7 +251,7 @@ def test_incoming_permission():
             assert permission["requestor"] == expected_permissions.requestor
 
         # - At the end, delete all data
-        response = client.delete('/records/clear/all')
+        response = client.delete('/clear/records')
         assert response.status_code == 200
 
 
@@ -342,7 +342,7 @@ def test_outgoing_permission():
             assert permission["requestor"] == expected_permissions.requestor
 
         # - At the end, delete all data
-        response = client.delete('/records/clear/all')
+        response = client.delete('/clear/records')
         assert response.status_code == 200
 
 
@@ -441,7 +441,7 @@ def test_get_dataset_permission():
         assert new_permission_granted.dict() in returned_permissions
         assert new_permission_denied.dict() in returned_permissions
         # - At the end, delete all data
-        response = client.delete('/records/clear/all')
+        response = client.delete('/clear/records')
         assert response.status_code == 200
         assert response.json() == []
 
