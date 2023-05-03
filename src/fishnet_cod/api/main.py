@@ -1,13 +1,11 @@
 import asyncio
 import logging
 import os
-from os import listdir, getenv
+from os import listdir
 from typing import List, Optional, Dict
 
 import pandas as pd
-from aleph.sdk import AuthenticatedAlephClient
-from aleph.sdk.chains.sol import get_fallback_account
-from aleph.sdk.conf import settings
+from aleph.sdk.exceptions import BadSignatureError
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
 
@@ -27,8 +25,9 @@ from .api_model import (
     FungibleAssetStandard,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    DatasetResponse,
+    DatasetResponse, TokenChallengeResponse, BearerTokenResponse,
 )
+from .auth import AuthTokenManager, SupportedChains
 from ..core.constants import API_MESSAGE_FILTER
 from ..core.model import (
     Timeseries,
@@ -58,12 +57,15 @@ from aars import AARS, Record
 logger.debug("import fastapi")
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+
 
 logger.debug("import project modules")
 
 logger.debug("imports done")
 
 http_app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/challenge")
 
 origins = ["*"]
 
@@ -76,7 +78,9 @@ http_app.add_middleware(
 )
 
 app = AlephApp(http_app=http_app)
-global aars_client
+global aars_client, auth_manager
+aars_client: AARS
+auth_manager: AuthTokenManager
 
 
 async def re_index():
@@ -87,8 +91,9 @@ async def re_index():
 
 @app.on_event("startup")
 async def startup():
-    global aars_client
+    global aars_client, auth_manager
     aars_client = initialize_aars()
+    auth_manager = AuthTokenManager()
     await re_index()
 
 
@@ -107,6 +112,63 @@ async def index():
             "/opt/venv": opt_venv,
         },
     }
+
+
+@app.post("/auth/challenge")
+async def create_challenge(
+        pubkey: str,
+        chain: SupportedChains
+) -> TokenChallengeResponse:
+    global auth_manager
+    challenge = auth_manager.get_challenge(pubkey=pubkey, chain=chain)
+    return TokenChallengeResponse(
+        pubkey=challenge.pubkey,
+        chain=challenge.chain,
+        challenge=challenge.challenge,
+        valid_til=challenge.valid_til
+    )
+
+
+@app.post("/auth/solve")
+async def solve_challenge(
+        pubkey: str,
+        chain: SupportedChains,
+        signature: str
+) -> BearerTokenResponse:
+    global auth_manager
+    try:
+        auth = auth_manager.solve_challenge(pubkey=pubkey, chain=chain, signature=signature)
+        return BearerTokenResponse(
+            pubkey=auth.pubkey,
+            chain=auth.chain,
+            token=auth.token,
+            valid_til=auth.valid_til
+        )
+    except BadSignatureError:
+        raise HTTPException(403, "Challenge failed")
+    except TimeoutError:
+        raise HTTPException(403, "Challenge timeout")
+
+
+@app.post("/auth/refresh")
+async def refresh_token(token: str) -> BearerTokenResponse:
+    global auth_manager
+    try:
+        auth = auth_manager.refresh_token(token)
+    except TimeoutError:
+        raise HTTPException(403, "Token expired")
+    return BearerTokenResponse(
+        pubkey=auth.pubkey,
+        chain=auth.chain,
+        token=auth.token,
+        valid_til=auth.valid_til
+    )
+
+
+@app.post("/auth/logout")
+async def logout(token: str):
+    global auth_manager
+    auth_manager.remove_token(token)
 
 
 @app.get("/algorithms")
