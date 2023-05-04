@@ -1,5 +1,4 @@
 import time
-import uuid
 from enum import Enum
 from typing import Optional, Dict
 
@@ -7,6 +6,7 @@ from aleph.sdk.chains.sol import verify_signature as verify_signature_sol
 from aleph.sdk.chains.ethereum import verify_signature as verify_signature_eth
 from fastapi import HTTPException
 from fastapi.security.utils import get_authorization_scheme_param
+from nacl.bindings.randombytes import randombytes
 from pydantic import BaseModel
 
 from starlette.requests import Request
@@ -29,10 +29,9 @@ class WalletAuth(AuthInfo):
     _token: Optional[str]
 
     def __init__(self, pubkey: str, chain: SupportedChains, ttl: int = 60):
-        # TODO: Is this a safe challenge?
-        challenge = str(uuid.uuid4())
+        self.challenge = f"Authentication challenge {randombytes(64).hex()}"
         valid_til = int(time.time()) + ttl  # 60 seconds
-        super().__init__(pubkey=pubkey, chain=chain, challenge=challenge, valid_til=valid_til)
+        super().__init__(pubkey=pubkey, chain=chain, valid_til=valid_til)
 
     @property
     def token(self):
@@ -53,14 +52,12 @@ class WalletAuth(AuthInfo):
         elif self.chain == SupportedChains.Ethereum:
             verify_signature_eth(signature=signature, public_key=self.pubkey, message=self.challenge)
         else:
-            raise NotImplemented(f"{self.chain} has no verification function implemented")
+            raise NotImplementedError(f"{self.chain} has no verification function implemented")
 
-        # TODO: Is this the best way to generate bearer tokens?
-        # TODO: Should we instead just store the hash of it?
         self.refresh_token()
 
     def refresh_token(self, ttl: int = 60 * 60):
-        self._token = str(uuid.uuid4())
+        self._token = randombytes(64).hex()
         self.valid_til = int(time.time()) + ttl  # 1 hour
 
 
