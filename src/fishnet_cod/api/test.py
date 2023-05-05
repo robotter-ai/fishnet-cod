@@ -11,24 +11,6 @@ from ..core.model import ExecutionStatus, PermissionStatus
 client = TestClient(app)
 
 
-# TODO: Simulate a complete API lifecycle
-# For example:
-# - Reindex
-# - Upload timeseries
-# - Upload dataset
-# - Upload algorithm
-# - Request execution
-# - Approve execution
-# - Deny execution
-# - Get execution result & status
-# - Grant permission
-# - Test all endpoints
-# - At the end, delete all data
-# IF YOU RELY ON DATA FROM A PREVIOUS TEST, THEN FUSE THE TESTS TOGETHER
-# TEST ALL THE ENDPOINTS
-# ALWAYS use "with client:" to ensure the client is correctly initialized and closed
-
-
 def test_full_request_execution_flow_with_own_dataset():
     with client:
         upload_timeseries_req = UploadTimeseriesRequest(

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from os import listdir
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Tuple
 
 import pandas as pd  # type: ignore
 from aars.utils import PageableRequest, PageableResponse
@@ -28,12 +28,14 @@ from .api_model import (  # type: ignore
     UploadDatasetTimeseriesResponse,
     DatasetResponse,
     PostPermission,
-    PermissionPostedResponse,
     MessageResponse,
     TokenChallengeResponse,
     BearerTokenResponse,
+    ApprovePermissionsResponse,
+    DenyPermissionsResponse,
 )
 from .auth import AuthTokenManager, SupportedChains, NotAuthorizedError
+from .utils import unique
 from ..core.constants import API_MESSAGE_FILTER
 from ..core.model import (
     Timeseries,
@@ -63,7 +65,6 @@ logger.debug("import fastapi")
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
-
 
 logger.debug("import project modules")
 
@@ -327,6 +328,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
     dataset = await Dataset.fetch(dataset_id).first()
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
+    assert dataset.id_hash
     return FungibleAssetStandard(
         name=dataset.name,
         symbol=dataset.id_hash,
@@ -607,6 +609,7 @@ async def get_executions(
     page: int = 1,
     page_size: int = 20,
 ) -> List[Execution]:
+    execution_requests: Union[PageableRequest[Execution], PageableResponse[Execution]]
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
             datasetID=dataset_id, owner=by, status=status
@@ -616,31 +619,19 @@ async def get_executions(
     return await execution_requests.page(page=page, page_size=page_size)
 
 
-@app.post("/executions/request")
-async def request_execution(
-    execution: RequestExecutionRequest,
-) -> RequestExecutionResponse:
+async def request_permissions(
+    dataset: Dataset, execution: Execution
+) -> Tuple[List[Permission], List[Permission], List[Timeseries]]:
     """
-    This endpoint is used to request an execution.
-    If the user needs some permissions, the timeseries for which the user needs permissions are returned and
-    the execution status is set to "requested". The needed permissions are also being requested. As soon as the
-    permissions are granted, the execution is automatically executed.
-    If some timeseries are not available, the execution is "denied" and the execution as well as the
-    unavailable timeseries are returned.
-    If the user has all permissions, the execution is started and the execution is returned.
+    Request permissions for a dataset given an execution.
+
+    Args:
+        dataset: The dataset to request permissions for.
+        execution: The execution requesting permissions.
+
+    Returns:
+        A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
     """
-    if not execution.owner:
-        raise HTTPException(status_code=400, detail="No owner specified")
-    dataset = await Dataset.fetch(execution.datasetID).first()
-
-    if dataset.owner == execution.owner and dataset.ownsAllTimeseries:
-        execution.status = ExecutionStatus.PENDING
-        return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save(),
-            permissionRequests=None,
-            unavailableTimeseries=None,
-        )
-
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
     requested_permissions = [
         Permission.where_eq(timeseriesID=tsID, requestor=execution.owner).first()
@@ -650,7 +641,8 @@ async def request_execution(
     ts_permission_map: Dict[str, Permission] = {
         permission.timeseriesID: permission for permission in permissions if permission
     }
-    requests = []
+    create_permissions_requests = []
+    update_permissions_requests = []
     unavailable_timeseries = []
     for ts in timeseries:
         if ts.owner == execution.owner:
@@ -660,8 +652,9 @@ async def request_execution(
         if timeseries:
             continue
         if ts.id_hash not in ts_permission_map:
-            requests.append(
+            create_permissions_requests.append(
                 Permission(
+                    datasetID=dataset.id_hash,
                     timeseriesID=ts.id_hash,
                     algorithmID=execution.algorithmID,
                     owner=ts.owner,
@@ -685,105 +678,185 @@ async def request_execution(
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
             if needs_update:
-                requests.append(permission.save())
+                update_permissions_requests.append(permission.save())
+    created_permissions: List[Permission] = list(
+        await asyncio.gather(*create_permissions_requests)
+    )
+    updated_permissions: List[Permission] = list(
+        await asyncio.gather(*update_permissions_requests)
+    )
+    return created_permissions, updated_permissions, unavailable_timeseries
+
+
+@app.post("/executions/request")
+async def request_execution(
+    execution_request: RequestExecutionRequest,
+) -> RequestExecutionResponse:
+    """
+    This endpoint is used to request an execution.
+    If the user needs some permissions, the timeseries for which the user needs permissions are returned and
+    the execution status is set to "requested". The needed permissions are also being requested. As soon as the
+    permissions are granted, the execution is automatically executed.
+    If some timeseries are not available, the execution is "denied" and the execution as well as the
+    unavailable timeseries are returned.
+    If the user has all permissions, the execution is started and the execution is returned.
+    """
+    execution = Execution(**execution_request.dict())
+    if not execution.owner:
+        raise HTTPException(status_code=400, detail="No owner specified")
+    dataset = await Dataset.fetch(execution.datasetID).first()
+    if not dataset:
+        raise HTTPException(status_code=400, detail="Dataset not found")
+
+    if dataset.owner == execution.owner and dataset.ownsAllTimeseries:
+        execution.status = ExecutionStatus.PENDING
+        return RequestExecutionResponse(
+            execution=await execution.save(),
+            permissionRequests=None,
+            unavailableTimeseries=None,
+        )
+
+    (
+        created_permissions,
+        updated_permissions,
+        unavailable_timeseries,
+    ) = await request_permissions(dataset, execution)
+
     if unavailable_timeseries:
         execution.status = ExecutionStatus.DENIED
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save(),
+            execution=await execution.save(),
             unavailableTimeseries=unavailable_timeseries,
             permissionRequests=None,
         )
-    if requests:
-        new_permission_requests = await asyncio.gather(*requests)
+    if created_permissions or updated_permissions:
+        new_permission_requests = created_permissions + updated_permissions
         execution.status = ExecutionStatus.REQUESTED
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save(),
+            execution=await execution.save(),
             unavailableTimeseries=None,
             permissionRequests=new_permission_requests,
         )
     else:
         execution.status = ExecutionStatus.PENDING
         return RequestExecutionResponse(
-            execution=await Execution(**execution.dict()).save(),
+            execution=await execution.save(),
             unavailableTimeseries=None,
             permissionRequests=None,
         )
 
 
 @app.put("/permissions/approve")
-async def approve_permissions(permission_hashes: List[str]) -> List[Permission]:
+async def approve_permissions(
+    permission_hashes: List[str],
+) -> ApprovePermissionsResponse:
     """
     Approve permission.
     This EndPoint will approve a list of permissions by their item hashes
     If an 'id_hashes' is provided, it will change all the Permission status
     to 'Granted'.
     """
-
-    ts_ids = []
-    requests = []
-
-    permission_records = await Permission.fetch(permission_hashes).all()
-    if not permission_records:
-        raise HTTPException(
-            status_code=404, detail="No Permission Found with this Hashes"
+    # TODO: Check if the user is the authorizer of the permissions
+    permissions = await Permission.fetch(permission_hashes).all()
+    if not permissions:
+        return ApprovePermissionsResponse(
+            updatedPermissions=[],
+            triggeredExecutions=[],
         )
 
-    for rec in permission_records:
-        rec.status = PermissionStatus.GRANTED
-        ts_ids.append(rec.timeseriesID)
-        requests.append(rec.save())
+    # grant permissions
+    dataset_ids = []
+    permission_requests = []
+    for permission in permissions:
+        permission.status = PermissionStatus.GRANTED
+        dataset_ids.append(permission.datasetID)
+        permission_requests.append(permission.save())
+    await asyncio.gather(*permission_requests)
 
-    ds_ids = []
-    dataset_records = await Dataset.where_eq(timeseriesIDs=ts_ids).all()
-    if not dataset_records:
-        raise HTTPException(status_code=404, detail="No Dataset found")
-    for rec in dataset_records:
-        if rec.id_hash in ds_ids:
-            ds_ids.append(rec.id_hash)
+    # get all requested executions and their datasets
+    execution_requests = []
+    dataset_requests = []
+    for dataset_id in unique(dataset_ids):
+        execution_requests.append(
+            Execution.where_eq(
+                datasetID=dataset_id, status=ExecutionStatus.REQUESTED
+            ).all()
+        )
+        dataset_requests.append(Dataset.fetch(dataset_id).first())
 
-    executions_records = await Execution.where_eq(datasetID=ds_ids).all()
-    for rec in executions_records:
-        if ds_ids and rec.datasetID in ds_ids:
-            rec.status = ExecutionStatus.PENDING
-            requests.append(rec.save())
-    await asyncio.gather(*requests)
-    return permission_records
+    dataset_executions_map = {
+        executions[0].datasetID: executions
+        for executions in await asyncio.gather(*execution_requests)
+        if executions and isinstance(executions[0], Execution)
+    }
+
+    # trigger executions if all permissions are granted
+    execution_requests = []
+    for dataset in await asyncio.gather(*dataset_requests):
+        executions = dataset_executions_map.get(dataset.id_hash, [])
+        for execution in executions:
+            # TODO: Check if more efficient way to do this
+            (
+                created_permissions,
+                updated_permissions,
+                unavailable_timeseries,
+            ) = await request_permissions(dataset, execution)
+            if not created_permissions and not updated_permissions:
+                execution.status = ExecutionStatus.PENDING
+                execution_requests.append(await execution.save())
+    triggered_executions = list(await asyncio.gather(*execution_requests))
+
+    return ApprovePermissionsResponse(
+        updatedPermissions=permissions,
+        triggeredExecutions=triggered_executions,
+    )
 
 
 @app.put("/permissions/deny")
-async def deny_permissions(permission_hashes: List[str]) -> List[Permission]:
+async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsResponse:
     """
     Deny permission.
     This EndPoint will deny a list of permissions by their item hashes
     If an `id_hashes` is provided, it will change all the Permission status
     to 'Denied'.
     """
-    permission_records = await Permission.fetch(permission_hashes).all()
-    if not permission_records:
-        raise HTTPException(
-            status_code=404, detail="No Permission found with this Hashes"
+    # TODO: Check if the user is the authorizer of the permissions
+    permissions = await Permission.fetch(permission_hashes).all()
+    if not permissions:
+        return DenyPermissionsResponse(
+            updatedPermissions=[],
+            deniedExecutions=[],
         )
 
-    ts_ids = []
-    requests = []
-    for rec in permission_records:
-        rec.status = PermissionStatus.DENIED
-        ts_ids.append(rec.timeseriesID)
-        requests.append(rec.save())
-    dataset_records = await Dataset.where_eq(timeseriesIDs=ts_ids).all()
-    ds_ids = []
-    if not dataset_records:
-        raise HTTPException(status_code=424, detail="No Timeseries found")
-    for rec in dataset_records:
-        ds_ids.append(rec.id_hash)
-    executions_records = await Execution.where_eq(datasetID=ds_ids).all()
-    for rec in executions_records:
-        if rec.datasetID in ds_ids and rec.status == ExecutionStatus.PENDING:
-            rec.status = ExecutionStatus.DENIED
-            requests.append(rec.save())
+    # deny permissions and get dataset ids
+    dataset_ids = []
+    permission_requests = []
+    for permission in permissions:
+        permission.status = PermissionStatus.DENIED
+        dataset_ids.append(permission.datasetID)
+        permission_requests.append(permission.save())
+    await asyncio.gather(*permission_requests)
 
-    await asyncio.gather(*requests)
-    return permission_records
+    # get requested executions
+    execution_requests = []
+    for dataset_id in unique(dataset_ids):
+        execution_requests.append(
+            Execution.where_eq(
+                datasetID=dataset_id, status=ExecutionStatus.REQUESTED
+            ).all()
+        )
+
+    # deny executions
+    execution_requests = []
+    for executions in await asyncio.gather(*execution_requests):
+        for execution in executions:
+            execution.status = ExecutionStatus.DENIED
+            execution_requests.append(await execution.save())
+    denied_executions = list(await asyncio.gather(*execution_requests))
+
+    return DenyPermissionsResponse(
+        updatedPermissions=permissions, deniedExecutions=denied_executions
+    )
 
 
 @app.get("/user/{address}")
@@ -883,14 +956,10 @@ async def get_notification(user_id: str) -> List[Notification]:
         authorizer=user_id, status=PermissionStatus.REQUESTED
     ).all()
 
-    # this can result in many permissions being requested
-
     datasets_records = [
-        await Dataset.where_eq(timeseriesIDs=ts_id.timeseriesID).all()
-        for ts_id in permission_records
+        await Dataset.where_eq(timeseriesIDs=permission.timeseriesID).all()
+        for permission in permission_records
     ]
-
-    # Group them by datasetID and also requestor!
 
     datasets_list = [element for row in datasets_records for element in row]
     notifications = []
@@ -903,83 +972,6 @@ async def get_notification(user_id: str) -> List[Notification]:
             )
         )
     return notifications
-
-
-# POST /permissions
-@app.post("/post/permissions")
-async def post_permission(permissions: MultiplePermissions) -> MessageResponse:
-    req = []
-    for rec in permissions.permissions:
-        req.append(
-            Permission(
-                timeseriesID=rec.timeseriesID,
-                algorithmID=rec.algorithmID,
-                authorizer=rec.authorizer,
-                status=rec.status,
-                executionCount=rec.executionCount,
-                maxExecutionCount=rec.maxExecutionCount,
-                requestor=rec.requestor,
-            ).save()
-        )
-    await asyncio.gather(*req)
-
-    return MessageResponse(response="Permissions Posted Successfully")
-
-
-# Create a new permission as the authorizer
-@app.post("/authorizer/post/permission")
-async def post_authorizer_permission(
-    permission: PostPermission,
-) -> PermissionPostedResponse:
-    authorizer_permission = await Permission(
-        timeseriesID=permission.timeseriesID,
-        algorithmID=permission.algorithmID,
-        authorizer=permission.authorizer,
-        status=permission.status,
-        executionCount=permission.executionCount,
-        maxExecutionCount=permission.maxExecutionCount,
-        requestor=permission.requestor,
-    ).save()
-
-    return PermissionPostedResponse(
-        sender=authorizer_permission.authorizer,
-        permissionResponse=authorizer_permission,
-    )
-
-
-# POST /datasets/{dataset_id}/request
-@app.post("/datasets/dataset_id/request")
-async def dataset_request(dataset_req: UploadDatasetRequest) -> MessageResponse:
-    posted_dataset = await Dataset(
-        id_hash=dataset_req.id_hash,
-        name=dataset_req.name,
-        desc=dataset_req.desc,
-        owner=dataset_req.owner,
-        ownsAllTimeseries=dataset_req.ownsAllTimeseries,
-        timeseriesIDs=dataset_req.timeseriesIDs,
-    ).save()
-    return MessageResponse(response=posted_dataset.id_hash + " posted Successfully")
-
-
-# Create a new permission request as the requestor of a specific dataset
-
-
-@app.post("/requestor/permission/dataset")
-async def requestor_permission_dataset(
-    permission: PostPermission,
-) -> PermissionPostedResponse:
-    requestor_dataset = await Permission(
-        timeseriesID=permission.timeseriesID,
-        algorithmID=permission.algorithmID,
-        authorizer=permission.authorizer,
-        status=permission.status,
-        executionCount=permission.executionCount,
-        maxExecutionCount=permission.maxExecutionCount,
-        requestor=permission.requestor,
-    ).save()
-    return PermissionPostedResponse(
-        sender=requestor_dataset.requestor, permissionResponse=requestor_dataset
-    )
 
 
 @app.delete("/clear/records")

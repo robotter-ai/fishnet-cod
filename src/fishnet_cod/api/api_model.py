@@ -33,9 +33,10 @@ Index(Dataset, "name")
 Index(Dataset, "timeseriesIDs")
 
 # indexes to fetch by execution
-Index(Execution, "datasetID")
 Index(Execution, "owner")
+Index(Execution, "datasetID")
 Index(Execution, "status")
+Index(Execution, ["datasetID", "status"])
 
 # index to fetch permissions by timeseriesID and requestor
 Index(Permission, "requestor")
@@ -163,9 +164,14 @@ class RequestExecutionResponse(BaseModel):
     unavailableTimeseries: Optional[List[Timeseries]]
 
 
-class PermissionPostedResponse(BaseModel):
-    sender: str
-    permissionResponse: PostPermission
+class ApprovePermissionsResponse(BaseModel):
+    updatedPermissions: List[Permission]
+    triggeredExecutions: List[Execution]
+
+
+class DenyPermissionsResponse(BaseModel):
+    updatedPermissions: List[Permission]
+    deniedExecutions: List[Execution]
 
 
 class PutViewRequest(BaseModel):
