@@ -32,7 +32,7 @@ from .api_model import (
     TokenChallengeResponse,
     BearerTokenResponse,
 )
-from .auth import AuthTokenManager, SupportedChains
+from .auth import AuthTokenManager, SupportedChains, NotAuthorizedError
 from ..core.constants import API_MESSAGE_FILTER
 from ..core.model import (
     Timeseries,
@@ -147,7 +147,7 @@ async def solve_challenge(
             token=auth.token,
             valid_til=auth.valid_til,
         )
-    except BadSignatureError:
+    except (BadSignatureError, ValueError):
         raise HTTPException(403, "Challenge failed")
     except TimeoutError:
         raise HTTPException(403, "Challenge timeout")
@@ -160,6 +160,8 @@ async def refresh_token(token: str) -> BearerTokenResponse:
         auth = auth_manager.refresh_token(token)
     except TimeoutError:
         raise HTTPException(403, "Token expired")
+    except NotAuthorizedError:
+        raise HTTPException(403, "Not authorized")
     return BearerTokenResponse(
         pubkey=auth.pubkey, chain=auth.chain, token=auth.token, valid_til=auth.valid_til
     )

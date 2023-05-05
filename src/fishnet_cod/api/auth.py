@@ -29,9 +29,9 @@ class WalletAuth(AuthInfo):
     _token: Optional[str]
 
     def __init__(self, pubkey: str, chain: SupportedChains, ttl: int = 60):
-        self.challenge = f"Authentication challenge {randombytes(64).hex()}"
+        challenge = f"Authentication challenge {randombytes(64).hex()}"
         valid_til = int(time.time()) + ttl  # 60 seconds
-        super().__init__(pubkey=pubkey, chain=chain, valid_til=valid_til)
+        super().__init__(pubkey=pubkey, chain=chain, valid_til=valid_til, challenge=challenge)  # type: ignore
 
     @property
     def token(self):
