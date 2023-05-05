@@ -2,14 +2,15 @@ import asyncio
 import logging
 import os
 from os import listdir
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
-import pandas as pd
-from aleph.sdk.exceptions import BadSignatureError
-from aleph_message.models import PostMessage
+import pandas as pd  # type: ignore
+from aars.utils import PageableRequest, PageableResponse
+from aleph.sdk.exceptions import BadSignatureError  # type: ignore
+from aleph_message.models import PostMessage  # type: ignore
 from pydantic import ValidationError
 
-from .api_model import (
+from .api_model import (  # type: ignore
     UploadTimeseriesRequest,
     UploadDatasetRequest,
     UploadAlgorithmRequest,
@@ -53,7 +54,7 @@ from ..core.session import initialize_aars
 logger = logging.getLogger("uvicorn")
 
 logger.debug("import aleph_client")
-from aleph.sdk.vm.app import AlephApp
+from aleph.sdk.vm.app import AlephApp  # type: ignore
 
 logger.debug("import aars")
 from aars import AARS, Record
@@ -183,6 +184,7 @@ async def get_algorithms(
     """
     Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
     """
+    algo_request: Union[PageableRequest, PageableResponse]
     if name or by:
         algo_request = Algorithm.where_eq(name=name, owner=by)
     else:
@@ -233,6 +235,7 @@ async def get_datasets(
     If `id` is given, it will return the dataset with that id.
     If `by` is given, it will return all datasets owned by that user.
     """
+    dataset_resp: Union[PageableRequest, PageableResponse]
     if id:
         datasets_resp = Dataset.fetch(id)
     elif by:
@@ -305,10 +308,10 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="No Dataset found")
-    ts_ids = [ids for ids in dataset.timeseriesIDs]
+    ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
     matched_permission_records = [
-        Permission.where_eq(timeseriesID=ids, status=PermissionStatus.GRANTED).all()
-        for ids in ts_ids
+        Permission.where_eq(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
+        for ts_id in ts_ids
     ]
     records = await asyncio.gather(*matched_permission_records)
     permission_records = [element for row in records for element in row if element]
@@ -1004,6 +1007,7 @@ async def event(event: PostMessage):
 
 @app.event(filters=API_MESSAGE_FILTER)
 async def fishnet_event(event: PostMessage):
+    record: Optional[Record]
     print("fishnet_event", event)
     if event.content.type in [
         "Execution",
@@ -1020,5 +1024,6 @@ async def fishnet_event(event: PostMessage):
         if Record.is_indexed(event.content.ref):
             return
         record = await Record.fetch(event.content.ref).first()
+    assert record
     for inx in record.get_indices():
         inx.add_record(record)

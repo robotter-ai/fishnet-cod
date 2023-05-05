@@ -1,4 +1,4 @@
-aars~=0.5.2
+aars~=0.5.8
 aiohttp
 aleph-sdk-python==0.6.0
 fastapi
