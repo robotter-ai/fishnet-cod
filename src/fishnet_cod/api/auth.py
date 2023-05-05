@@ -48,11 +48,17 @@ class WalletAuth(AuthInfo):
             raise TimeoutError("Challenge Expired")
 
         if self.chain == SupportedChains.Solana:
-            verify_signature_sol(signature=signature, public_key=self.pubkey, message=self.challenge)
+            verify_signature_sol(
+                signature=signature, public_key=self.pubkey, message=self.challenge
+            )
         elif self.chain == SupportedChains.Ethereum:
-            verify_signature_eth(signature=signature, public_key=self.pubkey, message=self.challenge)
+            verify_signature_eth(
+                signature=signature, public_key=self.pubkey, message=self.challenge
+            )
         else:
-            raise NotImplementedError(f"{self.chain} has no verification function implemented")
+            raise NotImplementedError(
+                f"{self.chain} has no verification function implemented"
+            )
 
         self.refresh_token()
 
@@ -69,6 +75,7 @@ class AuthTokenManager:
     """
     A self-updating dictionary keeping track of all authentication tokens and signature challenges.
     """
+
     __challenges: Dict[str, WalletAuth] = {}
     """Keeps track of all solved and unsolved challenges. Keys have format `<pubkey>-<chain>`."""
     __auths: Dict[str, WalletAuth] = {}
@@ -104,7 +111,9 @@ class AuthTokenManager:
         return auth
 
     @classmethod
-    def solve_challenge(cls, pubkey: str, chain: SupportedChains, signature: str) -> WalletAuth:
+    def solve_challenge(
+        cls, pubkey: str, chain: SupportedChains, signature: str
+    ) -> WalletAuth:
         auth = cls.get_challenge(pubkey, chain)
         auth.solve_challenge(signature)
         return auth
@@ -143,7 +152,12 @@ class AuthTokenManager:
 
 
 class AuthTokenChecker:
-    def __init__(self, auth_manager: AuthTokenManager, challenge_endpoint: str, token_endpoint: str):
+    def __init__(
+        self,
+        auth_manager: AuthTokenManager,
+        challenge_endpoint: str,
+        token_endpoint: str,
+    ):
         self.auth_manager = auth_manager
         self.challenge_endpoint = challenge_endpoint
         self.token_endpoint = token_endpoint
@@ -166,12 +180,11 @@ class AuthTokenChecker:
         except (TimeoutError, NotAuthorizedError) as e:
             if e is TimeoutError:
                 raise HTTPException(
-                    status_code=HTTP_401_UNAUTHORIZED,
-                    detail="Token expired"
+                    status_code=HTTP_401_UNAUTHORIZED, detail="Token expired"
                 )
             if e is NotAuthorizedError:
                 raise HTTPException(
                     status_code=HTTP_401_UNAUTHORIZED,
                     detail=f"Not authorized. Request a challenge to sign from f{self.challenge_endpoint} "
-                           f"and retrieve a token from f{self.token_endpoint}."
+                    f"and retrieve a token from f{self.token_endpoint}.",
                 )

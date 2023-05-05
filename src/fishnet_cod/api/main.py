@@ -25,8 +25,12 @@ from .api_model import (
     FungibleAssetStandard,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    DatasetResponse, PostPermission, PermissionPostedResponse, MessageResponse,
-    TokenChallengeResponse, BearerTokenResponse,
+    DatasetResponse,
+    PostPermission,
+    PermissionPostedResponse,
+    MessageResponse,
+    TokenChallengeResponse,
+    BearerTokenResponse,
 )
 from .auth import AuthTokenManager, SupportedChains
 from ..core.constants import API_MESSAGE_FILTER
@@ -43,7 +47,6 @@ from ..core.model import (
     Dataset,
     Granularity,
     View,
-
 )
 from ..core.session import initialize_aars
 
@@ -117,8 +120,7 @@ async def index():
 
 @app.post("/auth/challenge")
 async def create_challenge(
-        pubkey: str,
-        chain: SupportedChains
+    pubkey: str, chain: SupportedChains
 ) -> TokenChallengeResponse:
     global auth_manager
     challenge = auth_manager.get_challenge(pubkey=pubkey, chain=chain)
@@ -126,24 +128,24 @@ async def create_challenge(
         pubkey=challenge.pubkey,
         chain=challenge.chain,
         challenge=challenge.challenge,
-        valid_til=challenge.valid_til
+        valid_til=challenge.valid_til,
     )
 
 
 @app.post("/auth/solve")
 async def solve_challenge(
-        pubkey: str,
-        chain: SupportedChains,
-        signature: str
+    pubkey: str, chain: SupportedChains, signature: str
 ) -> BearerTokenResponse:
     global auth_manager
     try:
-        auth = auth_manager.solve_challenge(pubkey=pubkey, chain=chain, signature=signature)
+        auth = auth_manager.solve_challenge(
+            pubkey=pubkey, chain=chain, signature=signature
+        )
         return BearerTokenResponse(
             pubkey=auth.pubkey,
             chain=auth.chain,
             token=auth.token,
-            valid_til=auth.valid_til
+            valid_til=auth.valid_til,
         )
     except BadSignatureError:
         raise HTTPException(403, "Challenge failed")
@@ -159,10 +161,7 @@ async def refresh_token(token: str) -> BearerTokenResponse:
     except TimeoutError:
         raise HTTPException(403, "Token expired")
     return BearerTokenResponse(
-        pubkey=auth.pubkey,
-        chain=auth.chain,
-        token=auth.token,
-        valid_til=auth.valid_til
+        pubkey=auth.pubkey, chain=auth.chain, token=auth.token, valid_til=auth.valid_til
     )
 
 
@@ -174,10 +173,10 @@ async def logout(token: str):
 
 @app.get("/algorithms")
 async def get_algorithms(
-        name: Optional[str] = None,
-        by: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 20,
+    name: Optional[str] = None,
+    by: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Algorithm]:
     """
     Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
@@ -220,11 +219,11 @@ async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
 
 @app.get("/datasets")
 async def get_datasets(
-        id: Optional[str] = None,
-        view_as: Optional[str] = None,
-        by: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 20,
+    id: Optional[str] = None,
+    view_as: Optional[str] = None,
+    by: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[DatasetResponse]:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
@@ -305,8 +304,10 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
     if not dataset:
         raise HTTPException(status_code=404, detail="No Dataset found")
     ts_ids = [ids for ids in dataset.timeseriesIDs]
-    matched_permission_records = [Permission.where_eq(timeseriesID=ids, status=PermissionStatus.GRANTED).all() for ids
-                                  in ts_ids]
+    matched_permission_records = [
+        Permission.where_eq(timeseriesID=ids, status=PermissionStatus.GRANTED).all()
+        for ids in ts_ids
+    ]
     records = await asyncio.gather(*matched_permission_records)
     permission_records = [element for row in records for element in row if element]
 
@@ -372,7 +373,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
 
 @app.post("/timeseries/csv/preprocess")
 async def upload_timeseries_csv(
-        owner: str = Form(...), data_file: UploadFile = File(...)
+    owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
     """
     Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
@@ -442,7 +443,7 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
 
 @app.post("/datasets/upload/timeseries")
 async def upload_dataset_timeseries(
-        upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
+    upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
@@ -470,7 +471,7 @@ async def upload_dataset_timeseries(
 
 
 def get_timestamps_by_granularity(
-        start: int, end: int, granularity: Granularity
+    start: int, end: int, granularity: Granularity
 ) -> List[int]:
     """
     Get timestamps by granularity
@@ -497,7 +498,7 @@ def get_timestamps_by_granularity(
 
 @app.put("/datasets/{dataset_id}/views")
 async def generate_view(
-        dataset_id: str, view_params: List[PutViewRequest]
+    dataset_id: str, view_params: List[PutViewRequest]
 ) -> PutViewResponse:
     # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
@@ -532,7 +533,7 @@ async def generate_view(
                     thinned.append(normalized[i])
                 else:
                     if abs(normalized[i][0] - timestamp) < abs(
-                            normalized[i - 1][0] - timestamp
+                        normalized[i - 1][0] - timestamp
                     ):
                         thinned.append(normalized[i])
                     else:
@@ -595,11 +596,11 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
 
 @app.get("/executions")
 async def get_executions(
-        dataset_id: Optional[str] = None,
-        by: Optional[str] = None,
-        status: Optional[ExecutionStatus] = None,
-        page: int = 1,
-        page_size: int = 20,
+    dataset_id: Optional[str] = None,
+    by: Optional[str] = None,
+    status: Optional[ExecutionStatus] = None,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Execution]:
     if dataset_id or by or status:
         execution_requests = Execution.where_eq(
@@ -612,7 +613,7 @@ async def get_executions(
 
 @app.post("/executions/request")
 async def request_execution(
-        execution: RequestExecutionRequest,
+    execution: RequestExecutionRequest,
 ) -> RequestExecutionResponse:
     """
     This endpoint is used to request an execution.
@@ -672,8 +673,8 @@ async def request_execution(
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
             if (
-                    permission.maxExecutionCount
-                    and permission.maxExecutionCount <= permission.executionCount
+                permission.maxExecutionCount
+                and permission.maxExecutionCount <= permission.executionCount
             ):
                 permission.maxExecutionCount = permission.executionCount + 1
                 permission.status = PermissionStatus.REQUESTED
@@ -787,21 +788,25 @@ async def get_user_info(address: str) -> Optional[UserInfo]:
 
 @app.get("/user/{user_id}/permissions/incoming")
 async def get_incoming_permission_requests(
-        user_id: str,
-        page: int = 1,
-        page_size: int = 20,
+    user_id: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(authorizer=user_id).page(page=page, page_size=page_size)
+    permission_records = await Permission.where_eq(authorizer=user_id).page(
+        page=page, page_size=page_size
+    )
     return permission_records
 
 
 @app.get("/user/{user_id}/permissions/outgoing")
 async def get_outgoing_permission_requests(
-        user_id: str,
-        page: int = 1,
-        page_size: int = 20,
+    user_id: str,
+    page: int = 1,
+    page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(requestor=user_id).page(page=page, page_size=page_size)
+    permission_records = await Permission.where_eq(requestor=user_id).page(
+        page=page, page_size=page_size
+    )
     return permission_records
 
 
@@ -812,7 +817,7 @@ async def get_result(result_id: str) -> Optional[Result]:
 
 @app.get("/user/{address}/results")
 async def get_user_results(
-        address: str, page: int = 1, page_size: int = 20
+    address: str, page: int = 1, page_size: int = 20
 ) -> List[Result]:
     return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
 
@@ -845,30 +850,29 @@ async def get_all_user() -> List[UserInfo]:
     return await UserInfo.fetch_objects().all()
 
 
-#------------------>Kingsley requirements<---------------------------#
+# ------------------>Kingsley requirements<---------------------------#
+
 
 # ACCESS REQUEST endpoint
-@app.get('/user/{user_id}/dataset/incoming')
+@app.get("/user/{user_id}/dataset/incoming")
 async def incoming_data_request(user_id: str) -> List[Dataset]:
-    '''
-     Requested data published by me - INCOMING
-    '''
+    """
+    Requested data published by me - INCOMING
+    """
     return await Dataset.where_eq(owner=user_id).all()
 
 
 # requested data published by another user - OUTGOING
-@app.get('/user/{user_id}/dataset/outgoing')
+@app.get("/user/{user_id}/dataset/outgoing")
 async def outgoing_data_request(user_id: str) -> List[Dataset]:
-    '''
+    """
     Requested data published by another user - OUTGOING
-    '''
+    """
     return await Dataset.where_eq(name=user_id).all()
 
 
 @app.get("/user/{user_id}/notifications")
-async def get_notification(
-        user_id: str
-) -> List[Notification]:
+async def get_notification(user_id: str) -> List[Notification]:
     # requests permission for a whole dataset
     permission_records = await Permission.where_eq(
         authorizer=user_id, status=PermissionStatus.REQUESTED
@@ -876,8 +880,10 @@ async def get_notification(
 
     # this can result in many permissions being requested
 
-    datasets_records = [await Dataset.where_eq(timeseriesIDs=ts_id.timeseriesID).all()
-                        for ts_id in permission_records]
+    datasets_records = [
+        await Dataset.where_eq(timeseriesIDs=ts_id.timeseriesID).all()
+        for ts_id in permission_records
+    ]
 
     # Group them by datasetID and also requestor!
 
@@ -885,73 +891,93 @@ async def get_notification(
     notifications = []
 
     for record in datasets_list:
-        notifications.append(Notification(type=NotificationType.PermissionRequest,
-                                          message_text=user_id + ' has requested to access ' + record.name
-                                          )
-                             )
+        notifications.append(
+            Notification(
+                type=NotificationType.PermissionRequest,
+                message_text=user_id + " has requested to access " + record.name,
+            )
+        )
     return notifications
 
 
 # POST /permissions
-@app.post('/post/permissions')
+@app.post("/post/permissions")
 async def post_permission(permissions: MultiplePermissions) -> MessageResponse:
     req = []
     for rec in permissions.permissions:
-        req.append(Permission(timeseriesID=rec.timeseriesID,
-                              algorithmID=rec.algorithmID,
-                              authorizer=rec.authorizer,
-                              status=rec.status,
-                              executionCount=rec.executionCount,
-                              maxExecutionCount=rec.maxExecutionCount,
-                              requestor=rec.requestor).save())
+        req.append(
+            Permission(
+                timeseriesID=rec.timeseriesID,
+                algorithmID=rec.algorithmID,
+                authorizer=rec.authorizer,
+                status=rec.status,
+                executionCount=rec.executionCount,
+                maxExecutionCount=rec.maxExecutionCount,
+                requestor=rec.requestor,
+            ).save()
+        )
     await asyncio.gather(*req)
 
-    return MessageResponse(response='Permissions Posted Successfully')
+    return MessageResponse(response="Permissions Posted Successfully")
 
 
 # Create a new permission as the authorizer
-@app.post('/authorizer/post/permission')
-async def post_authorizer_permission(permission: PostPermission) -> PermissionPostedResponse:
-    authorizer_permission = await Permission(timeseriesID=permission.timeseriesID,
-                                             algorithmID=permission.algorithmID,
-                                             authorizer=permission.authorizer,
-                                             status=permission.status,
-                                             executionCount=permission.executionCount,
-                                             maxExecutionCount=permission.maxExecutionCount,
-                                             requestor=permission.requestor).save()
+@app.post("/authorizer/post/permission")
+async def post_authorizer_permission(
+    permission: PostPermission,
+) -> PermissionPostedResponse:
+    authorizer_permission = await Permission(
+        timeseriesID=permission.timeseriesID,
+        algorithmID=permission.algorithmID,
+        authorizer=permission.authorizer,
+        status=permission.status,
+        executionCount=permission.executionCount,
+        maxExecutionCount=permission.maxExecutionCount,
+        requestor=permission.requestor,
+    ).save()
 
-    return PermissionPostedResponse(sender=authorizer_permission.authorizer,
-                                    permissionResponse=authorizer_permission)
+    return PermissionPostedResponse(
+        sender=authorizer_permission.authorizer,
+        permissionResponse=authorizer_permission,
+    )
 
 
 # POST /datasets/{dataset_id}/request
-@app.post('/datasets/dataset_id/request')
+@app.post("/datasets/dataset_id/request")
 async def dataset_request(dataset_req: UploadDatasetRequest) -> MessageResponse:
-    posted_dataset = await Dataset(id_hash=dataset_req.id_hash,
-                                   name=dataset_req.name,
-                                   desc=dataset_req.desc,
-                                   owner=dataset_req.owner,
-                                   ownsAllTimeseries=dataset_req.ownsAllTimeseries,
-                                   timeseriesIDs=dataset_req.timeseriesIDs).save()
-    return MessageResponse(response=posted_dataset.id_hash + ' posted Successfully')
+    posted_dataset = await Dataset(
+        id_hash=dataset_req.id_hash,
+        name=dataset_req.name,
+        desc=dataset_req.desc,
+        owner=dataset_req.owner,
+        ownsAllTimeseries=dataset_req.ownsAllTimeseries,
+        timeseriesIDs=dataset_req.timeseriesIDs,
+    ).save()
+    return MessageResponse(response=posted_dataset.id_hash + " posted Successfully")
 
 
 # Create a new permission request as the requestor of a specific dataset
 
-@app.post('/requestor/permission/dataset')
-async def requestor_permission_dataset(permission: PostPermission) -> PermissionPostedResponse:
-    requestor_dataset = await Permission(timeseriesID=permission.timeseriesID,
-                                         algorithmID=permission.algorithmID,
-                                         authorizer=permission.authorizer,
-                                         status=permission.status,
-                                         executionCount=permission.executionCount,
-                                         maxExecutionCount=permission.maxExecutionCount,
-                                         requestor=permission.requestor).save()
-    return PermissionPostedResponse(sender=requestor_dataset.requestor,
-                                    permissionResponse=requestor_dataset)
+
+@app.post("/requestor/permission/dataset")
+async def requestor_permission_dataset(
+    permission: PostPermission,
+) -> PermissionPostedResponse:
+    requestor_dataset = await Permission(
+        timeseriesID=permission.timeseriesID,
+        algorithmID=permission.algorithmID,
+        authorizer=permission.authorizer,
+        status=permission.status,
+        executionCount=permission.executionCount,
+        maxExecutionCount=permission.maxExecutionCount,
+        requestor=permission.requestor,
+    ).save()
+    return PermissionPostedResponse(
+        sender=requestor_dataset.requestor, permissionResponse=requestor_dataset
+    )
 
 
-@app.delete('/clear/records')
+@app.delete("/clear/records")
 async def empty_records() -> MessageResponse:
     await UserInfo.forget_all()
     await Timeseries.forget_all()

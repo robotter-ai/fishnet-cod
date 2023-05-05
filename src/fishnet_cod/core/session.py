@@ -28,7 +28,7 @@ def initialize_aars():
     aleph_account = get_fallback_account()
     aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
 
-    print(channel, 'channellll')
+    print(channel, "channellll")
 
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session

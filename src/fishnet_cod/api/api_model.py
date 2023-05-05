@@ -145,9 +145,7 @@ class Notification(BaseModel):
 
 
 class PermissionRequestNotification(Notification):
-    type: NotificationType = (
-        NotificationType.PermissionRequest
-    )
+    type: NotificationType = NotificationType.PermissionRequest
     requestor: str
     datasetID: str
     uses: Optional[int]
