@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from aars import Index
 from pydantic import BaseModel
 
+from .auth import AuthInfo
 from ..core.model import (
     Dataset,
     Algorithm,
@@ -199,6 +200,14 @@ class FungibleAssetStandard(BaseModel):
 
 class MultiplePermissions(BaseModel):
     permissions: List[PostPermission]
+
+
+class TokenChallengeResponse(AuthInfo):
+    challenge: str
+
+
+class BearerTokenResponse(AuthInfo):
+    token: str
 
 
 class MessageResponse(BaseModel):
