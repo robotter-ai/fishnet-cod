@@ -923,9 +923,9 @@ async def put_user_info(user_info: PutUserInfo) -> UserInfo:
     return user_record
 
 
-@app.get("/user/all")
-async def get_all_user() -> List[UserInfo]:
-    return await UserInfo.fetch_objects().all()
+@app.get("/users")
+async def get_all_user(page: int = 1, page_size: int = 20) -> List[UserInfo]:
+    return await UserInfo.fetch_objects().page(page=page, page_size=page_size)
 
 
 # ------------------>Kingsley requirements<---------------------------#
