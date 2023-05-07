@@ -1,23 +1,25 @@
 import asyncio
 import os
+import logging
 from os import listdir
 from typing import Optional
 
-import pandas as pd  # type: ignore
 from aars import AARS, Record
-from aleph.sdk.exceptions import BadSignatureError  # type: ignore
-from aleph.sdk.vm.app import AlephApp  # type: ignore
-from aleph_message.models import PostMessage  # type: ignore
+from aleph.sdk.vm.app import AlephApp
+from aleph_message.models import PostMessage
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 
-from ..core.constants import API_MESSAGE_FILTER
+from ..core.constants import API_MESSAGE_FILTER, FISHNET_MESSAGE_CHANNEL
 from ..core.model import (Algorithm, Dataset, Execution, Permission, Result,
                           Timeseries, UserInfo, View)
 from ..core.session import initialize_aars
 from .api_model import MessageResponse
 
+logger = logging.getLogger(__name__) if __name__ != "__main__" else logging.getLogger(
+    "uvicorn"
+)
 http_app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/challenge")
@@ -33,8 +35,6 @@ http_app.add_middleware(
 )
 
 app = AlephApp(http_app=http_app)
-global aars_client
-aars_client: AARS
 
 
 async def re_index():
@@ -45,8 +45,7 @@ async def re_index():
 
 @app.on_event("startup")
 async def startup():
-    global aars_client
-    aars_client = initialize_aars()
+    initialize_aars()
     await re_index()
 
 
@@ -57,7 +56,7 @@ async def index():
     else:
         opt_venv = []
     return {
-        "vm_name": "fishnet_api",
+        "vm_name": FISHNET_MESSAGE_CHANNEL,
         "endpoints": [
             "/docs",
         ],
@@ -95,6 +94,9 @@ async def fishnet_event(event: PostMessage):
         "Dataset",
         "Timeseries",
         "Algorithm",
+        "View",
+        "UserInfo",
+        "Result",
     ]:
         if Record.is_indexed(event.item_hash):
             return
