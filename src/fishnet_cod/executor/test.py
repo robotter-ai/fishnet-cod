@@ -15,22 +15,26 @@ from ..api.api_model import (
 )
 from ..api.main import app
 
-from main import handle_execution
+from .main import handle_execution
 
 client = TestClient(app)
 aleph_client = AlephClient(settings.API_HOST)
 
 
-def test_execution():
+def test_execution() -> None:
     timeseries_req = UploadTimeseriesRequest(
         timeseries=[
             TimeseriesItem(
+                id_hash=None,
                 name="test_execution_timeseries1",
+                desc=None,
                 owner="executooor",
                 data=[(i, 1) for i in range(100)],
             ),
             TimeseriesItem(
+                id_hash=None,
                 name="test_execution_timeseries2",
+                desc=None,
                 owner="executooor",
                 data=[(i, 10) for i in range(100)],
             ),
@@ -43,7 +47,9 @@ def test_execution():
     timeseries_ids = [ts["id_hash"] for ts in response.json()]
 
     dataset_req = UploadDatasetRequest(
+        id_hash=None,
         name="test_execution_dataset",
+        desc=None,
         owner="executooor",
         ownsAllTimeseries=True,
         timeseriesIDs=timeseries_ids,
@@ -54,6 +60,7 @@ def test_execution():
     dataset_id = response.json()["id_hash"]
 
     algo_req = UploadAlgorithmRequest(
+        id_hash=None,
         name="test_execution_algorithm",
         desc="sums all columns",
         owner="executooor",
@@ -68,7 +75,7 @@ def run(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     algorithm_id = response.json()["id_hash"]
 
     exec_req: RequestExecutionRequest = RequestExecutionRequest(
-        algorithmID=algorithm_id, datasetID=dataset_id, owner="executooor"
+        algorithmID=algorithm_id, datasetID=dataset_id, owner="executooor", status=None
     )
     response = client.post("/executions/request", json=exec_req.dict())
     assert response.status_code == 200

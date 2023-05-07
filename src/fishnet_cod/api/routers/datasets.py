@@ -236,7 +236,8 @@ async def generate_view(
             minimum = min(values)
             maximum = max(values)
             normalized = [
-                (p[0], round((p[1] - minimum) / (maximum - minimum), 2)) for p in ts.data
+                (p[0], round((p[1] - minimum) / (maximum - minimum), 2))
+                for p in ts.data
             ]
             # drop points according to granularity
             thinned = []

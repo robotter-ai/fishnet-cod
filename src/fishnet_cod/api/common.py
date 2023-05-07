@@ -1,7 +1,14 @@
 import asyncio
 from typing import List, Tuple, Dict
 
-from ..core.model import Granularity, Dataset, Execution, Permission, Timeseries, PermissionStatus
+from ..core.model import (
+    Granularity,
+    Dataset,
+    Execution,
+    Permission,
+    Timeseries,
+    PermissionStatus,
+)
 
 
 def get_timestamps_by_granularity(
