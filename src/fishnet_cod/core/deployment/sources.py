@@ -32,7 +32,6 @@ def fetch_latest_source(
     )
     latest_source: Optional[StoreMessage] = None
     for source in source_messages.messages:
-        source: StoreMessage
         assert (
             source.content.protocol_version
         ), "[PANIC] Encountered source_code message with no version!\n" + str(

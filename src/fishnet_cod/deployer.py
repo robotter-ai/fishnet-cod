@@ -1,8 +1,8 @@
 # Deployment script for fishnet_cod
 # Path: src/fishnet_cod/deployer.py
 
-from core.deployment import *
-from core.session import initialize_aars
+from .core.deployment import *
+from .core.session import initialize_aars
 
 
 def main():

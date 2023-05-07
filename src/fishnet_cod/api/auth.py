@@ -84,7 +84,7 @@ class AuthTokenManager:
     @classmethod
     def get_token(cls, pubkey: str, chain: SupportedChains) -> str:
         try:
-            return cls.__challenges.get(pubkey + "-" + str(chain)).token
+            return cls.__challenges[pubkey + "-" + str(chain)].token
         except (TimeoutError, AttributeError) as e:
             if e is TimeoutError:
                 cls.remove_challenge(pubkey, chain)
@@ -188,3 +188,4 @@ class AuthTokenChecker:
                     detail=f"Not authorized. Request a challenge to sign from f{self.challenge_endpoint} "
                     f"and retrieve a token from f{self.token_endpoint}.",
                 )
+            raise e

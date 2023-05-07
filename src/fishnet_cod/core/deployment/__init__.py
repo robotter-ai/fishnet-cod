@@ -85,10 +85,10 @@ def deploy_executors(
         slice_start = time_slices[i - 1]
         # parse slice_end and slice_start to datetime
         if slice_end == -1:
-            slice_end = datetime.max.timestamp()
-        slice_end = datetime.fromtimestamp(slice_end)
-        slice_start = datetime.fromtimestamp(slice_start)
-        slice_string = f"{slice_start.isoformat()}-{slice_end.isoformat()}"
+            slice_end = int(datetime.max.timestamp())
+        slice_end_date = datetime.fromtimestamp(slice_end)
+        slice_start_date = datetime.fromtimestamp(slice_start)
+        slice_string = f"{slice_start_date.isoformat()}-{slice_end_date.isoformat()}"
         name = f"executor-v{VERSION_STRING}_{slice_string}"
 
         # Create immutable volume with python dependencies

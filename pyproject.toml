@@ -1,29 +1,32 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "fishnet-cod"
-version = "1.0.0-beta.6"
-authors = [
-  { name="Mike Hukiewitz", email="mike.hukiewitz@robotter.ai" },
-]
-description = "Compute-over-Data (CoD) network for time series data on Aleph.im"
-license = "AGPL-3.0"
 tags = ["aleph.im", "cod", "time-series", "network", "data-science"]
+
+[tool.poetry]
+name = "fishnet-cod"
+version = "1.1.0"
+description = "Compute-over-Data (CoD) network for time series data on Aleph.im"
+authors = ["Mike Hukiewitz <mike.hukiewitz@robotter.ai>"]
+license = "AGPL-3.0"
 readme = "README.md"
-requires-python = ">=3.9"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
+packages = [{include = "src/fishnet_cod"}]
 
-[dependencies]
-pydantic = "^1.8.2"
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.30.0"
+pandas = "^2.0.1"
+PyNaCl = "^1.5.0"
+base58 = "^2.1.1"
+semver = "^3.0.0"
+pydantic = "^1.10.7"
+fastapi = "^0.95.1"
 aleph-sdk-python = "^0.6.0"
-aars = "^0.4.3"
+aiohttp = "^3.8.4"
+aars = "^0.5.8"
 
-[project.urls]
-"Homepage" = "https://github.com/yourtrading-ai/fishnet-cod"
-"Bug Tracker" = "https://github.com/yourtrading-ai/fishnet-cod/issues"
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+uvicorn = {extras = ["standard"], version = "^0.22.0"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

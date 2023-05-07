@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from aars import Index
 from pydantic import BaseModel
@@ -189,7 +189,7 @@ class PutViewResponse(BaseModel):
 
 class Attribute(BaseModel):
     trait_type: str
-    value: str
+    value: Optional[Union[str, int, float]]
 
 
 class FungibleAssetStandard(BaseModel):

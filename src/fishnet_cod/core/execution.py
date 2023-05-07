@@ -1,11 +1,13 @@
+from typing import Optional
 import pandas as pd
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
 
-from .model import *
+from .model import Algorithm, Dataset, Execution, ExecutionStatus, Result, Timeseries
 
 
 async def try_get_execution_from_message(message: PostMessage) -> Optional[Execution]:
+    execution: Optional[Execution]
     if message.content.type in ["Execution"]:
         execution = await Execution.from_post(message)
     else:  # amend
@@ -32,7 +34,11 @@ async def run_execution(
         execution.resultID = result.id_hash
         return await execution.save()
 
-    assert isinstance(execution, Execution)
+    try:
+        assert isinstance(execution, Execution)
+    except AssertionError:
+        return await set_failed(execution, "Invalid execution message")
+
     if execution.status != ExecutionStatus.PENDING:
         return execution
 
@@ -42,7 +48,8 @@ async def run_execution(
     try:
         try:
             algorithm = await Algorithm.fetch(execution.algorithmID).first()
-        except IndexError:
+            assert isinstance(algorithm, Algorithm)
+        except (IndexError, AssertionError):
             return await set_failed(
                 execution, f"Algorithm {execution.algorithmID} not found"
             )
@@ -53,7 +60,7 @@ async def run_execution(
             print(algorithm.code)
             # TODO: Add caching of code compiles
             # TODO: Add constraints of globals
-            code = compile(algorithm.code, algorithm.id_hash, "exec")
+            code = compile(algorithm.code, str(algorithm.id_hash), "exec")
             exec(code)
         except Exception as e:
             return await set_failed(
@@ -68,7 +75,8 @@ async def run_execution(
 
         try:
             dataset = await Dataset.fetch(execution.datasetID).first()
-        except IndexError:
+            assert isinstance(dataset, Dataset)
+        except (IndexError, AssertionError):
             return await set_failed(
                 execution, f"Dataset {execution.datasetID} not found"
             )
@@ -108,7 +116,7 @@ async def run_execution(
             return await set_failed(execution, f"Failed to run algorithm: {e}")
 
         result_message = await Result(
-            executionID=execution.id_hash,
+            executionID=str(execution.id_hash),
             data=str(result),
             owner=execution.owner,
             executor_vm=executor_vm,

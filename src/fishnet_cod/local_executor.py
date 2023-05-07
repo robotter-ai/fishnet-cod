@@ -3,10 +3,10 @@ import time
 
 from aleph_message.models import PostMessage, MessageType
 
-from core.constants import EXECUTOR_MESSAGE_FILTER
-from core.model import Execution
-from core.execution import try_get_execution_from_message, run_execution
-from core.session import initialize_aars
+from .core.constants import EXECUTOR_MESSAGE_FILTER
+from .core.model import Execution
+from .core.execution import try_get_execution_from_message, run_execution
+from .core.session import initialize_aars
 
 aars_client = initialize_aars()
 print(f"Using address: {aars_client.a.get_address()}")

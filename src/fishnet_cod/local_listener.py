@@ -4,9 +4,9 @@ import requests
 
 from aleph_message.models import PostMessage, MessageType
 
-from core.constants import API_MESSAGE_FILTER
-from core.model import Execution
-from src.fishnet_cod.core.session import initialize_aars
+from .core.constants import API_MESSAGE_FILTER
+from .core.model import Execution
+from .core.session import initialize_aars
 
 aars_client = initialize_aars()
 
