@@ -4,9 +4,19 @@ from typing import List, Optional, Tuple, Union
 from aars import Index
 from pydantic import BaseModel
 
-from ..core.model import (Algorithm, Dataset, DatasetPermissionStatus,
-                          Execution, Granularity, Permission, PermissionStatus,
-                          Result, Timeseries, UserInfo, View)
+from ..core.model import (
+    Algorithm,
+    Dataset,
+    DatasetPermissionStatus,
+    Execution,
+    Granularity,
+    Permission,
+    PermissionStatus,
+    Result,
+    Timeseries,
+    UserInfo,
+    View,
+)
 from .security import AuthInfo
 
 # indexes to fetch by timeseries

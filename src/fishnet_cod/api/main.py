@@ -1,6 +1,6 @@
 import asyncio
-import os
 import logging
+import os
 from os import listdir
 from typing import Optional
 
@@ -12,13 +12,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 
 from ..core.constants import API_MESSAGE_FILTER, FISHNET_MESSAGE_CHANNEL
-from ..core.model import (Algorithm, Dataset, Execution, Permission, Result,
-                          Timeseries, UserInfo, View)
+from ..core.model import (
+    Algorithm,
+    Dataset,
+    Execution,
+    Permission,
+    Result,
+    Timeseries,
+    UserInfo,
+    View,
+)
 from ..core.session import initialize_aars
 from .api_model import MessageResponse
+from .routers import (
+    algorithms,
+    datasets,
+    executions,
+    permissions,
+    results,
+    timeseries,
+    users,
+)
 
-logger = logging.getLogger(__name__) if __name__ != "__main__" else logging.getLogger(
-    "uvicorn"
+logger = (
+    logging.getLogger(__name__)
+    if __name__ != "__main__"
+    else logging.getLogger("uvicorn")
 )
 http_app = FastAPI()
 
@@ -33,6 +52,14 @@ http_app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+http_app.include_router(algorithms.router)
+http_app.include_router(datasets.router)
+http_app.include_router(executions.router)
+http_app.include_router(permissions.router)
+http_app.include_router(results.router)
+http_app.include_router(timeseries.router)
+http_app.include_router(users.router)
 
 app = AlephApp(http_app=http_app)
 

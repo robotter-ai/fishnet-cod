@@ -12,12 +12,21 @@ from aleph_message.models import ProgramMessage, StoreMessage
 from aleph_message.models.program import ImmutableVolume, PersistentVolume
 from semver import VersionInfo
 
-from ..constants import (API_MESSAGE_FILTER, EXECUTOR_MESSAGE_FILTER,
-                         FISHNET_DEPLOYMENT_CHANNEL, VM_URL_HOST, VM_URL_PATH)
+from ..constants import (
+    API_MESSAGE_FILTER,
+    EXECUTOR_MESSAGE_FILTER,
+    FISHNET_DEPLOYMENT_CHANNEL,
+    VM_URL_HOST,
+    VM_URL_PATH,
+)
 from ..version import VERSION_STRING, __version__
 from .discovery import discover_apis, discover_executors
-from .sources import (SourceType, build_and_upload_requirements,
-                      fetch_latest_source, upload_source)
+from .sources import (
+    SourceType,
+    build_and_upload_requirements,
+    fetch_latest_source,
+    upload_source,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -1,15 +1,20 @@
 from typing import List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException
 
 from ...core.model import Dataset, Execution, ExecutionStatus
 from ..api_model import RequestExecutionRequest, RequestExecutionResponse
 from ..common import request_permissions
-from ..main import app
+
+router = APIRouter(
+    prefix="/executions",
+    tags=["executions"],
+    responses={404: {"description": "Not found"}},
+)
 
 
-@app.get("/executions")
+@router.get("/")
 async def get_executions(
     dataset_id: Optional[str] = None,
     by: Optional[str] = None,
@@ -27,7 +32,7 @@ async def get_executions(
     return await execution_requests.page(page=page, page_size=page_size)
 
 
-@app.post("/executions/request")
+@router.post("/")
 async def request_execution(
     execution_request: RequestExecutionRequest,
 ) -> RequestExecutionResponse:

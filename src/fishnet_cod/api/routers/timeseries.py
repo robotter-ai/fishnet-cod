@@ -2,15 +2,20 @@ import asyncio
 from typing import List
 
 import pandas as pd
-from fastapi import File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 
 from ...core.model import Timeseries
 from ..api_model import UploadTimeseriesRequest
-from ..main import app
+
+router = APIRouter(
+    prefix="/timeseries",
+    tags=["timeseries"],
+    responses={404: {"description": "Not found"}},
+)
 
 
-@app.put("/timeseries/upload")
+@router.put("/upload")
 async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     """
     Upload a list of timeseries. If the passed timeseries has an `id_hash` and it already exists,
@@ -43,7 +48,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
 
 
-@app.post("/timeseries/csv/preprocess")
+@router.post("/preprocess/csv")
 async def upload_timeseries_csv(
     owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:

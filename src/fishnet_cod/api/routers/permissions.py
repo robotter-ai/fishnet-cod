@@ -1,15 +1,27 @@
 import asyncio
 from typing import List
 
-from ...core.model import (Dataset, Execution, ExecutionStatus, Permission,
-                           PermissionStatus)
+from fastapi import APIRouter
+
+from ...core.model import (
+    Dataset,
+    Execution,
+    ExecutionStatus,
+    Permission,
+    PermissionStatus,
+)
 from ..api_model import ApprovePermissionsResponse, DenyPermissionsResponse
 from ..common import request_permissions
-from ..main import app
 from ..utils import unique
 
+router = APIRouter(
+    prefix="/permissions",
+    tags=["permissions"],
+    responses={404: {"description": "Not found"}},
+)
 
-@app.put("/permissions/approve")
+
+@router.put("/approve")
 async def approve_permissions(
     permission_hashes: List[str],
 ) -> ApprovePermissionsResponse:
@@ -75,7 +87,7 @@ async def approve_permissions(
     )
 
 
-@app.put("/permissions/deny")
+@router.put("/deny")
 async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsResponse:
     """
     Deny permission.

@@ -5,9 +5,13 @@ from aleph.sdk.client import AlephClient
 from aleph.sdk.conf import settings
 from fastapi.testclient import TestClient
 
-from ..api.api_model import (RequestExecutionRequest, TimeseriesItem,
-                             UploadAlgorithmRequest, UploadDatasetRequest,
-                             UploadTimeseriesRequest)
+from ..api.api_model import (
+    RequestExecutionRequest,
+    TimeseriesItem,
+    UploadAlgorithmRequest,
+    UploadDatasetRequest,
+    UploadTimeseriesRequest,
+)
 from ..api.main import app
 from ..core.model import ExecutionStatus
 from .main import handle_execution
