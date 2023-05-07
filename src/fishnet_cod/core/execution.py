@@ -1,9 +1,11 @@
 from typing import Optional
+
 import pandas as pd
 from aleph_message.models import PostMessage
 from pydantic import ValidationError
 
-from .model import Algorithm, Dataset, Execution, ExecutionStatus, Result, Timeseries
+from .model import (Algorithm, Dataset, Execution, ExecutionStatus, Result,
+                    Timeseries)
 
 
 async def try_get_execution_from_message(message: PostMessage) -> Optional[Execution]:

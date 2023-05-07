@@ -1,11 +1,11 @@
-from typing import Optional
 import time
+from typing import Optional
 
-from aleph_message.models import PostMessage, MessageType
+from aleph_message.models import MessageType, PostMessage
 
 from .core.constants import EXECUTOR_MESSAGE_FILTER
+from .core.execution import run_execution, try_get_execution_from_message
 from .core.model import Execution
-from .core.execution import try_get_execution_from_message, run_execution
 from .core.session import initialize_aars
 
 aars_client = initialize_aars()

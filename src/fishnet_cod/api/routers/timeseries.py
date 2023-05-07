@@ -2,12 +2,12 @@ import asyncio
 from typing import List
 
 import pandas as pd
-from fastapi import HTTPException, Form, UploadFile, File
+from fastapi import File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 
+from ...core.model import Timeseries
 from ..api_model import UploadTimeseriesRequest
 from ..main import app
-from ...core.model import Timeseries
 
 
 @app.put("/timeseries/upload")

@@ -1,11 +1,10 @@
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import HTTPException, APIRouter
+from fastapi import APIRouter, HTTPException
 
-from ..api_model import UploadAlgorithmRequest
 from ...core.model import Algorithm
-
+from ..api_model import UploadAlgorithmRequest
 
 router = APIRouter(
     prefix="/algorithms",

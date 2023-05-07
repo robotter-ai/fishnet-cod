@@ -1,16 +1,15 @@
+import asyncio
 import logging
 from typing import Optional
 
-import asyncio
-from aleph_message.models import PostMessage, MessageType
-from aleph.sdk.vm.app import AlephApp
-
-from fastapi import FastAPI
 from aars import AARS
+from aleph.sdk.vm.app import AlephApp
+from aleph_message.models import MessageType, PostMessage
+from fastapi import FastAPI
 
-from ..core.model import Execution
 from ..core.constants import EXECUTOR_MESSAGE_FILTER
 from ..core.execution import run_execution, try_get_execution_from_message
+from ..core.model import Execution
 from ..core.session import initialize_aars
 
 logger = logging.getLogger("uvicorn")

@@ -1,2 +1,2 @@
-# Fishnet API VM v0.0.1
+# Fishnet API VM v1.1.0
 

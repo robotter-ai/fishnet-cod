@@ -1,8 +1,8 @@
-from typing import Optional
 import time
-import requests
+from typing import Optional
 
-from aleph_message.models import PostMessage, MessageType
+import requests
+from aleph_message.models import MessageType, PostMessage
 
 from .core.constants import API_MESSAGE_FILTER
 from .core.model import Execution

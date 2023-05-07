@@ -1,8 +1,9 @@
-from typing import Optional, List
+from typing import List, Optional
 
-from ..api_model import PutUserInfo, Notification, NotificationType
+from ...core.model import (Dataset, Permission, PermissionStatus, Result,
+                           UserInfo)
+from ..api_model import Notification, NotificationType, PutUserInfo
 from ..main import app
-from ...core.model import UserInfo, Permission, Result, PermissionStatus, Dataset
 
 
 @app.get("/users")

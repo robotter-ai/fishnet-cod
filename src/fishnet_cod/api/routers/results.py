@@ -1,7 +1,7 @@
 from typing import Optional
 
-from ..main import app
 from ...core.model import Result
+from ..main import app
 
 
 @app.get("/results/{result_id}")

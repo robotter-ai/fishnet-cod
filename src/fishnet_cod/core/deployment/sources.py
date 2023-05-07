@@ -3,11 +3,11 @@ import shutil
 import subprocess
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 
 from aleph.sdk.client import AuthenticatedUserSessionSync
 from aleph.sdk.types import StorageEnum
-from aleph_message.models import MessageType, StoreMessage, ItemHash
+from aleph_message.models import ItemHash, MessageType, StoreMessage
 from semver import VersionInfo
 
 from ..constants import FISHNET_DEPLOYMENT_CHANNEL

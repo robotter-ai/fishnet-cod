@@ -1,33 +1,19 @@
 import asyncio
-from typing import Optional, List, Union, Awaitable
+from typing import Awaitable, List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import HTTPException, APIRouter
+from fastapi import APIRouter, HTTPException
 
-from .timeseries import upload_timeseries
-from ..api_model import (
-    DatasetResponse,
-    FungibleAssetStandard,
-    Attribute,
-    UploadDatasetTimeseriesRequest,
-    UploadDatasetTimeseriesResponse,
-    UploadTimeseriesRequest,
-    UploadDatasetRequest,
-    PutViewRequest,
-    PutViewResponse,
-)
+from ...core.model import (Dataset, DatasetPermissionStatus, Execution,
+                           ExecutionStatus, Permission, PermissionStatus,
+                           Timeseries, View)
+from ..api_model import (Attribute, DatasetResponse, FungibleAssetStandard,
+                         PutViewRequest, PutViewResponse, UploadDatasetRequest,
+                         UploadDatasetTimeseriesRequest,
+                         UploadDatasetTimeseriesResponse,
+                         UploadTimeseriesRequest)
 from ..common import get_timestamps_by_granularity
-from ...core.model import (
-    Dataset,
-    Permission,
-    DatasetPermissionStatus,
-    PermissionStatus,
-    Timeseries,
-    View,
-    Execution,
-    ExecutionStatus,
-)
-
+from .timeseries import upload_timeseries
 
 router = APIRouter(
     prefix="/datasets",

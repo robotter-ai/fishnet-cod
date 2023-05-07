@@ -1,14 +1,13 @@
 import time
 from enum import Enum
-from typing import Optional, Dict
+from typing import Dict, Optional
 
-from aleph.sdk.chains.sol import verify_signature as verify_signature_sol
 from aleph.sdk.chains.ethereum import verify_signature as verify_signature_eth
+from aleph.sdk.chains.sol import verify_signature as verify_signature_sol
 from fastapi import HTTPException
 from fastapi.security.utils import get_authorization_scheme_param
 from nacl.bindings.randombytes import randombytes
 from pydantic import BaseModel
-
 from starlette.requests import Request
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 

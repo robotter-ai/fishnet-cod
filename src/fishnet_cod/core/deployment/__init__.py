@@ -1,34 +1,23 @@
 import logging
 from base64 import b16decode, b32encode
+from datetime import datetime
 from pathlib import Path
 from typing import List
-from datetime import datetime
 
 from aleph.sdk.client import AuthenticatedUserSessionSync
 from aleph.sdk.conf import settings
+from aleph.sdk.types import StorageEnum
+from aleph.sdk.utils import create_archive
+from aleph_message.models import ProgramMessage, StoreMessage
 from aleph_message.models.program import ImmutableVolume, PersistentVolume
 from semver import VersionInfo
 
-from aleph.sdk.types import StorageEnum
-from aleph.sdk.utils import create_archive
-from aleph_message.models import StoreMessage, ProgramMessage
-
-from .discovery import discover_executors, discover_apis
-from .sources import (
-    fetch_latest_source,
-    upload_source,
-    build_and_upload_requirements,
-    SourceType,
-)
-from ..constants import (
-    FISHNET_DEPLOYMENT_CHANNEL,
-    EXECUTOR_MESSAGE_FILTER,
-    VM_URL_PATH,
-    VM_URL_HOST,
-    API_MESSAGE_FILTER,
-)
-
-from ..version import __version__, VERSION_STRING
+from ..constants import (API_MESSAGE_FILTER, EXECUTOR_MESSAGE_FILTER,
+                         FISHNET_DEPLOYMENT_CHANNEL, VM_URL_HOST, VM_URL_PATH)
+from ..version import VERSION_STRING, __version__
+from .discovery import discover_apis, discover_executors
+from .sources import (SourceType, build_and_upload_requirements,
+                      fetch_latest_source, upload_source)
 
 logger = logging.getLogger(__name__)
 

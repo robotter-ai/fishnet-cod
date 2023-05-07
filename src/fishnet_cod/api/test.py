@@ -4,9 +4,9 @@ from fastapi.testclient import TestClient
 
 putenv("TEST_CHANNEL", "true")
 
+from ..core.model import ExecutionStatus, PermissionStatus
 from .api_model import *
 from .main import app
-from ..core.model import ExecutionStatus, PermissionStatus
 
 client = TestClient(app)
 

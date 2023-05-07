@@ -1,17 +1,12 @@
 import asyncio
 from typing import List
 
+from ...core.model import (Dataset, Execution, ExecutionStatus, Permission,
+                           PermissionStatus)
 from ..api_model import ApprovePermissionsResponse, DenyPermissionsResponse
-from ..main import app
 from ..common import request_permissions
+from ..main import app
 from ..utils import unique
-from ...core.model import (
-    Permission,
-    PermissionStatus,
-    Execution,
-    ExecutionStatus,
-    Dataset,
-)
 
 
 @app.put("/permissions/approve")

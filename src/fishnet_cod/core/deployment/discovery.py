@@ -1,7 +1,7 @@
-from typing import Optional, List
+from typing import List, Optional
 
 from aleph.sdk.client import AuthenticatedUserSessionSync
-from aleph_message.models import ProgramMessage, MessageType
+from aleph_message.models import MessageType, ProgramMessage
 
 from ..constants import FISHNET_DEPLOYMENT_CHANNEL
 
