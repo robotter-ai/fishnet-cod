@@ -24,7 +24,7 @@ async def get_executions(
 ) -> List[Execution]:
     execution_requests: Union[PageableRequest[Execution], PageableResponse[Execution]]
     if dataset_id or by or status:
-        execution_requests = Execution.where_eq(
+        execution_requests = Execution.filter(
             datasetID=dataset_id, owner=by, status=status
         )
     else:

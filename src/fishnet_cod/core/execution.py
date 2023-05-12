@@ -27,12 +27,12 @@ async def run_execution(
     async def set_failed(execution, reason):
         execution.status = ExecutionStatus.FAILED
         result = await Result(
-            executionID=execution.id_hash,
+            executionID=execution.item_hash,
             data=reason,
             owner=execution.owner,
             executor_vm=executor_vm,
         ).save()
-        execution.resultID = result.id_hash
+        execution.resultID = result.item_hash
         return await execution.save()
 
     try:
@@ -61,7 +61,7 @@ async def run_execution(
             print(algorithm.code)
             # TODO: Add caching of code compiles
             # TODO: Add constraints of globals
-            code = compile(algorithm.code, str(algorithm.id_hash), "exec")
+            code = compile(algorithm.code, str(algorithm.item_hash), "exec")
             exec(code)
         except Exception as e:
             return await set_failed(
@@ -86,7 +86,7 @@ async def run_execution(
         if len(timeseries) != len(dataset.timeseriesIDs):
             if len(timeseries) == 0:
                 return await set_failed(
-                    execution, f"Timeseries for dataset {dataset.id_hash} not found"
+                    execution, f"Timeseries for dataset {dataset.item_hash} not found"
                 )
             # TODO: handle missing timeseries
             # return await set_failed(
@@ -117,13 +117,13 @@ async def run_execution(
             return await set_failed(execution, f"Failed to run algorithm: {e}")
 
         result_message = await Result(
-            executionID=str(execution.id_hash),
+            executionID=str(execution.item_hash),
             data=str(result),
             owner=execution.owner,
             executor_vm=executor_vm,
         ).save()
         execution.status = ExecutionStatus.SUCCESS
-        execution.resultID = result_message.id_hash
+        execution.resultID = result_message.item_hash
         await execution.save()
     except Exception as e:
         return await set_failed(execution, f"Unexpected error occurred: {e}")

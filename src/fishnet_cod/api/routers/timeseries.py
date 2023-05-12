@@ -18,23 +18,23 @@ router = APIRouter(
 @router.put("/upload")
 async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     """
-    Upload a list of timeseries. If the passed timeseries has an `id_hash` and it already exists,
+    Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,
     it will be overwritten. If the timeseries does not exist, it will be created.
     A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
     it might be that a passed timeseries contained illegal data.
     """
-    ids_to_fetch = [ts.id_hash for ts in req.timeseries if ts.id_hash is not None]
+    ids_to_fetch = [ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
     requests = []
     old_time_series = (
-        {ts.id_hash: ts for ts in await Timeseries.fetch(ids_to_fetch).all()}
+        {ts.item_hash: ts for ts in await Timeseries.fetch(ids_to_fetch).all()}
         if ids_to_fetch
         else {}
     )
     for ts in req.timeseries:
-        if old_time_series.get(ts.id_hash) is None:
+        if old_time_series.get(ts.item_hash) is None:
             requests.append(Timeseries(**dict(ts)).save())
             continue
-        old_ts: Timeseries = old_time_series[ts.id_hash]
+        old_ts: Timeseries = old_time_series[ts.item_hash]
         if ts.owner != old_ts.owner:
             raise HTTPException(
                 status_code=403,
@@ -54,7 +54,7 @@ async def upload_timeseries_csv(
 ) -> List[Timeseries]:
     """
     Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
-    `id_hash`, `name`, `desc`, `data`. The `data` column must contain a json string with the timeseries data.
+    `item_hash`, `name`, `desc`, `data`. The `data` column must contain a json string with the timeseries data.
     """
     if data_file.filename and not data_file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a csv file")
@@ -76,7 +76,7 @@ async def upload_timeseries_csv(
             data = [(timestamps[i], value) for i, value in enumerate(df[col].tolist())]
             timeseries.append(
                 Timeseries(
-                    id_hash=None,
+                    item_hash=None,
                     name=col,
                     desc=None,
                     data=data,

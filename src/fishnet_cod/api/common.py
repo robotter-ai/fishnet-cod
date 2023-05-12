@@ -55,11 +55,10 @@ async def request_permissions(
         A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
     """
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    requested_permissions = [
-        Permission.where_eq(timeseriesID=tsID, requestor=execution.owner).first()
-        for tsID in dataset.timeseriesIDs
-    ]
-    permissions: List[Permission] = list(await asyncio.gather(*requested_permissions))
+    permissions = await Permission.filter(
+        timeseriesID__in=dataset.timeseriesIDs, requestor=execution.owner
+    ).all()
+
     ts_permission_map: Dict[str, Permission] = {
         permission.timeseriesID: permission for permission in permissions if permission  # type: ignore
     }
@@ -73,11 +72,11 @@ async def request_permissions(
             unavailable_timeseries.append(ts)
         if timeseries:
             continue
-        if ts.id_hash not in ts_permission_map:
+        if ts.item_hash not in ts_permission_map:
             create_permissions_requests.append(
                 Permission(
-                    datasetID=str(dataset.id_hash),
-                    timeseriesID=str(ts.id_hash),
+                    datasetID=str(dataset.item_hash),
+                    timeseriesID=str(ts.item_hash),
                     algorithmID=execution.algorithmID,
                     authorizer=ts.owner,
                     requestor=execution.owner,
@@ -87,7 +86,7 @@ async def request_permissions(
                 ).save()
             )
         else:
-            permission = ts_permission_map[ts.id_hash]
+            permission = ts_permission_map[ts.item_hash]
             needs_update = False
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED

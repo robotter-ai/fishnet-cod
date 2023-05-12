@@ -24,14 +24,14 @@ def test_execution() -> None:
     timeseries_req = UploadTimeseriesRequest(
         timeseries=[
             TimeseriesItem(
-                id_hash=None,
+                item_hash=None,
                 name="test_execution_timeseries1",
                 desc=None,
                 owner="executooor",
                 data=[(i, 1) for i in range(100)],
             ),
             TimeseriesItem(
-                id_hash=None,
+                item_hash=None,
                 name="test_execution_timeseries2",
                 desc=None,
                 owner="executooor",
@@ -42,11 +42,11 @@ def test_execution() -> None:
     req_body = timeseries_req.dict()
     response = client.put("/timeseries/upload", json=req_body)
     assert response.status_code == 200
-    assert response.json()[0]["id_hash"] is not None
-    timeseries_ids = [ts["id_hash"] for ts in response.json()]
+    assert response.json()[0]["item_hash"] is not None
+    timeseries_ids = [ts["item_hash"] for ts in response.json()]
 
     dataset_req = UploadDatasetRequest(
-        id_hash=None,
+        item_hash=None,
         name="test_execution_dataset",
         desc=None,
         owner="executooor",
@@ -55,11 +55,11 @@ def test_execution() -> None:
     )
     response = client.put("/datasets/upload", json=dataset_req.dict())
     assert response.status_code == 200
-    assert response.json()["id_hash"] is not None
-    dataset_id = response.json()["id_hash"]
+    assert response.json()["item_hash"] is not None
+    dataset_id = response.json()["item_hash"]
 
     algo_req = UploadAlgorithmRequest(
-        id_hash=None,
+        item_hash=None,
         name="test_execution_algorithm",
         desc="sums all columns",
         owner="executooor",
@@ -70,8 +70,8 @@ def run(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     )
     response = client.put("/algorithms/upload", json=algo_req.dict())
     assert response.status_code == 200
-    assert response.json()["id_hash"] is not None
-    algorithm_id = response.json()["id_hash"]
+    assert response.json()["item_hash"] is not None
+    algorithm_id = response.json()["item_hash"]
 
     exec_req: RequestExecutionRequest = RequestExecutionRequest(
         algorithmID=algorithm_id, datasetID=dataset_id, owner="executooor", status=None
@@ -82,7 +82,7 @@ def run(df: pd.DataFrame, params: dict) -> pd.DataFrame:
 
     time.sleep(3)
     execution_post = asyncio.run(
-        aleph_client.get_messages(hashes=[response.json()["execution"]["id_hash"]])
+        aleph_client.get_messages(hashes=[response.json()["execution"]["item_hash"]])
     )
 
     assert execution_post.messages is not None

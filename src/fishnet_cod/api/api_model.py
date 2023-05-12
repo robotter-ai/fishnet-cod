@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from ..core.model import (
     Algorithm,
     Dataset,
-    DatasetPermissionStatus,
     Execution,
     Granularity,
     Permission,
@@ -30,8 +29,6 @@ Index(Algorithm, "name")
 Index(Dataset, "owner")
 Index(Dataset, "name")
 
-Index(Dataset, "timeseriesIDs")
-
 # indexes to fetch by execution
 Index(Execution, "owner")
 Index(Execution, "datasetID")
@@ -43,7 +40,7 @@ Index(Permission, "requestor")
 Index(Permission, "authorizer")
 Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["timeseriesID", "authorizer"])
-Index(Permission, ["timeseriesID", "status"])
+Index(Permission, ["datasetID", "status", "timeseriesID"])
 Index(Permission, ["authorizer", "status"])
 
 # index to fetch results with owner
@@ -53,7 +50,7 @@ Index(UserInfo, "address")
 
 
 class TimeseriesItem(BaseModel):
-    id_hash: Optional[str]
+    item_hash: Optional[str]
     name: str
     owner: str
     desc: Optional[str]
@@ -75,7 +72,7 @@ class PostPermission(BaseModel):
 
 
 class UploadDatasetRequest(BaseModel):
-    id_hash: Optional[str]
+    item_hash: Optional[str]
     name: str
     desc: Optional[str]
     owner: str
@@ -83,8 +80,30 @@ class UploadDatasetRequest(BaseModel):
     timeseriesIDs: List[str]
 
 
+class DatasetPermissionStatus(str, Enum):
+    NOT_REQUESTED = "NOT REQUESTED"
+    REQUESTED = "REQUESTED"
+    GRANTED = "GRANTED"
+    DENIED = "DENIED"
+
+
 class DatasetResponse(Dataset):
     permission_status: Optional[DatasetPermissionStatus]
+
+
+class RequestDatasetPermissionsRequest(BaseModel):
+    requestor: str
+    algorithmID: Optional[str]
+    timeseriesIDs: Optional[List[str]]
+    requestedExecutionCount: Optional[int]
+
+
+class GrantDatasetPermissionsRequest(BaseModel):
+    authorizer: str
+    requestor: str
+    algorithmID: Optional[str]
+    timeseriesIDs: Optional[List[str]]
+    maxExecutionCount: Optional[int]
 
 
 class UploadPermissionRecords:
@@ -116,7 +135,7 @@ class PutUserInfo(BaseModel):
 
 
 class UploadAlgorithmRequest(BaseModel):
-    id_hash: Optional[str]
+    item_hash: Optional[str]
     name: str
     desc: str
     owner: str
@@ -175,7 +194,7 @@ class DenyPermissionsResponse(BaseModel):
 
 
 class PutViewRequest(BaseModel):
-    id_hash: Optional[str]
+    item_hash: Optional[str]
     timeseriesIDs: List[str]
     granularity: Granularity
     startTime: int

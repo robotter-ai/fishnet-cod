@@ -39,11 +39,11 @@ class View(Record):
 class Dataset(Record):
     name: str
     owner: str
-    desc: Optional[str]
-    available: bool = True
     ownsAllTimeseries: bool
+    available: bool = True
     timeseriesIDs: List[str]
-    views: Optional[List[str]]
+    desc: Optional[str]
+    viewIDs: Optional[List[str]]
 
 
 class Algorithm(Record):
@@ -67,7 +67,6 @@ class Execution(Record):
     datasetID: str
     owner: str
     status: ExecutionStatus = ExecutionStatus.REQUESTED
-    resultID: Optional[str]
     params: Optional[dict]
 
 
@@ -77,26 +76,32 @@ class PermissionStatus(str, Enum):
     DENIED = "DENIED"
 
 
-class DatasetPermissionStatus(str, Enum):
-    NOT_REQUESTED = "NOT REQUESTED"
-    REQUESTED = "REQUESTED"
-    GRANTED = "GRANTED"
-    DENIED = "DENIED"
-
-
 class Permission(Record):
-    datasetID: str
-    timeseriesID: Optional[str]
-    algorithmID: Optional[str]
+    """
+    A permission request for a dataset.
+    """
+
     authorizer: str
+    requestor: str
+    datasetID: str
+    """
+    The datasetID that the permission was requested for.
+    Can be a different dataset than the one the timeseries belongs to.
+    If the dataset is a composite dataset, this is the composite dataset and timeseriesID CANNOT be None.
+    This is because multiple permissions of multiple users are potentially required for a composite dataset.
+    """
+    timeseriesID: Optional[str]
+    """
+    The timeseriesID that the permission was requested for.
+    """
+    algorithmID: Optional[str]
     status: PermissionStatus
     executionCount: int
     maxExecutionCount: Optional[int]
-    requestor: str
 
 
 class Result(Record):
     executionID: str
-    data: Any
     owner: str
     executor_vm: str
+    data: Any

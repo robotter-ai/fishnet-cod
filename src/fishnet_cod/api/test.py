@@ -21,8 +21,8 @@ def test_full_request_execution_flow_with_own_dataset():
         req_body = upload_timeseries_req.dict()
         response = client.put("/timeseries/upload", json=req_body)
         assert response.status_code == 200
-        assert response.json()[0]["id_hash"] is not None
-        timeseries_id = response.json()[0]["id_hash"]
+        assert response.json()[0]["item_hash"] is not None
+        timeseries_id = response.json()[0]["item_hash"]
 
         upload_dataset_req = UploadDatasetRequest(
             name="test",
@@ -32,16 +32,16 @@ def test_full_request_execution_flow_with_own_dataset():
         )
         response = client.put("/datasets/upload", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        dataset_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        dataset_id = response.json()["item_hash"]
 
         upload_algorithm_req = UploadAlgorithmRequest(
             name="test", desc="test", owner="test", code="test"
         )
         response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        algorithm_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        algorithm_id = response.json()["item_hash"]
 
         request_execution_req = RequestExecutionRequest(
             algorithmID=algorithm_id, datasetID=dataset_id, owner="test"
@@ -62,8 +62,8 @@ def test_requests_approval_deny():
     response = client.put("/timeseries/upload", json=timeseries_item.dict())
 
     assert response.status_code == 200
-    assert response.json()["id_hash"] is not None
-    timeseries_id = response.json()["id_hash"]
+    assert response.json()["item_hash"] is not None
+    timeseries_id = response.json()["item_hash"]
 
     upload_dataset_req = UploadDatasetRequest(
         name="Approve_test",
@@ -73,7 +73,7 @@ def test_requests_approval_deny():
     )
     response = client.put("/datasets/upload", json=upload_dataset_req.dict())
     assert response.status_code == 200
-    dataset_id = response.json()["id_hash"]
+    dataset_id = response.json()["item_hash"]
     assert dataset_id is not None
 
     requestor_address = "Approve_test_requestor"
@@ -82,7 +82,7 @@ def test_requests_approval_deny():
     )
     response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
     assert response.status_code == 200
-    algorithm_id = response.json()["id_hash"]
+    algorithm_id = response.json()["item_hash"]
     assert algorithm_id is not None
 
     request_execution_req = RequestExecutionRequest(
@@ -93,7 +93,7 @@ def test_requests_approval_deny():
     assert response.json()["execution"]["status"] == ExecutionStatus.REQUESTED
     permission = response.json()["execution"]["permissionRequests"][0]
     assert permission.status == PermissionStatus.REQUESTED
-    permission_ids = [permission.id_hash]
+    permission_ids = [permission.item_hash]
 
     response = client.put(
         "/permissions/approve", params={"permission_hashes": permission_ids}
@@ -122,8 +122,8 @@ def test_get_algorithm():
         req_body = upload_timeseries_req.dict()
         response = client.put("/timeseries/upload", json=req_body)
         assert response.status_code == 200
-        assert response.json()[0]["id_hash"] is not None
-        timeseries_id = response.json()[0]["id_hash"]
+        assert response.json()[0]["item_hash"] is not None
+        timeseries_id = response.json()[0]["item_hash"]
 
         upload_dataset_req = UploadDatasetRequest(
             name="test",
@@ -133,13 +133,13 @@ def test_get_algorithm():
         )
         response = client.put("/datasets/upload", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
+        assert response.json()["item_hash"] is not None
         upload_algorithm_req = UploadAlgorithmRequest(
             name="test", desc="test", owner="test", code="test"
         )
         response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
+        assert response.json()["item_hash"] is not None
 
         # Testing the get_algorithm endpoint
         algo_response = client.get("/algorithms")
@@ -163,8 +163,8 @@ def test_incoming_permission():
         req_body = upload_timeseries_req.dict()
         response = client.put("/timeseries/upload", json=req_body)
         assert response.status_code == 200
-        assert response.json()[0]["id_hash"] is not None
-        timeseries_id = response.json()[0]["id_hash"]
+        assert response.json()[0]["item_hash"] is not None
+        timeseries_id = response.json()[0]["item_hash"]
         # - Upload dataset
         upload_dataset_req = UploadDatasetRequest(
             name="test",
@@ -174,8 +174,8 @@ def test_incoming_permission():
         )
         response = client.put("/datasets/upload", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        dataset_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        dataset_id = response.json()["item_hash"]
 
         # - Upload algorithm
         requestor_address = "Approve_test_requestor"
@@ -187,8 +187,8 @@ def test_incoming_permission():
         )
         response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        algorithm_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        algorithm_id = response.json()["item_hash"]
 
         # - Approve execution
         request_execution_req = RequestExecutionRequest(
@@ -216,7 +216,7 @@ def test_incoming_permission():
         # - Grant permission
         permission = response.json()["execution"]["permissionRequests"][0]
         assert permission.status == PermissionStatus.REQUESTED
-        permission_ids = [permission.id_hash]
+        permission_ids = [permission.item_hash]
 
         response = client.put(
             "/permissions/approve", params={"permission_hashes": permission_ids}
@@ -273,8 +273,8 @@ def test_outgoing_permission():
         req_body = upload_timeseries_req.dict()
         response = client.put("/timeseries/upload", json=req_body)
         assert response.status_code == 200
-        assert response.json()[0]["id_hash"] is not None
-        timeseries_id = response.json()[0]["id_hash"]
+        assert response.json()[0]["item_hash"] is not None
+        timeseries_id = response.json()[0]["item_hash"]
         # - Upload dataset
         upload_dataset_req = UploadDatasetRequest(
             name="test",
@@ -284,8 +284,8 @@ def test_outgoing_permission():
         )
         response = client.put("/datasets/upload", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        dataset_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        dataset_id = response.json()["item_hash"]
 
         # - Upload algorithm
         requestor_address = "Approve_test_requestor"
@@ -297,8 +297,8 @@ def test_outgoing_permission():
         )
         response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        algorithm_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        algorithm_id = response.json()["item_hash"]
 
         # - Approve execution
         request_execution_req = RequestExecutionRequest(
@@ -326,7 +326,7 @@ def test_outgoing_permission():
         # - Grant permission
         permission = response.json()["execution"]["permissionRequests"][0]
         assert permission.status == PermissionStatus.REQUESTED
-        permission_ids = [permission.id_hash]
+        permission_ids = [permission.item_hash]
 
         response = client.put(
             "/permissions/approve", params={"permission_hashes": permission_ids}
@@ -397,13 +397,13 @@ def test_get_dataset_permission():
         )
         response = client.put("/timeseries/upload", json=upload_timeseries_req_1.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        timeseries_id_1 = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        timeseries_id_1 = response.json()["item_hash"]
 
         response = client.put("/timeseries/upload", json=upload_timeseries_req_2.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        timeseries_id_2 = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        timeseries_id_2 = response.json()["item_hash"]
 
         upload_dataset_req = UploadDatasetRequest(
             name="dataset_permission_test_upload_Request",
@@ -414,7 +414,7 @@ def test_get_dataset_permission():
         # Upload dataset
         response = client.put("/datasets/upload", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        dataset_id = response.json()["id_hash"]
+        dataset_id = response.json()["item_hash"]
         assert dataset_id is not None
 
         requestor_address = "Approve_test_requestor_001"
@@ -427,7 +427,7 @@ def test_get_dataset_permission():
         # - Upload algorithm
         response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
         assert response.status_code == 200
-        algorithm_id = response.json()["id_hash"]
+        algorithm_id = response.json()["item_hash"]
         assert algorithm_id is not None
         # Request execution
         request_execution_req = RequestExecutionRequest(
@@ -442,7 +442,7 @@ def test_get_dataset_permission():
         assert response.json()["execution"]["status"] == ExecutionStatus.REQUESTED
         permission = response.json()["execution"]["permissionRequests"][0]
         assert permission.status == PermissionStatus.REQUESTED
-        requested_permission_ids = [permission.id_hash]
+        requested_permission_ids = [permission.item_hash]
 
         # - Deny execution
         request_execution_req = RequestExecutionRequest(
@@ -459,7 +459,7 @@ def test_get_dataset_permission():
         # - Grant permission
         permission = response.json()["execution"]["permissionRequests"][0]
         assert permission.status == PermissionStatus.REQUESTED
-        pending_permission_ids = [permission.id_hash]
+        pending_permission_ids = [permission.item_hash]
 
         response = client.put(
             "/permissions/approve",
@@ -498,8 +498,8 @@ def test_get_notification():
         req_body = upload_timeseries_req.dict()
         response = client.put("/timeseries/upload", json=req_body)
         assert response.status_code == 200
-        assert response.json()[0]["id_hash"] is not None
-        timeseries_id = response.json()[0]["id_hash"]
+        assert response.json()[0]["item_hash"] is not None
+        timeseries_id = response.json()[0]["item_hash"]
         # - Upload dataset
         upload_dataset_req = UploadDatasetRequest(
             name="test",
@@ -509,8 +509,8 @@ def test_get_notification():
         )
         response = client.put("/datasets/upload", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        dataset_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        dataset_id = response.json()["item_hash"]
 
         # - Upload algorithm
         requestor_address = "Approve_test_requestor"
@@ -522,8 +522,8 @@ def test_get_notification():
         )
         response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
         assert response.status_code == 200
-        assert response.json()["id_hash"] is not None
-        algorithm_id = response.json()["id_hash"]
+        assert response.json()["item_hash"] is not None
+        algorithm_id = response.json()["item_hash"]
 
         # - Approve execution
         request_execution_req = RequestExecutionRequest(
@@ -551,7 +551,7 @@ def test_get_notification():
         # - Grant permission
         permission = response.json()["execution"]["permissionRequests"][0]
         assert permission.status == PermissionStatus.REQUESTED
-        permission_ids = [permission.id_hash]
+        permission_ids = [permission.item_hash]
 
         response = client.put(
             "/permissions/approve", params={"permission_hashes": permission_ids}

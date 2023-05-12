@@ -21,7 +21,7 @@ async def get_users(page: int = 1, page_size: int = 20) -> List[UserInfo]:
 async def put_user_info(user_info: PutUserInfo) -> UserInfo:
     user_record = None
     if user_info.address:
-        user_record = await UserInfo.where_eq(address=user_info.address).first()
+        user_record = await UserInfo.filter(address=user_info.address).first()
         if user_record:
             user_record.username = user_info.username
             user_record.address = user_info.address
@@ -42,7 +42,7 @@ async def put_user_info(user_info: PutUserInfo) -> UserInfo:
 
 @router.get("/{address}")
 async def get_specific_user(address: str) -> Optional[UserInfo]:
-    return await UserInfo.where_eq(address=address).first()
+    return await UserInfo.filter(address=address).first()
 
 
 @router.get("/{address}/permissions/incoming")
@@ -51,7 +51,7 @@ async def get_incoming_permission_requests(
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(authorizer=address).page(
+    permission_records = await Permission.filter(authorizer=address).page(
         page=page, page_size=page_size
     )
     return permission_records
@@ -63,7 +63,7 @@ async def get_outgoing_permission_requests(
     page: int = 1,
     page_size: int = 20,
 ) -> List[Permission]:
-    permission_records = await Permission.where_eq(requestor=address).page(
+    permission_records = await Permission.filter(requestor=address).page(
         page=page, page_size=page_size
     )
     return permission_records
@@ -73,23 +73,19 @@ async def get_outgoing_permission_requests(
 async def get_user_results(
     address: str, page: int = 1, page_size: int = 20
 ) -> List[Result]:
-    return await Result.where_eq(owner=address).page(page=page, page_size=page_size)
+    return await Result.filter(owner=address).page(page=page, page_size=page_size)
 
 
 @router.get("/{address}/notifications")
 async def get_notification(address: str) -> List[Notification]:
     # requests permission for a whole dataset
-    permission_records = await Permission.where_eq(
+    permissions = await Permission.filter(
         authorizer=address, status=PermissionStatus.REQUESTED
     ).all()
 
-    datasets_records = [
-        await Dataset.where_eq(timeseriesIDs=permission.timeseriesID).all()
-        for permission in permission_records
-    ]
-
-    datasets_list = [element for row in datasets_records for element in row]
-    notifications = []
+    datasets = await Dataset.filter(
+        item_hash__in=[p.datasetID for p in permissions]
+    ).all()
 
     for record in datasets_list:
         notifications.append(

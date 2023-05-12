@@ -46,7 +46,7 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
     logger.debug(f"Received event: {event.content.type}")
     execution = await try_get_execution_from_message(event)
     if execution is not None:
-        logger.info(f"Running execution: {execution.id_hash}")
+        logger.info(f"Running execution: {execution.item_hash}")
         try:
             execution = await run_execution(execution)
         except Exception as e:

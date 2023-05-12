@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 
 from ...core.model import (
     Dataset,
-    DatasetPermissionStatus,
     Execution,
     ExecutionStatus,
     Permission,
@@ -24,6 +23,7 @@ from ..api_model import (
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
     UploadTimeseriesRequest,
+    DatasetPermissionStatus,
 )
 from ..common import get_timestamps_by_granularity
 from .timeseries import upload_timeseries
@@ -55,35 +55,33 @@ async def get_datasets(
             ids = [id.strip() for id in ids.split(",")]
         dataset_resp = Dataset.fetch(ids)
     elif by:
-        dataset_resp = Dataset.where_eq(owner=by)
+        dataset_resp = Dataset.filter(owner=by)
     else:
         dataset_resp = Dataset.fetch_objects()
     datasets = await dataset_resp.page(page=page, page_size=page_size)
 
     if view_as:
-        ts_ids = []
-        for rec in datasets:
-            ts_ids.extend(rec.timeseriesIDs)
+        ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
         ts_ids_unique = list(set(ts_ids))
 
-        req = [
-            Permission.where_eq(timeseriesID=ts_id, authorizer=view_as).all()
+        permission_requests = [
+            Permission.filter(timeseriesID=ts_id, authorizer=view_as).all()
             for ts_id in ts_ids_unique
         ]
-        resp = await asyncio.gather(*req)
+        resp = await asyncio.gather(*permission_requests)
         permissions = [item for sublist in resp for item in sublist]
 
         returned_datasets: List[DatasetResponse] = []
-        for rec in datasets:
+        for dataset in datasets:
             dataset_permissions = []
-            for ts_id in rec.timeseriesIDs:
+            for ts_id in dataset.timeseriesIDs:
                 dataset_permissions.extend(
                     list(filter(lambda x: x.timeseriesID == ts_id, permissions))
                 )
             if not dataset_permissions:
                 returned_datasets.append(
                     DatasetResponse(
-                        **rec.dict(),
+                        **dataset.dict(),
                         permission_status=DatasetPermissionStatus.NOT_REQUESTED,
                     )
                 )
@@ -93,27 +91,57 @@ async def get_datasets(
             if all(status == PermissionStatus.GRANTED for status in permission_status):
                 returned_datasets.append(
                     DatasetResponse(
-                        **rec.dict(), permission_status=DatasetPermissionStatus.GRANTED
+                        **dataset.dict(),
+                        permission_status=DatasetPermissionStatus.GRANTED,
                     )
                 )
             elif PermissionStatus.DENIED in permission_status:
                 returned_datasets.append(
                     DatasetResponse(
-                        **rec.dict(), permission_status=DatasetPermissionStatus.DENIED
+                        **dataset.dict(),
+                        permission_status=DatasetPermissionStatus.DENIED,
                     )
                 )
             elif PermissionStatus.REQUESTED in permission_status:
                 returned_datasets.append(
                     DatasetResponse(
-                        **rec.dict(),
+                        **dataset.dict(),
                         permission_status=DatasetPermissionStatus.REQUESTED,
                     )
                 )
         return returned_datasets
     else:
         return [
-            DatasetResponse(**rec.dict(), permission_status=None) for rec in datasets
+            DatasetResponse(**dataset.dict(), permission_status=None)
+            for dataset in datasets
         ]
+
+
+@router.put("/")
+async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
+    """
+    Upload a dataset.
+    If an `item_hash` is provided, it will update the dataset with that id.
+    """
+    if dataset.ownsAllTimeseries:
+        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
+        dataset.ownsAllTimeseries = all(
+            [ts.owner == dataset.owner for ts in timeseries]
+        )
+    if dataset.item_hash is not None:
+        old_dataset = await Dataset.fetch(dataset.item_hash).first()
+        if old_dataset is not None:
+            if old_dataset.owner != dataset.owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot overwrite dataset that is not owned by you",
+                )
+            old_dataset.name = dataset.name
+            old_dataset.desc = dataset.desc
+            old_dataset.timeseriesIDs = dataset.timeseriesIDs
+            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
+            return await old_dataset.save()
+    return await Dataset(**dataset.dict()).save()
 
 
 @router.get("/{dataset_id}/permissions")
@@ -126,7 +154,7 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
         raise HTTPException(status_code=404, detail="No Dataset found")
     ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
     matched_permission_records = [
-        Permission.where_eq(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
+        Permission.filter(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
         for ts_id in ts_ids
     ]
     records = await asyncio.gather(*matched_permission_records)
@@ -143,15 +171,15 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
     dataset = await Dataset.fetch(dataset_id).first()
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    assert dataset.id_hash
+    assert dataset.item_hash
     return FungibleAssetStandard(
         name=dataset.name,
-        symbol=dataset.id_hash,
+        symbol=dataset.item_hash,
         description=dataset.desc,
         # TODO: Generate chart image
         image="https://ipfs.io/ipfs/Qma2eje8yY57pNuaUyo4dsjtB9xwPz5yV6pCbK2PxpjUzo",
         animation_url=None,
-        external_url=f"http://localhost:5173/data/{dataset.id_hash}/details",
+        external_url=f"http://localhost:5173/data/{dataset.item_hash}/details",
         attributes=[
             Attribute(trait_type="Owner", value=dataset.owner),
             Attribute(trait_type="Last Updated", value=dataset.timestamp),
@@ -167,12 +195,14 @@ async def upload_dataset_timeseries(
     """
     Upload a dataset and timeseries at the same time.
     """
-    if upload_dataset_timeseries_request.dataset.id_hash is not None:
+    if upload_dataset_timeseries_request.dataset.item_hash is not None:
         raise HTTPException(
             status_code=400,
             detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets/upload instead.",
         )
-    if any([ts.id_hash is None for ts in upload_dataset_timeseries_request.timeseries]):
+    if any(
+        [ts.item_hash is None for ts in upload_dataset_timeseries_request.timeseries]
+    ):
         raise HTTPException(
             status_code=400,
             detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries/upload instead.",
@@ -187,33 +217,6 @@ async def upload_dataset_timeseries(
         dataset=dataset,
         timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
     )
-
-
-@router.put("/")
-async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
-    """
-    Upload a dataset.
-    If an `id_hash` is provided, it will update the dataset with that id.
-    """
-    if dataset.ownsAllTimeseries:
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-        dataset.ownsAllTimeseries = all(
-            [ts.owner == dataset.owner for ts in timeseries]
-        )
-    if dataset.id_hash is not None:
-        old_dataset = await Dataset.fetch(dataset.id_hash).first()
-        if old_dataset is not None:
-            if old_dataset.owner != dataset.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite dataset that is not owned by you",
-                )
-            old_dataset.name = dataset.name
-            old_dataset.desc = dataset.desc
-            old_dataset.timeseriesIDs = dataset.timeseriesIDs
-            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            return await old_dataset.save()
-    return await Dataset(**dataset.dict()).save()
 
 
 @router.put("/{dataset_id}/views")
@@ -260,12 +263,12 @@ async def generate_view(
                     else:
                         thinned.append(normalized[i - 1])
 
-            view_values[str(ts.id_hash)] = thinned
+            view_values[str(ts.item_hash)] = thinned
 
         # prepare view request
         view_requests.append(
             View(
-                id_hash=view_req.id_hash,
+                item_hash=view_req.item_hash,
                 startTime=view_req.startTime,
                 endTime=view_req.endTime,
                 granularity=view_req.granularity,
@@ -275,7 +278,7 @@ async def generate_view(
 
     # save all records
     views = await asyncio.gather(*view_requests)
-    dataset.views = [view.id_hash for view in views]
+    dataset.viewIDs = [view.item_hash for view in views]
     await dataset.save()
 
     return PutViewResponse(dataset=dataset, views=views)

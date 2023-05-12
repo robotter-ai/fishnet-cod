@@ -25,7 +25,7 @@ async def get_algorithms(
     """
     algo_request: Union[PageableRequest, PageableResponse]
     if name or by:
-        algo_request = Algorithm.where_eq(name=name, owner=by)
+        algo_request = Algorithm.filter(name=name, owner=by)
     else:
         algo_request = Algorithm.fetch_objects()
     return await algo_request.page(page=page, page_size=page_size)
@@ -35,10 +35,10 @@ async def get_algorithms(
 async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
     """
     Upload an algorithm.
-    If an `id_hash` is provided, it will update the algorithm with that id.
+    If an `item_hash` is provided, it will update the algorithm with that id.
     """
-    if algorithm.id_hash is not None:
-        old_algorithm = await Algorithm.fetch(algorithm.id_hash).first()
+    if algorithm.item_hash is not None:
+        old_algorithm = await Algorithm.fetch(algorithm.item_hash).first()
         if old_algorithm is not None:
             if old_algorithm.owner != algorithm.owner:
                 raise HTTPException(
