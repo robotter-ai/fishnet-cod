@@ -143,7 +143,7 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
     )
 
 
-@router.put("dataset/{dataset_id}/request")
+@router.put("/dataset/{dataset_id}/request")
 async def request_dataset_permissions(
     dataset_id: str, request: RequestDatasetPermissionsRequest
 ) -> List[Permission]:
