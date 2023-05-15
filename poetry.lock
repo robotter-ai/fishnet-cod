@@ -2,14 +2,14 @@
 
 [[package]]
 name = "aars"
-version = "0.7.0"
+version = "0.7.1"
 description = "Experimental Object-Document-Mapper using pydantic to store objects on Aleph.im"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "aars-0.7.0-py3-none-any.whl", hash = "sha256:d409b25a8acf5ec00a1cbfc8eb20c92256506301f82f2b60618abfd832006110"},
-    {file = "aars-0.7.0.tar.gz", hash = "sha256:e4dc2ccb15b650b2ba65a0221ca37737c552193a0f5df5d300d44ff2c06030ca"},
+    {file = "aars-0.7.1-py3-none-any.whl", hash = "sha256:978c7cc7c55f26b667e3290793d0eb109b04e3912cd86320dd8509576cc78124"},
+    {file = "aars-0.7.1.tar.gz", hash = "sha256:e2447bd2af81c0bdb6653aeeb2feb7f6a66aecb798b0a01b8472e6ca0a5c3caf"},
 ]
 
 [[package]]
@@ -191,7 +191,7 @@ tezos = ["aleph-pytezos (==0.1.1)", "pynacl"]
 
 [package.source]
 type = "git"
-url = "https://github.com/aleph-im/aleph-sdk-python.git"
+url = "https://github.com/aleph-im/aleph-sdk-python.git#mhh-app-lifespan-handler"
 reference = "HEAD"
 resolved_reference = "23461fde84aae0f7ab3b0af76226780e51f9d3d0"
 
@@ -1596,6 +1596,21 @@ files = [
 ]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.6"
+description = "A streaming multipart parser for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "python_multipart-0.0.6-py3-none-any.whl", hash = "sha256:ee698bab5ef148b0a760751c261902cd096e57e10558e11aca17646b74ee1c18"},
+    {file = "python_multipart-0.0.6.tar.gz", hash = "sha256:e9925a80bb668529f1b67c7fdb0a5dacdd7cbfc6fb0bff3ea443fe22bdd62132"},
+]
+
+[package.extras]
+dev = ["atomicwrites (==1.2.1)", "attrs (==19.2.0)", "coverage (==6.5.0)", "hatch", "invoke (==1.7.3)", "more-itertools (==4.3.0)", "pbr (==4.3.0)", "pluggy (==1.0.0)", "py (==1.11.0)", "pytest (==7.2.0)", "pytest-cov (==4.0.0)", "pytest-timeout (==2.1.0)", "pyyaml (==5.1)"]
+
+[[package]]
 name = "pytz"
 version = "2023.3"
 description = "World timezone definitions, modern and historical"
@@ -2219,4 +2234,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "be1a6d37751da697e430271b26cddaf83c6ee4dc8b61c56228336e06e8f231fc"
+content-hash = "56ad25801be25afb40bb248d4b5591f55d52dbe68079472967921a665cb7fc31"

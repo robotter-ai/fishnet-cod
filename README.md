@@ -4,7 +4,7 @@ P2P Financial Signal Hosting Network on Aleph
 ## Initial setup
 Install the FastAPI library and Uvicorn: 
 ```shell
-pip install -r requirements.txt
+poetry install
 ```
 
 ### Running the API locally
