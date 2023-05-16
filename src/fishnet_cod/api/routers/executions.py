@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 async def get_executions(
     dataset_id: Optional[str] = None,
     by: Optional[str] = None,
@@ -32,7 +32,7 @@ async def get_executions(
     return await execution_requests.page(page=page, page_size=page_size)
 
 
-@router.post("/")
+@router.post("")
 async def request_execution(
     execution_request: RequestExecutionRequest,
 ) -> RequestExecutionResponse:

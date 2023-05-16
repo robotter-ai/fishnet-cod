@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 async def get_algorithms(
     name: Optional[str] = None,
     by: Optional[str] = None,
@@ -31,7 +31,7 @@ async def get_algorithms(
     return await algo_request.page(page=page, page_size=page_size)
 
 
-@router.put("/")
+@router.put("")
 async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
     """
     Upload an algorithm.

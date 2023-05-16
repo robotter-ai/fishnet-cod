@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.put("/upload")
+@router.put("")
 async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     """
     Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,
@@ -48,7 +48,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
 
 
-@router.post("/preprocess/csv")
+@router.get("/preprocess/csv")
 async def upload_timeseries_csv(
     owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:

@@ -12,12 +12,12 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 async def get_users(page: int = 1, page_size: int = 20) -> List[UserInfo]:
     return await UserInfo.fetch_objects().page(page=page, page_size=page_size)
 
 
-@router.put("/")
+@router.put("")
 async def put_user_info(user_info: PutUserInfo) -> UserInfo:
     user_record = None
     if user_info.address:

@@ -35,7 +35,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 async def get_datasets(
     ids: Optional[Union[str, List[str]]] = None,
     view_as: Optional[str] = None,
@@ -117,7 +117,7 @@ async def get_datasets(
         ]
 
 
-@router.put("/")
+@router.put("")
 async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
     """
     Upload a dataset.
