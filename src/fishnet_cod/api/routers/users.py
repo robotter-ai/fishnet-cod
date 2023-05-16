@@ -83,15 +83,18 @@ async def get_notification(address: str) -> List[Notification]:
         authorizer=address, status=PermissionStatus.REQUESTED
     ).all()
 
-    datasets = await Dataset.filter(
-        item_hash__in=[p.datasetID for p in permissions]
-    ).all()
+    # drop duplicates by dataset & requestor
+    permissions = list({(p.datasetID, p.requestor) for p in permissions})
 
-    for record in datasets_list:
+    datasets = await Dataset.fetch([p.datasetID for p in permissions]).all()
+    dataset_map = {d.item_hash: d for d in datasets}
+
+    notifications = []
+    for permission in permissions:
         notifications.append(
             Notification(
                 type=NotificationType.PermissionRequest,
-                message_text=address + " has requested to access " + record.name,
+                message_text=permission.requestor + " has requested to access " + dataset_map[permission.datasetID].name,
             )
         )
     return notifications
