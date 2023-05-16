@@ -6,6 +6,10 @@ Install the FastAPI library and Uvicorn:
 ```shell
 poetry install
 ```
+Activate the virtual environment, if not already done:
+```shell
+poetry shell
+```
 
 ### Running the API locally
 Uvicorn is used to run ASGI compatible web applications, such as the `app`
