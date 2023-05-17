@@ -14,7 +14,8 @@ from ...core.model import (
 from ..api_model import (
     ApprovePermissionsResponse,
     DenyPermissionsResponse,
-    RequestDatasetPermissionsRequest, GrantDatasetPermissionsRequest,
+    RequestDatasetPermissionsRequest,
+    GrantDatasetPermissionsRequest,
 )
 from ..common import request_permissions
 

@@ -94,7 +94,9 @@ async def get_notification(address: str) -> List[Notification]:
         notifications.append(
             Notification(
                 type=NotificationType.PermissionRequest,
-                message_text=permission.requestor + " has requested to access " + dataset_map[permission.datasetID].name,
+                message_text=permission.requestor
+                + " has requested to access "
+                + dataset_map[permission.datasetID].name,
             )
         )
     return notifications
