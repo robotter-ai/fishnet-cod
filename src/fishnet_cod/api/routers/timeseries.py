@@ -48,7 +48,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
 
 
-@router.get("/preprocess/csv")
+@router.post("/preprocess/csv")
 async def upload_timeseries_csv(
     owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
