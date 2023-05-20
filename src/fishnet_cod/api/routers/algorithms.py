@@ -23,12 +23,14 @@ async def get_algorithms(
     """
     Get all algorithms filtered by `name` and/or owner (`by`). If no filters are given, all algorithms are returned.
     """
-    algo_request: Union[PageableRequest, PageableResponse]
-    if name or by:
-        algo_request = Algorithm.filter(name=name, owner=by)
-    else:
-        algo_request = Algorithm.fetch_objects()
-    return await algo_request.page(page=page, page_size=page_size)
+    params = {}
+    if name:
+        params["name"] = name
+    if by:
+        params["owner"] = by
+    if params:
+        return await Algorithm.filter(**params).page(page=page, page_size=page_size)
+    return await Algorithm.fetch_objects().page(page=page, page_size=page_size)
 
 
 @router.put("")

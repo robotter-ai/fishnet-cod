@@ -13,7 +13,17 @@ router = APIRouter(
 
 
 @router.get("")
-async def get_users(page: int = 1, page_size: int = 20) -> List[UserInfo]:
+async def get_users(username: Optional[str] = None,
+                    address: Optional[str] = None,
+                    page: int = 1,
+                    page_size: int = 20) -> List[UserInfo]:
+    params = {}
+    if username:
+        params["username"] = username
+    if address:
+        params["address"] = address
+    if params:
+        return await UserInfo.filter(**params).page(page=page, page_size=page_size)
     return await UserInfo.fetch_objects().page(page=page, page_size=page_size)
 
 

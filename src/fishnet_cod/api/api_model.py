@@ -47,6 +47,7 @@ Index(Permission, ["authorizer", "status"])
 Index(Result, "owner")
 
 Index(UserInfo, "address")
+Index(UserInfo, "username")
 
 
 class TimeseriesItem(BaseModel):

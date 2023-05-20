@@ -22,14 +22,16 @@ async def get_executions(
     page: int = 1,
     page_size: int = 20,
 ) -> List[Execution]:
-    execution_requests: Union[PageableRequest[Execution], PageableResponse[Execution]]
-    if dataset_id or by or status:
-        execution_requests = Execution.filter(
-            datasetID=dataset_id, owner=by, status=status
-        )
-    else:
-        execution_requests = Execution.fetch_objects()
-    return await execution_requests.page(page=page, page_size=page_size)
+    params = {}
+    if dataset_id:
+        params["datasetID"] = dataset_id
+    if by:
+        params["owner"] = by
+    if status:
+        params["status"] = status
+    if params:
+        return await Execution.filter(**params).page(page=page, page_size=page_size)
+    return await Execution.fetch_objects().page(page=page, page_size=page_size)
 
 
 @router.post("")
