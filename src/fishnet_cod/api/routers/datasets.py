@@ -219,6 +219,28 @@ async def upload_dataset_timeseries(
     )
 
 
+@router.get("/{dataset_id}/timeseries")
+async def get_dataset_timeseries(dataset_id: str) -> List[Timeseries]:
+    """
+    Get all timeseries for a given dataset.
+    """
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return await Timeseries.filter(item_hash__in=dataset.timeseriesIDs).all()
+
+
+@router.get("/{dataset_id}/views")
+async def get_views(dataset_id: str) -> List[View]:
+    """
+    Get all views for a given dataset.
+    """
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return await View.filter(datasetID=dataset_id).all()
+
+
 @router.put("/{dataset_id}/views")
 async def generate_view(
     dataset_id: str, view_params: List[PutViewRequest]
