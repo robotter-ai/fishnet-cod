@@ -88,9 +88,4 @@ async def upload_timeseries_csv(
                 status_code=400,
                 detail=f"Invalid data encountered in column {col}: {data}",
             )
-    # save the timeseries
-    return list(
-        await asyncio.gather(
-            *[ts.save() for ts in timeseries if isinstance(ts, Timeseries)]
-        )
-    )
+    return timeseries
