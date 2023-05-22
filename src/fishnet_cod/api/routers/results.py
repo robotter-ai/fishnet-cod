@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from ...core.model import Result
 
@@ -12,5 +12,8 @@ router = APIRouter(
 
 
 @router.get("/{result_id}")
-async def get_result(result_id: str) -> Optional[Result]:
-    return await Result.fetch(result_id).first()
+async def get_result(result_id: str) -> Result:
+    result = await Result.fetch(result_id).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return result
