@@ -48,7 +48,7 @@ async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
     return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
 
 
-@router.post("/preprocess/csv")
+@router.post("/csv")
 async def upload_timeseries_csv(
     owner: str = Form(...), data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
@@ -88,4 +88,9 @@ async def upload_timeseries_csv(
                 status_code=400,
                 detail=f"Invalid data encountered in column {col}: {data}",
             )
-    return timeseries
+    # save the timeseries
+    return list(
+        await asyncio.gather(
+            *[ts.save() for ts in timeseries if isinstance(ts, Timeseries)]
+        )
+    )
