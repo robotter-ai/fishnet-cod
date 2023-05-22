@@ -37,7 +37,6 @@ router = APIRouter(
 
 @router.get("")
 async def get_datasets(
-    ids: Optional[Union[str, List[str]]] = None,
     view_as: Optional[str] = None,
     by: Optional[str] = None,
     page: int = 1,
@@ -46,15 +45,10 @@ async def get_datasets(
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
     If `view_as` is not given, the permission status will be `none` for all datasets.
-    If `id` is given, it will return the dataset with that id.
     If `by` is given, it will return all datasets owned by that user.
     """
     dataset_resp: Union[PageableRequest[Dataset], PageableResponse[Dataset]]
-    if ids:
-        if isinstance(ids, str):
-            ids = [id.strip() for id in ids.split(",")]
-        dataset_resp = Dataset.fetch(ids)
-    elif by:
+    if by:
         dataset_resp = Dataset.filter(owner=by)
     else:
         dataset_resp = Dataset.fetch_objects()
@@ -142,6 +136,17 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
             old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
             return await old_dataset.save()
     return await Dataset(**dataset.dict()).save()
+
+
+@router.get("/{dataset_id}")
+async def get_dataset(dataset_id: str) -> Dataset:
+    """
+    Get a dataset by its id.
+    """
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="No Dataset found")
+    return dataset
 
 
 @router.get("/{dataset_id}/permissions")
