@@ -201,7 +201,7 @@ async def upload_dataset_timeseries(
             detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets/upload instead.",
         )
     if any(
-        [ts.item_hash is None for ts in upload_dataset_timeseries_request.timeseries]
+        [ts.item_hash is not None for ts in upload_dataset_timeseries_request.timeseries]
     ):
         raise HTTPException(
             status_code=400,
