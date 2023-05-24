@@ -217,6 +217,9 @@ async def upload_dataset_timeseries(
             timeseries=upload_dataset_timeseries_request.timeseries
         )
     )
+    upload_dataset_timeseries_request.dataset.timeseriesIDs = [
+        ts.item_hash for ts in timeseries
+    ]
     dataset = await upload_dataset(dataset=upload_dataset_timeseries_request.dataset)
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
