@@ -340,7 +340,7 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
             requests.append(timeseries.save())
 
     # TODO: background task
-    for execution in await Execution.fetch(dataset_id).all():
+    for execution in await Execution.filter(datasetID=dataset_id).all():
         if execution.status == ExecutionStatus.PENDING:
             execution.status = ExecutionStatus.DENIED
             requests.append(execution.save())
