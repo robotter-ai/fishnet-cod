@@ -40,6 +40,7 @@ Index(Permission, "requestor")
 Index(Permission, "authorizer")
 Index(Permission, ["timeseriesID", "requestor"])
 Index(Permission, ["timeseriesID", "authorizer"])
+Index(Permission, ["timeseriesID", "status"])
 Index(Permission, ["datasetID", "status", "timeseriesID"])
 Index(Permission, ["authorizer", "status"])
 

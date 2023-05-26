@@ -134,7 +134,9 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
             old_dataset.desc = dataset.desc
             old_dataset.timeseriesIDs = dataset.timeseriesIDs
             old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            return await old_dataset.save()
+            if old_dataset.changed:
+                await old_dataset.save()
+            return old_dataset
     return await Dataset(**dataset.dict()).save()
 
 

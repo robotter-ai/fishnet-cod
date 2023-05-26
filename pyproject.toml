@@ -28,6 +28,7 @@ python-multipart = "^0.0.6"
 pytest = "^7.3.1"
 uvicorn = {extras = ["standard"], version = "^0.22.0"}
 black = "^23.3.0"
+httpx = "^0.24.1"
 
 [build-system]
 requires = ["poetry-core"]
