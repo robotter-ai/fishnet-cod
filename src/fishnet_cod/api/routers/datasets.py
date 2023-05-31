@@ -1,5 +1,5 @@
 import asyncio
-from typing import Awaitable, List, Optional, Union
+from typing import Awaitable, List, Optional, Union, Dict
 
 from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException
@@ -57,58 +57,57 @@ async def get_datasets(
     if view_as:
         ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
         ts_ids_unique = list(set(ts_ids))
+        dataset_ids = [dataset.item_hash for dataset in datasets]
 
-        permission_requests = [
-            Permission.filter(timeseriesID=ts_id, authorizer=view_as).all()
-            for ts_id in ts_ids_unique
-        ]
-        resp = await asyncio.gather(*permission_requests)
+        resp = await asyncio.gather(
+            Permission.filter(timeseriesID__in=ts_ids_unique, requestor=view_as).all(),
+            Permission.filter(datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None).all(),
+        )
         permissions = [item for sublist in resp for item in sublist]
 
         returned_datasets: List[DatasetResponse] = []
         for dataset in datasets:
-            dataset_permissions = []
-            for ts_id in dataset.timeseriesIDs:
-                dataset_permissions.extend(
-                    list(filter(lambda x: x.timeseriesID == ts_id, permissions))
+            returned_datasets.append(
+                DatasetResponse(
+                    **dataset.dict(),
+                    permission_status=get_dataset_permission_status(
+                        dataset, permissions
+                    ),
                 )
-            if not dataset_permissions:
-                returned_datasets.append(
-                    DatasetResponse(
-                        **dataset.dict(),
-                        permission_status=DatasetPermissionStatus.NOT_REQUESTED,
-                    )
-                )
-                continue
-
-            permission_status = [perm_rec for perm_rec in dataset_permissions]
-            if all(status == PermissionStatus.GRANTED for status in permission_status):
-                returned_datasets.append(
-                    DatasetResponse(
-                        **dataset.dict(),
-                        permission_status=DatasetPermissionStatus.GRANTED,
-                    )
-                )
-            elif PermissionStatus.DENIED in permission_status:
-                returned_datasets.append(
-                    DatasetResponse(
-                        **dataset.dict(),
-                        permission_status=DatasetPermissionStatus.DENIED,
-                    )
-                )
-            elif PermissionStatus.REQUESTED in permission_status:
-                returned_datasets.append(
-                    DatasetResponse(
-                        **dataset.dict(),
-                        permission_status=DatasetPermissionStatus.REQUESTED,
-                    )
-                )
+            )
         return returned_datasets
     else:
         return [
             DatasetResponse(**dataset.dict(), permission_status=None)
             for dataset in datasets
         ]
+
+
+def get_dataset_permission_status(dataset: Dataset, permissions: List[Permission]) -> DatasetPermissionStatus:
+    """
+    Get the permission status for a given dataset and a list of timeseries ids and their permissions.
+    """
+    permissions = [
+        p
+        for p in permissions
+        if p.datasetID == dataset.item_hash
+        or p.timeseriesID in dataset.timeseriesIDs
+    ]
+
+    if any(p.timeseriesID is None for p in permissions):
+        return DatasetPermissionStatus.GRANTED
+
+    if not permissions:
+        return DatasetPermissionStatus.NOT_REQUESTED
+
+    permissions_status = [p.status for p in permissions]
+
+    if all(status == PermissionStatus.GRANTED for status in permissions_status):
+        return DatasetPermissionStatus.GRANTED
+    elif PermissionStatus.DENIED in permissions_status:
+        return DatasetPermissionStatus.DENIED
+    elif PermissionStatus.REQUESTED in permissions_status:
+        return DatasetPermissionStatus.REQUESTED
 
 
 @router.put("")
@@ -141,14 +140,27 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
 
 
 @router.get("/{dataset_id}")
-async def get_dataset(dataset_id: str) -> Dataset:
+async def get_dataset(dataset_id: str, view_as: Optional[str]) -> DatasetResponse:
     """
     Get a dataset by its id.
     """
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="No Dataset found")
-    return dataset
+
+    if view_as:
+        ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
+        resp = await asyncio.gather(
+            Permission.filter(timeseriesID__in=ts_ids, requestor=view_as).all(),
+            Permission.filter(datasetID=dataset_id, requestor=view_as).all(),
+        )
+        permissions = [item for sublist in resp for item in sublist]
+        return DatasetResponse(
+            **dataset.dict(),
+            permission_status=get_dataset_permission_status(dataset, permissions),
+        )
+
+    return DatasetResponse(**dataset.dict(), permission_status=None)
 
 
 @router.get("/{dataset_id}/permissions")
