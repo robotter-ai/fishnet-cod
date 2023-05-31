@@ -94,11 +94,17 @@ def get_dataset_permission_status(dataset: Dataset, permissions: List[Permission
         or p.timeseriesID in dataset.timeseriesIDs
     ]
 
-    if any(p.timeseriesID is None for p in permissions):
-        return DatasetPermissionStatus.GRANTED
-
     if not permissions:
         return DatasetPermissionStatus.NOT_REQUESTED
+
+    for permission in permissions:
+        if permission.timeseriesID is None:
+            if permission.status == PermissionStatus.GRANTED:
+                return DatasetPermissionStatus.GRANTED
+            elif permission.status == PermissionStatus.DENIED:
+                return DatasetPermissionStatus.DENIED
+            elif permission.status == PermissionStatus.REQUESTED:
+                return DatasetPermissionStatus.REQUESTED
 
     permissions_status = [p.status for p in permissions]
 
