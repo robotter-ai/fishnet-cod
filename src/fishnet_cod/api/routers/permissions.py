@@ -294,11 +294,11 @@ async def grant_dataset_permissions(
             datasetID=dataset_id, requestor=request.requestor, timeseriesID=None
         ).all()
         for permission in permissions:
-            if (
-                not permission.algorithmID
-                or permission.algorithmID
-                and permission.algorithmID == request.algorithmID
-            ):
+            if permission.algorithmID == request.algorithmID:
+                if permission.status in [PermissionStatus.REQUESTED, PermissionStatus.DENIED]:
+                    permission.status = PermissionStatus.GRANTED
+                    permission.maxExecutionCount = request.maxExecutionCount
+                    return [await permission.save()]
                 return [permission]
         return [
             await Permission(
