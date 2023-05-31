@@ -2,14 +2,14 @@
 
 [[package]]
 name = "aars"
-version = "0.7.4"
+version = "0.7.5"
 description = "Experimental Object-Document-Mapper using pydantic to store objects on Aleph.im"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "aars-0.7.4-py3-none-any.whl", hash = "sha256:31193ae87851df7dff67f0224aafcbeb147663afb166722ed3c766bb0d1f07f0"},
-    {file = "aars-0.7.4.tar.gz", hash = "sha256:95ad4d132479f41ce6a20764328b79a64bd2bff4e545e5c5517e5e449a3b25de"},
+    {file = "aars-0.7.5-py3-none-any.whl", hash = "sha256:6a978a04737d03100f5a263f71a38b7df19158f6cea580ef4691b70aa35d85c1"},
+    {file = "aars-0.7.5.tar.gz", hash = "sha256:9ac49086e9e2f165e17e7e0263f85bea95563cb8521891ce08a8437d0c2986c8"},
 ]
 
 [[package]]

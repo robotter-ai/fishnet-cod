@@ -57,6 +57,7 @@ async def get_datasets(
     if view_as:
         ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
         ts_ids_unique = list(set(ts_ids))
+        print(ts_ids_unique)
         dataset_ids = [dataset.item_hash for dataset in datasets]
 
         resp = await asyncio.gather(
@@ -146,7 +147,7 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
 
 
 @router.get("/{dataset_id}")
-async def get_dataset(dataset_id: str, view_as: Optional[str]) -> DatasetResponse:
+async def get_dataset(dataset_id: str, view_as: Optional[str] = None) -> DatasetResponse:
     """
     Get a dataset by its id.
     """
