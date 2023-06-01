@@ -295,7 +295,10 @@ async def grant_dataset_permissions(
         ).all()
         for permission in permissions:
             if permission.algorithmID == request.algorithmID:
-                if permission.status in [PermissionStatus.REQUESTED, PermissionStatus.DENIED]:
+                if permission.status in [
+                    PermissionStatus.REQUESTED,
+                    PermissionStatus.DENIED,
+                ]:
                     permission.status = PermissionStatus.GRANTED
                     permission.maxExecutionCount = request.maxExecutionCount
                     return [await permission.save()]

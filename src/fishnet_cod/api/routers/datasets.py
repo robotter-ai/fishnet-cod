@@ -62,7 +62,9 @@ async def get_datasets(
 
         resp = await asyncio.gather(
             Permission.filter(timeseriesID__in=ts_ids_unique, requestor=view_as).all(),
-            Permission.filter(datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None).all(),
+            Permission.filter(
+                datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None
+            ).all(),
         )
         permissions = [item for sublist in resp for item in sublist]
 
@@ -84,15 +86,16 @@ async def get_datasets(
         ]
 
 
-def get_dataset_permission_status(dataset: Dataset, permissions: List[Permission]) -> DatasetPermissionStatus:
+def get_dataset_permission_status(
+    dataset: Dataset, permissions: List[Permission]
+) -> DatasetPermissionStatus:
     """
     Get the permission status for a given dataset and a list of timeseries ids and their permissions.
     """
     permissions = [
         p
         for p in permissions
-        if p.datasetID == dataset.item_hash
-        or p.timeseriesID in dataset.timeseriesIDs
+        if p.datasetID == dataset.item_hash or p.timeseriesID in dataset.timeseriesIDs
     ]
 
     if not permissions:
@@ -147,7 +150,9 @@ async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
 
 
 @router.get("/{dataset_id}")
-async def get_dataset(dataset_id: str, view_as: Optional[str] = None) -> DatasetResponse:
+async def get_dataset(
+    dataset_id: str, view_as: Optional[str] = None
+) -> DatasetResponse:
     """
     Get a dataset by its id.
     """
@@ -182,9 +187,7 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
     matched_permission_records = [
         Permission.filter(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
         for ts_id in ts_ids
-    ] + [
-        Permission.filter(datasetID=dataset_id, status=PermissionStatus.GRANTED).all()
-    ]
+    ] + [Permission.filter(datasetID=dataset_id, status=PermissionStatus.GRANTED).all()]
     records = await asyncio.gather(*matched_permission_records)
     permission_records = [element for row in records for element in row if element]
 
@@ -303,13 +306,19 @@ async def generate_view(
         start_date = pd.to_datetime(view_req.startTime)
         end_date = pd.to_datetime(view_req.endTime)
         # Filter the DataFrame based on the start and end dates
-        timeseries_df = timeseries_df[(timeseries_df.index >= start_date) & (timeseries_df.index <= end_date)]
+        timeseries_df = timeseries_df[
+            (timeseries_df.index >= start_date) & (timeseries_df.index <= end_date)
+        ]
         # normalize and round values
         timeseries_df = (timeseries_df - timeseries_df.min()) / (
             timeseries_df.max() - timeseries_df.min()
         )
         # drop points according to granularity
-        timeseries_df = timeseries_df.resample(granularity_to_interval(view_req.granularity)).mean().dropna()
+        timeseries_df = (
+            timeseries_df.resample(granularity_to_interval(view_req.granularity))
+            .mean()
+            .dropna()
+        )
         timeseries_df.round(2)
         # convert to dict of timeseries values
         view_values = {
