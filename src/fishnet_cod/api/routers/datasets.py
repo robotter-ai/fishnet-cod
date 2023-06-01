@@ -181,6 +181,8 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
     matched_permission_records = [
         Permission.filter(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
         for ts_id in ts_ids
+    ] + [
+        Permission.filter(datasetID=dataset_id, status=PermissionStatus.GRANTED).all()
     ]
     records = await asyncio.gather(*matched_permission_records)
     permission_records = [element for row in records for element in row if element]
