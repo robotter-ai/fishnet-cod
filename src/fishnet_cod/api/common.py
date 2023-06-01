@@ -11,11 +11,9 @@ from ..core.model import (
 )
 
 
-def get_timestamps_by_granularity(
-    start: int, end: int, granularity: Granularity
-) -> List[int]:
+def granularity_to_interval(granularity: Granularity) -> str:
     """
-    Get timestamps by granularity
+    Get pandas-compatible interval from Granularity
 
     Args:
         start: start timestamp
@@ -26,19 +24,15 @@ def get_timestamps_by_granularity(
         List of timestamps
     """
     if granularity == Granularity.DAY:
-        interval = 60 * 5
+        return "5min"
     elif granularity == Granularity.WEEK:
-        interval = 60 * 15
+        return "15min"
     elif granularity == Granularity.MONTH:
-        interval = 60 * 60
+        return "H"
     elif granularity == Granularity.THREE_MONTHS:
-        interval = 60 * 60 * 3
+        return "3H"
     else:  # granularity == Granularity.YEAR:
-        interval = 60 * 60 * 24
-    timestamps = []
-    for i in range(start, end, interval):
-        timestamps.append(i)
-    return timestamps
+        return "D"
 
 
 async def request_permissions(

@@ -1,4 +1,5 @@
 import asyncio
+import pandas as pd
 from typing import Awaitable, List, Optional, Union, Dict
 
 from aars.utils import PageableRequest, PageableResponse
@@ -25,7 +26,7 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import get_timestamps_by_granularity
+from ..common import granularity_to_interval
 from .timeseries import upload_timeseries
 
 router = APIRouter(
@@ -271,7 +272,7 @@ async def get_views(dataset_id: str) -> List[View]:
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    return await View.filter(datasetID=dataset_id).all()
+    return await View.fetch(dataset.viewIDs).all()
 
 
 @router.put("/{dataset_id}/views")
@@ -282,54 +283,60 @@ async def generate_view(
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
+    # get the views
+    view_ids = [view.item_hash for view in view_params]
+    views_map = {view.item_hash: view for view in await View.fetch(view_ids).all()}
     view_requests = []
     for view_req in view_params:
         # get all the timeseries
         timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
-        view_values = {}
-        for ts in timeseries:
-            # normalize and round values
-            values = [p[1] for p in ts.data]
-            minimum = min(values)
-            maximum = max(values)
-            normalized = [
-                (p[0], round((p[1] - minimum) / (maximum - minimum), 2))
-                for p in ts.data
-            ]
-            # drop points according to granularity
-            thinned = []
-            i = 0  # cursor for normalized entries
-            timestamps = get_timestamps_by_granularity(
-                view_req.startTime, view_req.endTime, view_req.granularity
-            )
-            # append each point that is closest to the timestamp
-            for timestamp in timestamps:
-                while i < len(normalized) and normalized[i][0] < timestamp:
-                    i += 1
-                if i == len(normalized):
-                    break
-                if i == 0:
-                    thinned.append(normalized[i])
-                else:
-                    if abs(normalized[i][0] - timestamp) < abs(
-                        normalized[i - 1][0] - timestamp
-                    ):
-                        thinned.append(normalized[i])
-                    else:
-                        thinned.append(normalized[i - 1])
-
-            view_values[str(ts.item_hash)] = thinned
-
-        # prepare view request
-        view_requests.append(
-            View(
-                item_hash=view_req.item_hash,
-                startTime=view_req.startTime,
-                endTime=view_req.endTime,
-                granularity=view_req.granularity,
-                values=view_values,
-            ).save()
+        timeseries_df = pd.DataFrame(
+            {
+                ts.item_hash: [p[1] for p in ts.data]
+                for ts in timeseries
+                if len(ts.data) > 0
+            },
+            index=[p[0] * 1000 for p in timeseries[0].data],
         )
+        timeseries_df.index = pd.to_datetime(timeseries_df.index, unit="s")
+        # Specify the start and end dates
+        start_date = pd.to_datetime(view_req.startTime)
+        end_date = pd.to_datetime(view_req.endTime)
+        # Filter the DataFrame based on the start and end dates
+        timeseries_df = timeseries_df[(timeseries_df.index >= start_date) & (timeseries_df.index <= end_date)]
+        # normalize and round values
+        timeseries_df = (timeseries_df - timeseries_df.min()) / (
+            timeseries_df.max() - timeseries_df.min()
+        )
+        # drop points according to granularity
+        timeseries_df = timeseries_df.resample(granularity_to_interval(view_req.granularity)).mean().dropna()
+        timeseries_df.round(2)
+        # convert to dict of timeseries values
+        view_values = {
+            ts.item_hash: [
+                [index.timestamp(), value]
+                for index, value in timeseries_df[ts.item_hash].items()
+            ]
+            for ts in timeseries
+        }
+        # prepare view request
+        if views_map.get(view_req.item_hash):
+            old_view = views_map[view_req.item_hash]
+            old_view.startTime = view_req.startTime
+            old_view.endTime = view_req.endTime
+            old_view.granularity = view_req.granularity
+            old_view.values = view_values
+            view_requests.append(old_view.save())
+        else:
+            view_requests.append(
+                View(
+                    item_hash=view_req.item_hash,
+                    startTime=view_req.startTime,
+                    endTime=view_req.endTime,
+                    granularity=view_req.granularity,
+                    values=view_values,
+                ).save()
+            )
 
     # save all records
     views = await asyncio.gather(*view_requests)
