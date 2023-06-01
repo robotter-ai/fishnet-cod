@@ -2,12 +2,12 @@ from os import getenv
 
 import pandas as pd
 from aars import AARS
-from aleph.sdk import AuthenticatedAlephClient
+from aleph.sdk.client import AuthenticatedAlephClient, AuthenticatedUserSessionSync
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph.sdk.vm.cache import TestVmCache, VmCache
 
-from .constants import FISHNET_MESSAGE_CHANNEL
+from .constants import FISHNET_MESSAGE_CHANNEL, FISHNET_MANAGER_PUBKEYS
 
 
 def initialize_aars():
@@ -28,10 +28,32 @@ def initialize_aars():
     aleph_account = get_fallback_account()
     aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
 
-    print(channel, "channellll")
+    print("Using channel: " + channel)
 
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session
     )
+
+    if aleph_account.get_address() in FISHNET_MANAGER_PUBKEYS:
+        resp, status = await aleph_session.fetch_aggregate(
+            "security", aleph_account.get_address()
+        )
+        existing_authorizations = resp.json().get("authorizations", [])
+        needed_authorizations = [
+            {
+                "address": address,
+                "channels": FISHNET_MESSAGE_CHANNEL,
+            }
+            for address in FISHNET_MANAGER_PUBKEYS
+        ]
+        if not all(auth in existing_authorizations for auth in needed_authorizations):
+            aggregate = {
+                "authorizations": needed_authorizations,
+            }
+            resp, status = await aleph_session.create_aggregate(
+                "security", aggregate, aleph_account.get_address(), channel="security"
+            )
+            print("Created security aggregate:")
+            print(resp.json())
 
     return aars
