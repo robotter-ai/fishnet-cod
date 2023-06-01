@@ -66,7 +66,6 @@ async def upload_timeseries_csv(
             continue
         if "date" in col.lower() or "time" in col.lower():
             df.index = pd.to_datetime(df[col])
-            print(f"Using column {col} as index")
             df = df.drop(columns=col)
     # create a timeseries object for each column
     timestamps = [dt.timestamp() for dt in df.index.to_pydatetime().tolist()]
