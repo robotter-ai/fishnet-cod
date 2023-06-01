@@ -38,6 +38,6 @@ python /src/fishnet_cod/local_executor.py
 
 | Name            | Description                                               | Type     | Default |
 |-----------------|-----------------------------------------------------------|----------|---------|
-| `TEST_CACHE`    | Whether to use the test cache                             | `bool`   | `false` |
+| `TEST_CACHE`    | Whether to use the test cache                             | `bool`   | `true`  |
 | `TEST_CHANNEL`  | Whether to use a fresh test channel                       | `bool`   | `false` |
 | `ALEPH_CHANNEL` | The Aleph channel to use, is superseded by `TEST_CHANNEL` | `string` | `None`  |

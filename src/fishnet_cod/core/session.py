@@ -12,10 +12,10 @@ from .constants import FISHNET_MESSAGE_CHANNEL, FISHNET_MANAGER_PUBKEYS
 
 def initialize_aars():
     test_cache_flag = getenv("TEST_CACHE")
-    if test_cache_flag is not None and test_cache_flag.lower() == "true":
-        cache = TestVmCache()
-    else:
+    if test_cache_flag is not None and test_cache_flag.lower() == "false":
         cache = VmCache()
+    else:
+        cache = TestVmCache()
 
     test_channel_flag = getenv("TEST_CHANNEL")
     custom_channel = getenv("CUSTOM_CHANNEL")
