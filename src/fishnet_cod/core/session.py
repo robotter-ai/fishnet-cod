@@ -10,7 +10,7 @@ from aleph.sdk.vm.cache import TestVmCache, VmCache
 from .constants import FISHNET_MESSAGE_CHANNEL, FISHNET_MANAGER_PUBKEYS
 
 
-def initialize_aars():
+async def initialize_aars():
     test_cache_flag = getenv("TEST_CACHE")
     if test_cache_flag is not None and test_cache_flag.lower() == "false":
         cache = VmCache()
@@ -35,10 +35,13 @@ def initialize_aars():
     )
 
     if aleph_account.get_address() in FISHNET_MANAGER_PUBKEYS:
-        resp, status = await aleph_session.fetch_aggregate(
-            "security", aleph_account.get_address()
-        )
-        existing_authorizations = resp.json().get("authorizations", [])
+        try:
+            resp, status = await aleph_session.fetch_aggregate(
+                "security", aleph_account.get_address()
+            )
+            existing_authorizations = resp.json().get("authorizations", [])
+        except:
+            existing_authorizations = []
         needed_authorizations = [
             {
                 "address": address,
