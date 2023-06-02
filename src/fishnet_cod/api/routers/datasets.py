@@ -287,7 +287,7 @@ async def generate_view(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     # get the views
-    view_ids = [view.item_hash for view in view_params]
+    view_ids = [view.item_hash for view in view_params if view.item_hash is not None]
     views_map = {view.item_hash: view for view in await View.fetch(view_ids).all()}
     view_requests = []
     for view_req in view_params:
@@ -299,7 +299,7 @@ async def generate_view(
                 for ts in timeseries
                 if len(ts.data) > 0
             },
-            index=[p[0] * 1000 for p in timeseries[0].data],
+            index=[p[0] for p in timeseries[0].data],
         )
         timeseries_df.index = pd.to_datetime(timeseries_df.index, unit="s")
         # Specify the start and end dates
