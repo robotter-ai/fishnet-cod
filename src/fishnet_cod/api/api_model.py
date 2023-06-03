@@ -199,8 +199,8 @@ class PutViewRequest(BaseModel):
     item_hash: Optional[str]
     timeseriesIDs: List[str]
     granularity: Granularity
-    startTime: int
-    endTime: int
+    startTime: Optional[int] = None
+    endTime: Optional[int] = None
 
 
 class PutViewResponse(BaseModel):

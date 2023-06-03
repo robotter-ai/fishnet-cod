@@ -302,13 +302,13 @@ async def generate_view(
             index=[p[0] for p in timeseries[0].data],
         )
         timeseries_df.index = pd.to_datetime(timeseries_df.index, unit="s")
-        # Specify the start and end dates
-        start_date = pd.to_datetime(view_req.startTime)
-        end_date = pd.to_datetime(view_req.endTime)
-        # Filter the DataFrame based on the start and end dates
-        timeseries_df = timeseries_df[
-            (timeseries_df.index >= start_date) & (timeseries_df.index <= end_date)
-        ]
+        # filter by time window
+        if view_req.startTime is not None:
+            start_date = pd.to_datetime(view_req.startTime)
+            timeseries_df = timeseries_df[timeseries_df.index >= start_date]
+        if view_req.endTime is not None:
+            end_date = pd.to_datetime(view_req.endTime)
+            timeseries_df = timeseries_df[timeseries_df.index <= end_date]
         # normalize and round values
         timeseries_df = (timeseries_df - timeseries_df.min()) / (
             timeseries_df.max() - timeseries_df.min()
