@@ -11,28 +11,47 @@ Activate the virtual environment, if not already done:
 poetry shell
 ```
 
-### Running the API locally
+## Run on local
+### Installing dev dependencies
+Before you can run and develop the API locally, you need to install the
+dev dependencies:
+```shell
+poetry install --dev
+```
+
+### Running the API
 Uvicorn is used to run ASGI compatible web applications, such as the `app`
 web application from the example above. You need to specify it the name of the
 Python module to use and the name of the app:
 ```shell
-export TEST_CACHE=true  # when running locally, use the test cache
-
-cd src  # the following command must be run from the src folder
-
-python -m uvicorn fishnet_cod.api.main:app --reload
+python -m uvicorn src.fishnet_cod.api.main:app --reload
 ```
 
 Then open the app in a web browser on http://localhost:8000
 
 > Tip: With `--reload`, Uvicorn will automatically reload your code upon changes  
 
-### Running the Executor locally
+### Running the Executor
 When the API is running, you can run the local executor to automatically
 process the pending execution requests.
 ```shell
 python /src/fishnet_cod/local_executor.py
 ```
+
+## Testing
+To run the tests, you need to [install the dev dependencies](#installing-dev-dependencies).
+
+In order to avoid indexing all the messages and starting out with an empty database, you need to set the `TEST_CHANNEL` environment variable to `true`:
+```shell
+export TEST_CHANNEL=true
+```
+
+Then, you can run the API tests with:
+```shell
+poetry run pytest src/fishnet_cod/api/test.py
+```
+
+**Note**: The tests run sequentially and if one fails, the following ones will also fail due to the event loop being closed.
 
 ## Environment variables
 
