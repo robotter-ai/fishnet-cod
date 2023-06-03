@@ -198,7 +198,7 @@ class DenyPermissionsResponse(BaseModel):
 class PutViewRequest(BaseModel):
     item_hash: Optional[str]
     timeseriesIDs: List[str]
-    granularity: Granularity
+    granularity: Granularity = Granularity.YEAR
     startTime: Optional[int] = None
     endTime: Optional[int] = None
 
