@@ -1,3 +1,4 @@
+import asyncio
 from os import putenv
 
 import pytest
@@ -10,6 +11,12 @@ from .api_model import *
 from .main import app
 
 
+@pytest.fixture(scope="session")
+def event_loop():
+    yield app.aars.session.http_session.loop
+    asyncio.run(app.aars.session.http_session.close())
+
+
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as client:
@@ -18,32 +25,27 @@ def client():
 
 def test_full_request_execution_flow_with_own_dataset(client):
     with client:
-        upload_timeseries_req = UploadTimeseriesRequest(
+        upload_dataset_req = UploadDatasetTimeseriesRequest(
+            dataset=UploadDatasetRequest(
+                name="test",
+                owner="test",
+                ownsAllTimeseries=True,
+                timeseriesIDs=[],
+            ),
             timeseries=[
                 TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
             ]
         )
-        req_body = upload_timeseries_req.dict()
-        response = client.put("/timeseries", json=req_body)
+        response = client.post("/datasets/upload/timeseries", json=upload_dataset_req.dict())
         assert response.status_code == 200
-        assert response.json()[0]["item_hash"] is not None
-        timeseries_id = response.json()[0]["item_hash"]
-
-        upload_dataset_req = UploadDatasetRequest(
-            name="test",
-            owner="test",
-            ownsAllTimeseries=True,
-            timeseriesIDs=[timeseries_id],
-        )
-        response = client.put("/datasets/upload", json=upload_dataset_req.dict())
-        assert response.status_code == 200
-        assert response.json()["item_hash"] is not None
-        dataset_id = response.json()["item_hash"]
+        print(response.json())
+        assert response.json()["dataset"]["item_hash"] is not None
+        dataset_id = response.json()["dataset"]["item_hash"]
 
         upload_algorithm_req = UploadAlgorithmRequest(
             name="test", desc="test", owner="test", code="test"
         )
-        response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
+        response = client.put("/algorithms", json=upload_algorithm_req.dict())
         assert response.status_code == 200
         assert response.json()["item_hash"] is not None
         algorithm_id = response.json()["item_hash"]
@@ -51,7 +53,7 @@ def test_full_request_execution_flow_with_own_dataset(client):
         request_execution_req = RequestExecutionRequest(
             algorithmID=algorithm_id, datasetID=dataset_id, owner="test"
         )
-        response = client.post("/executions/request", json=request_execution_req.dict())
+        response = client.post("/executions", json=request_execution_req.dict())
         assert response.status_code == 200
         assert response.json()["execution"]["status"] == ExecutionStatus.PENDING
 

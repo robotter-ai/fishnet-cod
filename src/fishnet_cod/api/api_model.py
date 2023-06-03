@@ -14,7 +14,7 @@ from ..core.model import (
     Result,
     Timeseries,
     UserInfo,
-    View,
+    View, ExecutionStatus,
 )
 from .security import AuthInfo
 
@@ -148,7 +148,7 @@ class RequestExecutionRequest(BaseModel):
     algorithmID: str
     datasetID: str
     owner: str
-    status: Optional[str]
+    status: Optional[str] = ExecutionStatus.REQUESTED
 
 
 class ExecutionStatusHistory(BaseModel):

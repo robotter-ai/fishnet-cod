@@ -72,7 +72,7 @@ async def re_index():
 
 @app.on_event("startup")
 async def startup():
-    await initialize_aars()
+    app.aars = await initialize_aars()
     print("Syncing indices...")
     await re_index()
 

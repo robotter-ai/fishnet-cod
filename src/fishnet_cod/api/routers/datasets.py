@@ -220,7 +220,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 
 
 @router.post("/upload/timeseries")
-async def upload_dataset_timeseries(
+async def upload_dataset_with_timeseries(
     upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
 ) -> UploadDatasetTimeseriesResponse:
     """
@@ -229,7 +229,7 @@ async def upload_dataset_timeseries(
     if upload_dataset_timeseries_request.dataset.item_hash is not None:
         raise HTTPException(
             status_code=400,
-            detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets/upload instead.",
+            detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets instead.",
         )
     if any(
         [
@@ -239,7 +239,7 @@ async def upload_dataset_timeseries(
     ):
         raise HTTPException(
             status_code=400,
-            detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries/upload instead.",
+            detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries instead.",
         )
     timeseries = await upload_timeseries(
         req=UploadTimeseriesRequest(
