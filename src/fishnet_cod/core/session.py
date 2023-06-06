@@ -2,7 +2,7 @@ from os import getenv
 
 import pandas as pd
 from aars import AARS
-from aleph.sdk.client import AuthenticatedAlephClient, AuthenticatedUserSessionSync
+from aleph.sdk.client import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph.sdk.vm.cache import TestVmCache, VmCache
@@ -17,6 +17,9 @@ async def initialize_aars():
     else:
         cache = TestVmCache()
 
+    aleph_account = get_fallback_account()
+    aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
+
     test_channel_flag = getenv("TEST_CHANNEL")
     custom_channel = getenv("CUSTOM_CHANNEL")
     if custom_channel:
@@ -24,16 +27,14 @@ async def initialize_aars():
     elif test_channel_flag is not None and test_channel_flag.lower() == "true":
         channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
     else:
-        channel = FISHNET_MESSAGE_CHANNEL
-    aleph_account = get_fallback_account()
-    aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
+        channel = FISHNET_MESSAGE_CHANNEL + "_" + str(aleph_account.get_address())
 
     print("Using channel: " + channel)
 
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session
     )
-
+    """
     if aleph_account.get_address() in FISHNET_MANAGER_PUBKEYS:
         try:
             resp, status = await aleph_session.fetch_aggregate(
@@ -58,5 +59,5 @@ async def initialize_aars():
             )
             print("Created security aggregate:")
             print(resp.json())
-
+    """
     return aars
