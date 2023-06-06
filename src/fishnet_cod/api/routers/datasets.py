@@ -304,10 +304,10 @@ async def generate_view(
         timeseries_df.index = pd.to_datetime(timeseries_df.index, unit="s")
         # filter by time window
         if view_req.startTime is not None:
-            start_date = pd.to_datetime(view_req.startTime)
+            start_date = pd.to_datetime(view_req.startTime, unit="s")
             timeseries_df = timeseries_df[timeseries_df.index >= start_date]
         if view_req.endTime is not None:
-            end_date = pd.to_datetime(view_req.endTime)
+            end_date = pd.to_datetime(view_req.endTime, unit="s")
             timeseries_df = timeseries_df[timeseries_df.index <= end_date]
         # normalize and round values
         timeseries_df = (timeseries_df - timeseries_df.min()) / (
