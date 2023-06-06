@@ -96,7 +96,7 @@ async def get_notification(address: str) -> List[Notification]:
     ).all()
 
     # drop duplicates by dataset & requestor
-    permissions = list({(p.datasetID, p.requestor) for p in permissions})
+    permissions = list({(p.datasetID, p.requestor): p for p in permissions}.values())
 
     datasets = await Dataset.fetch([p.datasetID for p in permissions]).all()
     dataset_map = {d.item_hash: d for d in datasets}
