@@ -328,6 +328,7 @@ async def generate_view(
             ]
             for ts in timeseries
         }
+        column_names = [ts.name for ts in timeseries]
         # prepare view request
         if views_map.get(view_req.item_hash):
             old_view = views_map[view_req.item_hash]
@@ -343,6 +344,7 @@ async def generate_view(
                     startTime=view_req.startTime,
                     endTime=view_req.endTime,
                     granularity=view_req.granularity,
+                    columns=column_names,
                     values=view_values,
                 ).save()
             )

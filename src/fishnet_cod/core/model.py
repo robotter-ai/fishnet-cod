@@ -33,6 +33,7 @@ class View(Record):
     startTime: int
     endTime: int
     granularity: Granularity
+    columns: List[str]
     values: Dict[str, List[Tuple[int, float]]]  # timeseriesID -> data
 
 
