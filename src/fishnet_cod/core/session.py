@@ -27,14 +27,14 @@ async def initialize_aars():
     elif test_channel_flag is not None and test_channel_flag.lower() == "true":
         channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
     else:
-        channel = FISHNET_MESSAGE_CHANNEL + "_" + str(aleph_account.get_address())
+        channel = FISHNET_MESSAGE_CHANNEL
 
     print("Using channel: " + channel)
 
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session
     )
-    """
+
     if aleph_account.get_address() in FISHNET_MANAGER_PUBKEYS:
         try:
             resp, status = await aleph_session.fetch_aggregate(
@@ -46,7 +46,7 @@ async def initialize_aars():
         needed_authorizations = [
             {
                 "address": address,
-                "channels": FISHNET_MESSAGE_CHANNEL,
+                "channels": [FISHNET_MESSAGE_CHANNEL],
             }
             for address in FISHNET_MANAGER_PUBKEYS
         ]
@@ -59,5 +59,5 @@ async def initialize_aars():
             )
             print("Created security aggregate:")
             print(resp.json())
-    """
+
     return aars
