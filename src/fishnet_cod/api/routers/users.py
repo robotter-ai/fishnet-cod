@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter
 
 from ...core.model import Dataset, Permission, PermissionStatus, Result, UserInfo
-from ..api_model import Notification, NotificationType, PutUserInfo
+from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification
 
 router = APIRouter(
     prefix="/users",
@@ -104,11 +104,15 @@ async def get_notification(address: str) -> List[Notification]:
     notifications = []
     for permission in permissions:
         notifications.append(
-            Notification(
+            PermissionRequestNotification(
                 type=NotificationType.PermissionRequest,
                 message_text=permission.requestor
                 + " has requested to access "
                 + dataset_map[permission.datasetID].name,
+                requestor=permission.requestor,
+                datasetID=permission.datasetID,
+                uses=None,
+                algorithmID=None
             )
         )
     return notifications
