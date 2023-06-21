@@ -53,13 +53,12 @@ async def approve_permissions(
     for permission in permissions:
         permission.status = PermissionStatus.GRANTED
         permission_requests.append(permission.save())
-    await asyncio.gather(*permission_requests)
+    permissions = await asyncio.gather(*permission_requests)
 
     # get all requested executions and their datasets
     execution_requests = []
     dataset_ids = set(
         [permission.datasetID for permission in permissions]
-        + [timeseries.datasetID for timeseries in timeseries]
     )
     for dataset_id in dataset_ids:
         execution_requests.append(
@@ -78,6 +77,17 @@ async def approve_permissions(
     execution_requests = []
     for dataset in await Dataset.fetch(list(dataset_executions_map.keys())).all():
         executions = dataset_executions_map.get(dataset.item_hash, [])
+        # check if general permissions are granted
+        if dataset.ownsAllTimeseries:
+            general_permissions = [
+                permission
+                for permission in permissions
+                if permission.datasetID == dataset.item_hash and not permission.timeseriesID
+            ]
+            if general_permissions:
+                for execution in executions:
+                    execution.status = ExecutionStatus.PENDING
+                    execution_requests.append(execution.save())
         for execution in executions:
             # TODO: Check if more efficient way to do this
             (
@@ -87,7 +97,7 @@ async def approve_permissions(
             ) = await request_permissions(dataset, execution)
             if not created_permissions and not updated_permissions:
                 execution.status = ExecutionStatus.PENDING
-                execution_requests.append(await execution.save())
+                execution_requests.append(execution.save())
     triggered_executions = list(await asyncio.gather(*execution_requests))
 
     return ApprovePermissionsResponse(

@@ -54,10 +54,8 @@ async def initialize_aars():
             aggregate = {
                 "authorizations": needed_authorizations,
             }
-            resp, status = await aleph_session.create_aggregate(
+            await aleph_session.create_aggregate(
                 "security", aggregate, aleph_account.get_address(), channel="security"
             )
-            print("Created security aggregate:")
-            print(resp.json())
 
     return aars

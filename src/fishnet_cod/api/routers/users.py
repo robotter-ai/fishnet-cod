@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter
 
-from ...core.model import Dataset, Permission, PermissionStatus, Result, UserInfo
+from ...core.model import Dataset, Permission, PermissionStatus, Result, UserInfo, Execution, ExecutionStatus
 from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification
 
 router = APIRouter(
@@ -113,6 +113,19 @@ async def get_notification(address: str) -> List[Notification]:
                 datasetID=permission.datasetID,
                 uses=None,
                 algorithmID=None
+            )
+        )
+
+    executions = await Execution.filter(owner=address, status__in=[ExecutionStatus.PENDING, ExecutionStatus.RUNNING]).all()
+    for execution in executions:
+        notifications.append(
+            Notification(
+                type=NotificationType.ExecutionTriggered,
+                message_text="Execution " + execution.item_hash + " has been triggered",
+                executionID=execution.item_hash,
+                datasetID=execution.datasetID,
+                algorithmID=execution.algorithmID,
+                status=execution.status
             )
         )
     return notifications

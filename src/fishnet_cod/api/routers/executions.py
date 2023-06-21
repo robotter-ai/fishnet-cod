@@ -59,7 +59,6 @@ async def request_execution(
             permissionRequests=None,
             unavailableTimeseries=None,
         )
-
     (
         created_permissions,
         updated_permissions,

@@ -18,6 +18,11 @@ class Timeseries(Record):
     desc: Optional[str]
     available: bool = True
     data: List[Tuple[int, float]]
+    min: Optional[float]
+    max: Optional[float]
+    avg: Optional[float]
+    std: Optional[float]
+    median: Optional[float]
 
 
 # Check coinmarketcap.com for the exact granularity/aggregation timeframes

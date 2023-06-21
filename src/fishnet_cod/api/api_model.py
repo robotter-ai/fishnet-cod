@@ -159,6 +159,7 @@ class ExecutionStatusHistory(BaseModel):
 
 class NotificationType(str, Enum):
     PermissionRequest = "PermissionRequest"
+    ExecutionTriggered = "ExecutionTriggered"
 
 
 class Notification(BaseModel):
@@ -172,6 +173,14 @@ class PermissionRequestNotification(Notification):
     datasetID: str
     uses: Optional[int]
     algorithmIDs: Optional[List[str]]
+
+
+class ExecutionTriggeredNotification(Notification):
+    type: NotificationType = NotificationType.ExecutionTriggered
+    executionID: str
+    datasetID: str
+    algorithmID: str
+    status: ExecutionStatus
 
 
 class ExecutionResponse(BaseModel):
@@ -221,10 +230,6 @@ class FungibleAssetStandard(BaseModel):
     animation_url: Optional[str]
     external_url: Optional[str]
     attributes: List[Attribute]
-
-
-class MultiplePermissions(BaseModel):
-    permissions: List[PostPermission]
 
 
 class TokenChallengeResponse(AuthInfo):

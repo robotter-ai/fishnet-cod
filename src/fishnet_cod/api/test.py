@@ -489,6 +489,7 @@ def test_get_dataset_permission(client):
 
 
 def test_get_notification(client):
+    owner_address = "test_get_notification_owner"
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
             TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
@@ -502,11 +503,11 @@ def test_get_notification(client):
     # - Upload dataset
     upload_dataset_req = UploadDatasetRequest(
         name="test",
-        owner="test",
+        owner=owner_address,
         ownsAllTimeseries=True,
         timeseriesIDs=[timeseries_id],
     )
-    response = client.put("/datasets/upload", json=upload_dataset_req.dict())
+    response = client.put("/datasets", json=upload_dataset_req.dict())
     assert response.status_code == 200
     assert response.json()["item_hash"] is not None
     dataset_id = response.json()["item_hash"]
@@ -519,68 +520,38 @@ def test_get_notification(client):
         owner=requestor_address,
         code="test",
     )
-    response = client.put("/algorithms/upload", json=upload_algorithm_req.dict())
+    response = client.put("/algorithms", json=upload_algorithm_req.dict())
     assert response.status_code == 200
     assert response.json()["item_hash"] is not None
     algorithm_id = response.json()["item_hash"]
 
-    # - Approve execution
+    # - Request execution
     request_execution_req = RequestExecutionRequest(
         algorithmID=algorithm_id,
         datasetID=dataset_id,
         owner=requestor_address,
         status=ExecutionStatus.REQUESTED,
     )
-    response = client.post("/executions/request", json=request_execution_req.dict())
+    response = client.post("/executions", json=request_execution_req.dict())
     assert response.status_code == 200
     assert response.json()["execution"]["status"] == ExecutionStatus.REQUESTED
+    permission = response.json()["permissionRequests"][0]
+    assert permission["status"] == PermissionStatus.REQUESTED
 
-    # - Deny execution
-    request_execution_req = RequestExecutionRequest(
-        algorithmID=algorithm_id,
-        datasetID=dataset_id,
-        owner=requestor_address,
-        status=ExecutionStatus.PENDING,
-    )
-    response = client.post("/executions/request", json=request_execution_req.dict())
-    assert response.status_code == 200
-    # - Get execution result & status
-    assert response.json()["execution"]["status"] == ExecutionStatus.PENDING
-
-    # - Grant permission
-    permission = response.json()["execution"]["permissionRequests"][0]
-    assert permission.status == PermissionStatus.REQUESTED
-    permission_ids = [permission.item_hash]
+    # - Approve permission
+    permission_ids = [permission["item_hash"]]
 
     response = client.put(
-        "/permissions/approve", params={"permission_hashes": permission_ids}
+        "/permissions/approve", json=permission_ids
     )
     assert response.status_code == 200
-    new_permission = response.json()[0]
-    assert new_permission.status == PermissionStatus.GRANTED
+    new_permission = response.json()["updatedPermissions"][0]
+    assert new_permission["status"] == PermissionStatus.GRANTED
+    triggered_executions = response.json()["triggeredExecutions"]
+    assert len(triggered_executions) == 1
 
-    user_id = "authorizer_001"
-
-    expected_permissions = PostPermission(
-        timeseriesID=timeseries_id,
-        algorithmID=algorithm_id,
-        authorizer=user_id,
-        status=PermissionStatus.GRANTED,
-        executionCount=4,
-        maxExecutionCount=44,
-        requestor="requestor",
-    )
-
-    response = client.post(
-        "/authorizer/post/permission", json=expected_permissions.dict()
-    )
-    assert response.status_code == 200
-    user_id = response.json()[0]["authorizer"]
-
-    response = client.get(f"/user/{user_id}/notifications")
+    response = client.get(f"/users/{requestor_address}/notifications")
     assert response.status_code == 200
     notifications = response.json()
     assert isinstance(notifications, List)
-    assert all(
-        isinstance(notification, Notification) for notification in notifications
-    )
+    assert len(notifications) == 1

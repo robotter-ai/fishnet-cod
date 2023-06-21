@@ -50,8 +50,13 @@ async def request_permissions(
     """
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
     permissions = await Permission.filter(
-        timeseriesID__in=dataset.timeseriesIDs, requestor=execution.owner
+        requestor=execution.owner
     ).all()
+    permissions = [
+        permission
+        for permission in permissions
+        if permission.timeseriesID in dataset.timeseriesIDs
+    ]
 
     ts_permission_map: Dict[str, Permission] = {
         permission.timeseriesID: permission for permission in permissions if permission  # type: ignore
@@ -64,8 +69,6 @@ async def request_permissions(
             continue
         if not ts.available:
             unavailable_timeseries.append(ts)
-        if timeseries:
-            continue
         if ts.item_hash not in ts_permission_map:
             create_permissions_requests.append(
                 Permission(
@@ -82,6 +85,8 @@ async def request_permissions(
         else:
             permission = ts_permission_map[ts.item_hash]
             needs_update = False
+            if permission.status == PermissionStatus.GRANTED:
+                continue
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED
                 needs_update = True
