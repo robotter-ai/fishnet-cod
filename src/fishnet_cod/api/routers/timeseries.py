@@ -80,6 +80,11 @@ async def upload_timeseries_csv(
                     desc=None,
                     data=data,
                     owner=owner,
+                    min=col.min(),
+                    max=col.max(),
+                    avg=col.mean(),
+                    std=col.std(),
+                    median=col.median(),
                 )
             )
         except ValidationError:
