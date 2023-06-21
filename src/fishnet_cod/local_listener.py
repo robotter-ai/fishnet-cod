@@ -4,11 +4,9 @@ from typing import Optional
 import requests
 from aleph_message.models import MessageType, PostMessage
 
-from .core.constants import API_MESSAGE_FILTER
-from .core.model import Execution
-from .core.session import initialize_aars
-
-aars_client = initialize_aars()
+from core.constants import API_MESSAGE_FILTER
+from core.model import Execution
+from core.session import initialize_aars
 
 
 async def handle_message(event: PostMessage) -> Optional[Execution]:
@@ -21,6 +19,7 @@ async def handle_message(event: PostMessage) -> Optional[Execution]:
 
 
 async def listen():
+    aars_client = await initialize_aars()
     print(f"Listening for events on {API_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
         start_date=time.time(),
