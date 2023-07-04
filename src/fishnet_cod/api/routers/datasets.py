@@ -264,7 +264,7 @@ async def get_dataset_timeseries(dataset_id: str) -> List[Timeseries]:
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    return await Timeseries.filter(item_hash__in=dataset.timeseriesIDs).all()
+    return await Timeseries.fetch(dataset.timeseriesIDs).all()
 
 
 @router.get("/{dataset_id}/views")
