@@ -26,6 +26,8 @@ API_MESSAGE_FILTER = [
             "Timeseries",
             "Algorithm",
             "Result",
+            "View",
+            "UserInfo",
             "amend",
         ],
     }
