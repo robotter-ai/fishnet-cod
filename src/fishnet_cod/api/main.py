@@ -10,6 +10,7 @@ from aleph_message.models import PostMessage
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
+from fastapi_walletauth import authorization_routes
 
 from ..core.constants import API_MESSAGE_FILTER, FISHNET_MESSAGE_CHANNEL
 from ..core.model import (
@@ -60,6 +61,7 @@ http_app.include_router(permissions.router)
 http_app.include_router(results.router)
 http_app.include_router(timeseries.router)
 http_app.include_router(users.router)
+http_app.include_router(authorization_routes)
 
 app = AlephApp(http_app=http_app)
 
