@@ -1,8 +1,8 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 
-from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException
 
+from ..common import OptionalWalletAuthDep
 from ...core.model import Algorithm
 from ..api_model import UploadAlgorithmRequest
 
@@ -10,6 +10,7 @@ router = APIRouter(
     prefix="/algorithms",
     tags=["algorithms"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 

@@ -1,13 +1,13 @@
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException
 
+from ..common import OptionalWalletAuthDep
 from ...core.model import Result
 
 router = APIRouter(
     prefix="/results",
     tags=["results"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 

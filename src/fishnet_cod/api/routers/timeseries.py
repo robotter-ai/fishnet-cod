@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from ..common import get_harmonized_timeseries
+from ..common import OptionalWalletAuthDep, get_harmonized_timeseries
 from ...core.model import Timeseries
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
@@ -15,6 +15,7 @@ router = APIRouter(
     prefix="/timeseries",
     tags=["timeseries"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 

@@ -17,12 +17,13 @@ from ..api_model import (
     RequestDatasetPermissionsRequest,
     GrantDatasetPermissionsRequest,
 )
-from ..common import request_permissions
+from ..common import request_permissions, OptionalWalletAuthDep
 
 router = APIRouter(
     prefix="/permissions",
     tags=["permissions"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 

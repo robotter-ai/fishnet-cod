@@ -16,7 +16,6 @@ from ..core.model import (
     UserInfo,
     View, ExecutionStatus,
 )
-from .security import AuthInfo
 
 # indexes to fetch by timeseries
 Index(Timeseries, "owner")
@@ -230,14 +229,6 @@ class FungibleAssetStandard(BaseModel):
     animation_url: Optional[str]
     external_url: Optional[str]
     attributes: List[Attribute]
-
-
-class TokenChallengeResponse(AuthInfo):
-    challenge: str
-
-
-class BearerTokenResponse(AuthInfo):
-    token: str
 
 
 class MessageResponse(BaseModel):

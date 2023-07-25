@@ -60,3 +60,4 @@ poetry run pytest src/fishnet_cod/api/test.py
 | `TEST_CACHE`    | Whether to use the test cache                             | `bool`   | `true`  |
 | `TEST_CHANNEL`  | Whether to use a fresh test channel                       | `bool`   | `false` |
 | `ALEPH_CHANNEL` | The Aleph channel to use, is superseded by `TEST_CHANNEL` | `string` | `None`  |
+| `DISABLE_AUTH`  | Whether mandatory authentication is disabled              | `bool`   | `true`  |
