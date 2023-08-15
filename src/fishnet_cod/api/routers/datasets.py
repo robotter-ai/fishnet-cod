@@ -26,7 +26,7 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import granularity_to_interval
+from ..common import granularity_to_interval, get_harmonized_timeseries
 from .timeseries import upload_timeseries
 
 router = APIRouter(
@@ -292,16 +292,7 @@ async def generate_view(
     view_requests = []
     for view_req in view_params:
         # get all the timeseries
-        timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
-        timeseries_df = pd.DataFrame(
-            {
-                ts.item_hash: [p[1] for p in ts.data]
-                for ts in timeseries
-                if len(ts.data) > 0
-            },
-            index=[p[0] for p in timeseries[0].data],
-        )
-        timeseries_df.index = pd.to_datetime(timeseries_df.index, unit="s")
+        timeseries_df = await get_harmonized_timeseries(view_req.timeseriesIDs)
         # filter by time window
         if view_req.startTime is not None:
             start_date = pd.to_datetime(view_req.startTime, unit="s")

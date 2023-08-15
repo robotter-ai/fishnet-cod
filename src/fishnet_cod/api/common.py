@@ -1,6 +1,9 @@
 import asyncio
 from typing import Dict, List, Tuple
 
+import pandas as pd
+
+from .api_model import ColumnNameType
 from ..core.model import (
     Dataset,
     Execution,
@@ -106,3 +109,22 @@ async def request_permissions(
         await asyncio.gather(*update_permissions_requests)
     )
     return created_permissions, updated_permissions, unavailable_timeseries
+
+
+async def get_harmonized_timeseries(
+    timeseriesIDs: List[str],
+    column_names: ColumnNameType = ColumnNameType.item_hash,
+) -> pd.DataFrame:
+    timeseries = await Timeseries.fetch(timeseriesIDs).all()
+
+    # parse all as series
+    if column_names == ColumnNameType.item_hash:
+        series = [pd.Series(dict(ts.data), name=ts.item_hash) for ts in timeseries]
+    else:
+        series = [pd.Series(dict(ts.data), name=ts.name) for ts in timeseries]
+    # merge all series into one dataframe and pad missing values
+    df = pd.concat(series, axis=1).fillna(method="pad")
+    # set the index to the python timestamp
+    df.index = pd.to_datetime(df.index, unit="s")
+
+    return df

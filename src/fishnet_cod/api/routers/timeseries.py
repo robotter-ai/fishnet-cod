@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
+from ..common import get_harmonized_timeseries
 from ...core.model import Timeseries
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
@@ -113,17 +114,7 @@ async def download_timeseries_csv(
     If `compression` is set to `True`, the csv file will be compressed with gzip.
     """
 
-    timeseries = await Timeseries.fetch(timeseriesIDs).all()
-
-    # parse all as series
-    if column_names == ColumnNameType.item_hash:
-        series = [pd.Series(ts.data, name=ts.item_hash) for ts in timeseries]
-    else:
-        series = [pd.Series(ts.data, name=ts.name) for ts in timeseries]
-    # merge all series into one dataframe and frontfill missing values
-    df = pd.concat(series, axis=1).fillna(method="ffill")
-    # set the index to the python timestamp
-    df.index = pd.to_datetime(df.index, unit="s")
+    df = await get_harmonized_timeseries(timeseriesIDs, column_names=column_names)
 
     # Create an in-memory text stream
     stream = io.StringIO()
