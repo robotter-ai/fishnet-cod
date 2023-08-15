@@ -97,7 +97,7 @@ async def upload_timeseries_csv(
     return timeseries
 
 
-@router.get("/csv")
+@router.post("/csv/download")
 async def download_timeseries_csv(
     timeseriesIDs: List[str],
     column_names: ColumnNameType = ColumnNameType.item_hash,
