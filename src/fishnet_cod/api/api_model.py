@@ -242,3 +242,8 @@ class BearerTokenResponse(AuthInfo):
 
 class MessageResponse(BaseModel):
     response: str
+
+
+class ColumnNameType(Enum):
+    item_hash = "item_hash"
+    name = "name"

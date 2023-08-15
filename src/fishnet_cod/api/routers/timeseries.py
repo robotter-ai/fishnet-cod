@@ -1,12 +1,14 @@
 import asyncio
+import io
 from typing import List
 
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
+from starlette.responses import StreamingResponse
 
 from ...core.model import Timeseries
-from ..api_model import UploadTimeseriesRequest
+from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
 router = APIRouter(
     prefix="/timeseries",
@@ -93,3 +95,50 @@ async def upload_timeseries_csv(
                 detail=f"Invalid data encountered in column {col}: {data}",
             )
     return timeseries
+
+
+@router.get("/csv")
+async def download_timeseries_csv(
+    timeseriesIDs: List[str],
+    column_names: ColumnNameType = ColumnNameType.item_hash,
+    compression: bool = False,
+) -> StreamingResponse:
+    """
+    Download a csv file with timeseries data. The csv file will have a `timestamp` column and a column for each
+    timeseries. The column name of each timeseries is either the `item_hash` or the `name` of the timeseries,
+    depending on the `column_names` parameter.
+
+    If timeseries timestamps do not align perfectly, the missing values will be filled with the last known value.
+
+    If `compression` is set to `True`, the csv file will be compressed with gzip.
+    """
+
+    timeseries = await Timeseries.fetch(timeseriesIDs).all()
+
+    # parse all as series
+    if column_names == ColumnNameType.item_hash:
+        series = [pd.Series(ts.data, name=ts.item_hash) for ts in timeseries]
+    else:
+        series = [pd.Series(ts.data, name=ts.name) for ts in timeseries]
+    # merge all series into one dataframe and frontfill missing values
+    df = pd.concat(series, axis=1).fillna(method="ffill")
+    # set the index to the python timestamp
+    df.index = pd.to_datetime(df.index, unit="s")
+
+    # Create an in-memory text stream
+    stream = io.StringIO()
+    # Write the DataFrame to the stream as CSV
+    if compression:
+        df.to_csv(stream, compression="gzip")
+    else:
+        df.to_csv(stream)
+    # Set the stream position to the start
+    stream.seek(0)
+    # Create a streaming response with the stream and appropriate headers
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+
+    # Generate a hash from the timeseries IDs and use it as the filename
+    filename = hash("".join(timeseriesIDs))
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}.csv"
+
+    return response
