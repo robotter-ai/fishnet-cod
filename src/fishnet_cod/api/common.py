@@ -117,11 +117,10 @@ async def request_permissions(
     return created_permissions, updated_permissions, unavailable_timeseries
 
 
-async def get_harmonized_timeseries(
-    timeseriesIDs: List[str],
+async def get_harmonized_timeseries_df(
+    timeseries: List[Timeseries],
     column_names: ColumnNameType = ColumnNameType.item_hash,
 ) -> pd.DataFrame:
-    timeseries = await Timeseries.fetch(timeseriesIDs).all()
 
     # parse all as series
     if column_names == ColumnNameType.item_hash:
@@ -143,4 +142,6 @@ class OptionalSignatureChallengeTokenAuth(SignatureChallengeTokenAuth):
         return super().__call__(request)
 
 
-OptionalWalletAuthDep = Depends(OptionalSignatureChallengeTokenAuth())
+OptionalWalletAuth = OptionalSignatureChallengeTokenAuth()
+
+OptionalWalletAuthDep = Depends(OptionalWalletAuth)

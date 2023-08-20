@@ -3,7 +3,8 @@ import pandas as pd
 from typing import Awaitable, List, Optional, Union, Dict
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi_walletauth import WalletAuth
 
 from ...core.model import (
     Dataset,
@@ -26,7 +27,7 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import granularity_to_interval, OptionalWalletAuthDep, get_harmonized_timeseries
+from ..common import granularity_to_interval, OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
 from .timeseries import upload_timeseries
 
 router = APIRouter(
@@ -124,12 +125,27 @@ def get_dataset_permission_status(
 
 
 @router.put("")
-async def upload_dataset(dataset: UploadDatasetRequest) -> Dataset:
+async def upload_dataset(
+    dataset: UploadDatasetRequest,
+    user: Optional[WalletAuth] = Depends(OptionalWalletAuth)
+) -> Dataset:
     """
     Upload a dataset.
     If an `item_hash` is provided, it will update the dataset with that id.
     """
-    if dataset.ownsAllTimeseries:
+    if user.address:
+        if dataset.owner != user.address:
+            raise HTTPException(
+                status_code=403, detail="Cannot upload dataset that is not owned by you"
+            )
+        if dataset.owner is None:
+            dataset.owner = user.address
+    else:
+        if dataset.owner is None:
+            raise HTTPException(
+                status_code=403, detail="Cannot upload dataset without owner"
+            )
+    if dataset.ownsAllTimeseries or dataset.ownsAllTimeseries is None:
         timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
         dataset.ownsAllTimeseries = all(
             [ts.owner == dataset.owner for ts in timeseries]
@@ -295,7 +311,8 @@ async def generate_view(
     view_requests = []
     for view_req in view_params:
         # get all the timeseries
-        timeseries_df = await get_harmonized_timeseries(view_req.timeseriesIDs)
+        timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
+        timeseries_df = await get_harmonized_timeseries_df(timeseries)
         # filter by time window
         if view_req.startTime is not None:
             start_date = pd.to_datetime(view_req.startTime, unit="s")

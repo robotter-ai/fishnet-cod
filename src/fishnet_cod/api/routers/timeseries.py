@@ -7,8 +7,8 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from ..common import OptionalWalletAuthDep, get_harmonized_timeseries
-from ...core.model import Timeseries
+from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df
+from ...core.model import Timeseries, Permission
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
 router = APIRouter(
@@ -103,7 +103,7 @@ async def upload_timeseries_csv(
 async def download_timeseries_csv(
     timeseriesIDs: List[str],
     column_names: ColumnNameType = ColumnNameType.item_hash,
-    compression: bool = False,
+    compression: bool = False
 ) -> StreamingResponse:
     """
     Download a csv file with timeseries data. The csv file will have a `timestamp` column and a column for each
@@ -114,8 +114,9 @@ async def download_timeseries_csv(
 
     If `compression` is set to `True`, the csv file will be compressed with gzip.
     """
-
-    df = await get_harmonized_timeseries(timeseriesIDs, column_names=column_names)
+    # fetch required permissions
+    timeseries = await Timeseries.fetch(timeseriesIDs).all()
+    df = await get_harmonized_timeseries_df(timeseries, column_names=column_names)
 
     # Create an in-memory text stream
     stream = io.StringIO()
