@@ -26,13 +26,14 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import granularity_to_interval, get_harmonized_timeseries
+from ..common import granularity_to_interval, OptionalWalletAuthDep, get_harmonized_timeseries
 from .timeseries import upload_timeseries
 
 router = APIRouter(
     prefix="/datasets",
     tags=["datasets"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 
@@ -118,6 +119,8 @@ def get_dataset_permission_status(
         return DatasetPermissionStatus.DENIED
     elif PermissionStatus.REQUESTED in permissions_status:
         return DatasetPermissionStatus.REQUESTED
+
+    raise Exception("Should not reach here")
 
 
 @router.put("")

@@ -3,12 +3,13 @@ from fastapi import APIRouter, HTTPException
 
 from ...core.model import Dataset, Execution, ExecutionStatus
 from ..api_model import RequestExecutionRequest, RequestExecutionResponse
-from ..common import request_permissions
+from ..common import request_permissions, OptionalWalletAuthDep
 
 router = APIRouter(
     prefix="/executions",
     tags=["executions"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 

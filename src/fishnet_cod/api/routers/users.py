@@ -2,13 +2,16 @@ from typing import List, Optional
 
 from fastapi import APIRouter
 
+from ..common import OptionalWalletAuthDep
 from ...core.model import Dataset, Permission, PermissionStatus, Result, UserInfo, Execution, ExecutionStatus
-from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification
+from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification, \
+    ExecutionTriggeredNotification
 
 router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
+    dependencies=[OptionalWalletAuthDep],
 )
 
 
@@ -101,7 +104,7 @@ async def get_notification(address: str) -> List[Notification]:
     datasets = await Dataset.fetch([p.datasetID for p in permissions]).all()
     dataset_map = {d.item_hash: d for d in datasets}
 
-    notifications = []
+    notifications: List[Notification] = []
     for permission in permissions:
         notifications.append(
             PermissionRequestNotification(
@@ -112,14 +115,14 @@ async def get_notification(address: str) -> List[Notification]:
                 requestor=permission.requestor,
                 datasetID=permission.datasetID,
                 uses=None,
-                algorithmID=None
+                algorithmIDs=None
             )
         )
 
     executions = await Execution.filter(owner=address, status__in=[ExecutionStatus.PENDING, ExecutionStatus.RUNNING]).all()
     for execution in executions:
         notifications.append(
-            Notification(
+            ExecutionTriggeredNotification(
                 type=NotificationType.ExecutionTriggered,
                 message_text="Execution " + execution.item_hash + " has been triggered",
                 executionID=execution.item_hash,
