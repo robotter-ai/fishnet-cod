@@ -11,6 +11,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_walletauth import authorization_routes
+from pydantic import ValidationError
+from starlette.responses import JSONResponse
 
 from ..core.constants import API_MESSAGE_FILTER, FISHNET_MESSAGE_CHANNEL
 from ..core.model import (
@@ -64,6 +66,14 @@ http_app.include_router(users.router)
 http_app.include_router(authorization_routes)
 
 app = AlephApp(http_app=http_app)
+
+
+@http_app.exception_handler(ValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
 
 
 async def re_index():
