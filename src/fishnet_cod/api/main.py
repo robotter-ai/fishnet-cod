@@ -117,7 +117,6 @@ async def event(event: PostMessage):
 @app.event(filters=API_MESSAGE_FILTER)
 async def fishnet_event(event: PostMessage):
     record: Optional[Record]
-    print("fishnet_event", event)
     if event.content.type in [
         "Execution",
         "Permission",
@@ -128,6 +127,7 @@ async def fishnet_event(event: PostMessage):
         "UserInfo",
         "Result",
     ]:
+        print(f"Received event: {event.content.type} - {event.item_hash}")
         if Record.is_indexed(event.item_hash):
             return
         cls: Record = globals()[event.content.type]
