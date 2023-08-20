@@ -104,6 +104,7 @@ class Permission(Record):
     status: PermissionStatus
     executionCount: int
     maxExecutionCount: Optional[int]
+    tags: Optional[List[str]]
 
 
 class Result(Record):
