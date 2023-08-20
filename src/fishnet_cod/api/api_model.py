@@ -76,8 +76,8 @@ class UploadDatasetRequest(BaseModel):
     item_hash: Optional[str]
     name: str
     desc: Optional[str]
-    owner: str
-    ownsAllTimeseries: bool
+    owner: Optional[str]
+    ownsAllTimeseries: Optional[bool]
     timeseriesIDs: List[str]
 
 
