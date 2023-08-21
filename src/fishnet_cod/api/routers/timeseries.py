@@ -1,13 +1,14 @@
 import asyncio
 import io
-from typing import List
+from typing import List, Annotated, Optional
 
 import pandas as pd
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
+from fastapi_walletauth import WalletAuth
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df
+from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
 from ...core.model import Timeseries, Permission
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
@@ -20,13 +21,22 @@ router = APIRouter(
 
 
 @router.put("")
-async def upload_timeseries(req: UploadTimeseriesRequest) -> List[Timeseries]:
+async def upload_timeseries(
+    req: UploadTimeseriesRequest,
+    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+) -> List[Timeseries]:
     """
     Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,
     it will be overwritten. If the timeseries does not exist, it will be created.
     A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
     it might be that a passed timeseries contained illegal data.
     """
+    for ts in req.timeseries:
+        if ts.owner != user.address:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot upload timeseries for other users",
+            )
     ids_to_fetch = [ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
     requests = []
     old_time_series = (

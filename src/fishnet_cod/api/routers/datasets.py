@@ -1,6 +1,6 @@
 import asyncio
 import pandas as pd
-from typing import Awaitable, List, Optional, Union, Dict
+from typing import Awaitable, List, Optional, Union, Dict, Annotated
 
 from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException, Depends
@@ -127,7 +127,7 @@ def get_dataset_permission_status(
 @router.put("")
 async def upload_dataset(
     dataset: UploadDatasetRequest,
-    user: Optional[WalletAuth] = Depends(OptionalWalletAuth)
+    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
 ) -> Dataset:
     """
     Upload a dataset.
@@ -241,6 +241,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 @router.post("/upload/timeseries")
 async def upload_dataset_with_timeseries(
     upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
+    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
@@ -263,12 +264,13 @@ async def upload_dataset_with_timeseries(
     timeseries = await upload_timeseries(
         req=UploadTimeseriesRequest(
             timeseries=upload_dataset_timeseries_request.timeseries
-        )
+        ),
+        user=user
     )
     upload_dataset_timeseries_request.dataset.timeseriesIDs = [
         ts.item_hash for ts in timeseries
     ]
-    dataset = await upload_dataset(dataset=upload_dataset_timeseries_request.dataset)
+    dataset = await upload_dataset(dataset=upload_dataset_timeseries_request.dataset, user=user)
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
         timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
