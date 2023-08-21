@@ -127,25 +127,26 @@ async def event(event: PostMessage):
 @app.event(filters=API_MESSAGE_FILTER)
 async def fishnet_event(event: PostMessage):
     record: Optional[Record]
-    if event.content.type in [
-        "Execution",
-        "Permission",
-        "Dataset",
-        "Timeseries",
-        "Algorithm",
-        "View",
-        "UserInfo",
-        "Result",
-    ]:
-        print(f"Received event: {event.content.type} - {event.item_hash}")
-        if Record.is_indexed(event.item_hash):
-            return
-        cls: Record = globals()[event.content.type]
-        record = await cls.from_post(event)
-    else:  # amend
-        if Record.is_indexed(event.content.ref):
-            return
-        record = await Record.fetch(event.content.ref).first()
-    assert record
-    for inx in record.get_indices():
-        inx.add_record(record)
+    try:
+        if event.content.type in [
+            "Execution",
+            "Permission",
+            "Dataset",
+            "Timeseries",
+            "Algorithm",
+            "View",
+            "UserInfo",
+            "Result",
+        ]:
+            print(f"Received event: {event.content.type} - {event.item_hash}")
+            if Record.is_indexed(event.item_hash):
+                return
+            cls: Record = globals()[event.content.type]
+            record = await cls.from_post(event)
+        else:  # amend
+            record = await Record.fetch(event.content.ref).first()
+        assert record
+        for inx in record.get_indices():
+            inx.add_record(record)
+    except ValidationError as e:
+        logger.error(f"Invalid event: {e}")
