@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 from aars import Index
 from pydantic import BaseModel
+from pydantic.types import Decimal
 
 from ..core.model import (
     Algorithm,
@@ -79,6 +80,7 @@ class UploadDatasetRequest(BaseModel):
     owner: Optional[str]  # TODO: to remove
     ownsAllTimeseries: Optional[bool]  # TODO: to remove
     timeseriesIDs: List[str]
+    price: Optional[Decimal]
 
 
 class DatasetPermissionStatus(str, Enum):

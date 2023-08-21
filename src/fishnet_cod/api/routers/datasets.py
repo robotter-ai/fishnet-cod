@@ -162,6 +162,7 @@ async def upload_dataset(
             old_dataset.desc = dataset.desc
             old_dataset.timeseriesIDs = dataset.timeseriesIDs
             old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
+            old_dataset.price = dataset.price
             if old_dataset.changed:
                 await old_dataset.save()
             return old_dataset

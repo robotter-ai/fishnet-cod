@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from aars import Record
+from pydantic.types import Decimal
 
 
 class UserInfo(Record):
@@ -50,6 +51,7 @@ class Dataset(Record):
     timeseriesIDs: List[str]
     desc: Optional[str]
     viewIDs: Optional[List[str]]
+    price: Optional[Decimal]
 
 
 class Algorithm(Record):
