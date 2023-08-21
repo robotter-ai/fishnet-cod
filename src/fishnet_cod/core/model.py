@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from aars import Record
-from pydantic.types import Decimal
+from decimal import Decimal
 
 
 class UserInfo(Record):

@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 from aars import Index
 from pydantic import BaseModel
-from pydantic.types import Decimal
+from decimal import Decimal
 
 from ..core.model import (
     Algorithm,
