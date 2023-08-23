@@ -106,19 +106,6 @@ async def index():
     }
 
 
-@app.delete("/clear/records")
-async def empty_records() -> MessageResponse:
-    await UserInfo.forget_all()
-    await Timeseries.forget_all()
-    await View.forget_all()
-    await Dataset.forget_all()
-    await Algorithm.forget_all()
-    await Execution.forget_all()
-    await Permission.forget_all()
-    await Result.forget_all()
-    return MessageResponse(response="All records are cleared")
-
-
 @app.post("/event")
 async def event(event: PostMessage):
     await fishnet_event(event)
