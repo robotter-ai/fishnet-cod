@@ -14,7 +14,7 @@ from fastapi_walletauth import authorization_routes
 from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
-from ..core.constants import API_MESSAGE_FILTER, FISHNET_MESSAGE_CHANNEL
+from ..core.conf import settings
 from ..core.model import (
     Algorithm,
     Dataset,
@@ -96,7 +96,7 @@ async def index():
     else:
         opt_venv = []
     return {
-        "vm_name": FISHNET_MESSAGE_CHANNEL,
+        "vm_name": settings.MESSAGE_CHANNEL,
         "endpoints": [
             "/docs",
         ],
@@ -111,7 +111,7 @@ async def event(event: PostMessage):
     await fishnet_event(event)
 
 
-@app.event(filters=API_MESSAGE_FILTER)
+@app.event(filters=settings.API_MESSAGE_FILTER)
 async def fishnet_event(event: PostMessage):
     record: Optional[Record]
     try:

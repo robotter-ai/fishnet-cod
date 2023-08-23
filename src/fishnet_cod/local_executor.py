@@ -3,7 +3,7 @@ from typing import Optional
 
 from aleph_message.models import MessageType, PostMessage
 
-from .core.constants import EXECUTOR_MESSAGE_FILTER
+from .core.conf import settings
 from .core.execution import run_execution, try_get_execution_from_message
 from .core.model import Execution
 from .core.session import initialize_aars
@@ -26,12 +26,12 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 
 
 async def listen():
-    print(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
+    print(f"Listening for events on {settings.EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
         start_date=time.time() - 60 * 5,
-        message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),
-        content_types=EXECUTOR_MESSAGE_FILTER[0]["post_type"],
-        channels=[EXECUTOR_MESSAGE_FILTER[0]["channel"]],
+        message_type=MessageType(settings.EXECUTOR_MESSAGE_FILTER[0]["type"]),
+        content_types=settings.EXECUTOR_MESSAGE_FILTER[0]["post_type"],
+        channels=[settings.EXECUTOR_MESSAGE_FILTER[0]["channel"]],
     ):
         if isinstance(message, PostMessage):
             await handle_execution(message)

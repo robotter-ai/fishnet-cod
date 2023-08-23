@@ -10,7 +10,7 @@ from aleph.sdk.types import StorageEnum
 from aleph_message.models import ItemHash, MessageType, StoreMessage
 from semver import VersionInfo
 
-from ..constants import FISHNET_DEPLOYMENT_CHANNEL
+from ..conf import settings
 from ..version import VERSION_STRING
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def upload_source(
     deployer_session: AuthenticatedUserSessionSync,
     path: Path,
     source_type: SourceType,
-    channel=FISHNET_DEPLOYMENT_CHANNEL,
+    channel=settings.DEPLOYMENT_CHANNEL,
 ) -> StoreMessage:
     logger.debug(f"Reading {source_type.name} file")
     with open(path, "rb") as fd:
@@ -77,7 +77,7 @@ def build_and_upload_requirements(
     requirements_path: Path,
     deployer_session: AuthenticatedUserSessionSync,
     source_type: SourceType,
-    channel: str = FISHNET_DEPLOYMENT_CHANNEL,
+    channel: str = settings.DEPLOYMENT_CHANNEL,
 ) -> StoreMessage:
     if source_type != SourceType.REQUIREMENTS:
         raise Exception(

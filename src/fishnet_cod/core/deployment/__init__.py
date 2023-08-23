@@ -12,13 +12,7 @@ from aleph_message.models import ProgramMessage, StoreMessage
 from aleph_message.models.program import ImmutableVolume, PersistentVolume
 from semver import VersionInfo
 
-from ..constants import (
-    API_MESSAGE_FILTER,
-    EXECUTOR_MESSAGE_FILTER,
-    FISHNET_DEPLOYMENT_CHANNEL,
-    VM_URL_HOST,
-    VM_URL_PATH,
-)
+from ..conf import settings
 from ..version import VERSION_STRING, __version__
 from .discovery import discover_apis, discover_executors
 from .sources import (
@@ -36,7 +30,7 @@ def deploy_executors(
     time_slices: List[int],
     requirements: StoreMessage,
     deployer_session: AuthenticatedUserSessionSync,
-    channel: str = FISHNET_DEPLOYMENT_CHANNEL,
+    channel: str = settings.DEPLOYMENT_CHANNEL,
     vcpus: int = 1,
     memory: int = 1024,
     timeout_seconds: int = 900,
@@ -112,7 +106,7 @@ def deploy_executors(
             persistent=persistent,
             encoding=encoding,
             volumes=volumes,
-            subscriptions=EXECUTOR_MESSAGE_FILTER,
+            subscriptions=settings.EXECUTOR_MESSAGE_FILTER,
             metadata={
                 "tags": ["fishnet_cod", SourceType.EXECUTOR.name, VERSION_STRING],
                 "time_slice": slice_string,
@@ -126,8 +120,8 @@ def deploy_executors(
         logger.info(
             f"Executor {name} deployed. \n\n"
             "Available on:\n"
-            f"  {VM_URL_PATH.format(hash=hash)}\n"
-            f"  {VM_URL_HOST.format(hash_base32=hash_base32)}\n"
+            f"  {settings.VM_URL_PATH.format(hash=hash)}\n"
+            f"  {settings.VM_URL_HOST.format(hash_base32=hash_base32)}\n"
             "Visualise on:\n  https://explorer.aleph.im/address/"
             f"{message.chain}/{message.sender}/message/PROGRAM/{hash}\n"
         )
@@ -142,7 +136,7 @@ def deploy_api(
     requirements: StoreMessage,
     executors: List[ProgramMessage],
     deployer_session: AuthenticatedUserSessionSync,
-    channel: str = FISHNET_DEPLOYMENT_CHANNEL,
+    channel: str = settings.DEPLOYMENT_CHANNEL,
     vcpus: int = 1,
     memory: int = 1024 * 4,
     timeout_seconds: int = 900,
@@ -195,7 +189,7 @@ def deploy_api(
         persistent=persistent,
         encoding=encoding,
         volumes=volumes,
-        subscriptions=API_MESSAGE_FILTER,
+        subscriptions=settings.API_MESSAGE_FILTER,
         metadata={
             "tags": ["fishnet_cod", SourceType.API.name, VERSION_STRING],
             "executors": [executor.item_hash for executor in executors],
@@ -210,8 +204,8 @@ def deploy_api(
     logger.info(
         f"Fishnet API {name} deployed. \n\n"
         "Available on:\n"
-        f"  {VM_URL_PATH.format(hash=hash)}\n"
-        f"  {VM_URL_HOST.format(hash_base32=hash_base32)}\n"
+        f"  {settings.VM_URL_PATH.format(hash=hash)}\n"
+        f"  {settings.VM_URL_HOST.format(hash_base32=hash_base32)}\n"
         "Visualise on:\n  https://explorer.aleph.im/address/"
         f"{message.chain}/{message.sender}/message/PROGRAM/{hash}\n"
     )
