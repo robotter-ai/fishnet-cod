@@ -50,7 +50,7 @@ def upload_source(
     deployer_session: AuthenticatedUserSessionSync,
     path: Path,
     source_type: SourceType,
-    channel=settings.DEPLOYMENT_CHANNEL,
+    channel=settings.CONFIG_CHANNEL,
 ) -> StoreMessage:
     logger.debug(f"Reading {source_type.name} file")
     with open(path, "rb") as fd:
@@ -77,7 +77,7 @@ def build_and_upload_requirements(
     requirements_path: Path,
     deployer_session: AuthenticatedUserSessionSync,
     source_type: SourceType,
-    channel: str = settings.DEPLOYMENT_CHANNEL,
+    channel: str = settings.CONFIG_CHANNEL,
 ) -> StoreMessage:
     if source_type != SourceType.REQUIREMENTS:
         raise Exception(

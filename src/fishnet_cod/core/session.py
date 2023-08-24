@@ -11,8 +11,7 @@ from .conf import settings
 
 
 async def initialize_aars():
-    test_cache_flag = getenv("TEST_CACHE")
-    if test_cache_flag is not None and test_cache_flag.lower() == "false":
+    if str(settings.TEST_CACHE).lower() == "false":
         cache = VmCache()
     else:
         cache = TestVmCache()
@@ -20,11 +19,7 @@ async def initialize_aars():
     aleph_account = get_fallback_account()
     aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
 
-    test_channel_flag = getenv("TEST_CHANNEL")
-    custom_channel = getenv("CUSTOM_CHANNEL")
-    if custom_channel:
-        channel = custom_channel
-    elif test_channel_flag is not None and test_channel_flag.lower() == "true":
+    if str(settings.TEST_CHANNEL).lower() == "true":
         channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
     else:
         channel = settings.MESSAGE_CHANNEL

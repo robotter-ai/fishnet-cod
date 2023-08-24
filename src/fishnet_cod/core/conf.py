@@ -3,14 +3,27 @@ from pydantic import BaseSettings
 
 class Settings(BaseSettings):
     MESSAGE_CHANNEL = "FISHNET_TEST_V1.10"
-    DEPLOYMENT_CHANNEL = "FISHNET_TEST_DEPLOYMENT_V1.10"
+    """Name of the channel to use for the Fishnet network"""
+
+    CONFIG_CHANNEL = "FISHNET_TEST_CONFIG_V1.10"
+    """Name of the channel to use for the Fishnet network"""
+
     MANAGER_PUBKEYS = [
         "5cyWHnWcqk8QpGntEWUnJAiSg8P78pnvs47WZd8jeHDH",  # Kingsley
         "buyJ1YJMt8t3DrT8gh3CnZZv24gBvY26D2AehmmXBvr",  # Brick indexer / Riki
         "fishbsxxtW2iRwBgihKZEWGv4EMZ47G6ypx3P22Nhqx",  # Brick indexer 2
     ]
+    """List of public keys of the managers of the Fishnet channel"""
 
-    EXECUTOR_PATH = "../executor"
+    TEST_CACHE = True
+    """Whether to use the aleph.sdk.vm.TestVmCache or the aleph.sdk.vm.VmCache"""
+
+    TEST_CHANNEL = False
+    """Whether to use a new channel on each startup"""
+
+    DISABLE_AUTH = False
+    """Whether to disable authentication for the API"""
+
     EXECUTOR_MESSAGE_FILTER = [
         {
             "channel": MESSAGE_CHANNEL,
@@ -18,8 +31,8 @@ class Settings(BaseSettings):
             "post_type": ["Execution", "amend"],
         }
     ]
+    """Filter for the messages to listen to for the executor"""
 
-    API_PATH = "../api"
     API_MESSAGE_FILTER = [
         {
             "channel": MESSAGE_CHANNEL,
@@ -37,9 +50,13 @@ class Settings(BaseSettings):
             ],
         }
     ]
+    """Filter for the messages to listen to for the API"""
 
     VM_URL_PATH = "https://aleph.sh/vm/{hash}"
+    """URL to the VM load balancer"""
+
     VM_URL_HOST = "https://{hash_base32}.aleph.sh"
+    """URL to the standard VM host"""
 
     class Config:
         env_prefix = "FISHNET_"

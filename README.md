@@ -41,9 +41,10 @@ python /src/fishnet_cod/local_executor.py
 ## Testing
 To run the tests, you need to [install the dev dependencies](#installing-dev-dependencies).
 
-In order to avoid indexing all the messages and starting out with an empty database, you need to set the `TEST_CHANNEL` environment variable to `true`:
+In order to avoid indexing all the messages and starting out with an empty database,
+you need to set the `FISHNET_TEST_CHANNEL` environment variable to `true`:
 ```shell
-export TEST_CHANNEL=true
+export FISHNET_TEST_CHANNEL=true
 ```
 
 Then, you can run the API tests with:
@@ -55,9 +56,12 @@ poetry run pytest src/fishnet_cod/api/test.py
 
 ## Environment variables
 
-| Name            | Description                                               | Type     | Default |
-|-----------------|-----------------------------------------------------------|----------|---------|
-| `TEST_CACHE`    | Whether to use the test cache                             | `bool`   | `True`  |
-| `TEST_CHANNEL`  | Whether to use a fresh test channel                       | `bool`   | `False` |
-| `ALEPH_CHANNEL` | The Aleph channel to use, is superseded by `TEST_CHANNEL` | `string` | `None`  |
-| `DISABLE_AUTH`  | Whether mandatory authentication is disabled              | `bool`   | `False` |
+| Name                      | Description                                               | Type     | Default |
+|---------------------------|-----------------------------------------------------------|----------|---------|
+| `FISHNET_TEST_CACHE`      | Whether to use the test cache                             | `bool`   | `True`  |
+| `FISHNET_TEST_CHANNEL`    | Whether to use a fresh test channel                       | `bool`   | `False` |
+| `FISHNET_MESSAGE_CHANNEL` | The Aleph channel to use, is superseded by `TEST_CHANNEL` | `string` | `None`  |
+| `FISHNET_DISABLE_AUTH`    | Whether mandatory authentication is disabled              | `bool`   | `False` |
+
+Further environment variables are defined in the [conf.py](./src/fishnet_cod/core/conf.py) file.
+Notice that the `FISHNET_` prefix is required for all environment variables listed there.

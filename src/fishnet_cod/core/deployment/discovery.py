@@ -9,7 +9,7 @@ from ..conf import settings
 def discover_executors(
     owner: str,
     session: AuthenticatedUserSessionSync,
-    channel: str = settings.DEPLOYMENT_CHANNEL,
+    channel: str = settings.CONFIG_CHANNEL,
     tags: Optional[List[str]] = None,
 ) -> List[ProgramMessage]:
     tags = tags if tags else ["executor"]
@@ -25,7 +25,7 @@ def discover_executors(
 def discover_apis(
     owner: str,
     session: AuthenticatedUserSessionSync,
-    channel: str = settings.DEPLOYMENT_CHANNEL,
+    channel: str = settings.CONFIG_CHANNEL,
     tags: Optional[List[str]] = None,
 ) -> List[ProgramMessage]:
     tags = tags if tags else ["api"]
