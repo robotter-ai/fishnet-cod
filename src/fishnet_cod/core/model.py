@@ -51,7 +51,7 @@ class Dataset(Record):
     timeseriesIDs: List[str]
     desc: Optional[str]
     viewIDs: Optional[List[str]]
-    price: Optional[Decimal]
+    price: Optional[str]
 
 
 class Algorithm(Record):
