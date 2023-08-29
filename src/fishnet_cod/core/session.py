@@ -4,7 +4,7 @@ import pandas as pd
 from aars import AARS
 from aleph.sdk.client import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import get_fallback_account
-from aleph.sdk.conf import settings
+from aleph.sdk.conf import settings as aleph_settings
 from aleph.sdk.vm.cache import TestVmCache, VmCache
 
 from .conf import settings
@@ -17,7 +17,7 @@ async def initialize_aars():
         cache = TestVmCache()
 
     aleph_account = get_fallback_account()
-    aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
+    aleph_session = AuthenticatedAlephClient(aleph_account, aleph_settings.API_HOST)
 
     if str(settings.TEST_CHANNEL).lower() == "true":
         channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
