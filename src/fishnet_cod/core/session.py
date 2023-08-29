@@ -7,12 +7,11 @@ from aleph.sdk.chains.sol import get_fallback_account
 from aleph.sdk.conf import settings
 from aleph.sdk.vm.cache import TestVmCache, VmCache
 
-from .constants import FISHNET_MESSAGE_CHANNEL, FISHNET_MANAGER_PUBKEYS
+from .conf import settings
 
 
 async def initialize_aars():
-    test_cache_flag = getenv("TEST_CACHE")
-    if test_cache_flag is not None and test_cache_flag.lower() == "false":
+    if str(settings.TEST_CACHE).lower() == "false":
         cache = VmCache()
     else:
         cache = TestVmCache()
@@ -20,14 +19,10 @@ async def initialize_aars():
     aleph_account = get_fallback_account()
     aleph_session = AuthenticatedAlephClient(aleph_account, settings.API_HOST)
 
-    test_channel_flag = getenv("TEST_CHANNEL")
-    custom_channel = getenv("CUSTOM_CHANNEL")
-    if custom_channel:
-        channel = custom_channel
-    elif test_channel_flag is not None and test_channel_flag.lower() == "true":
+    if str(settings.TEST_CHANNEL).lower() == "true":
         channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
     else:
-        channel = FISHNET_MESSAGE_CHANNEL
+        channel = settings.MESSAGE_CHANNEL
 
     print("Using channel: " + channel)
 
@@ -35,7 +30,7 @@ async def initialize_aars():
         account=aleph_account, channel=channel, cache=cache, session=aleph_session
     )
 
-    if aleph_account.get_address() in FISHNET_MANAGER_PUBKEYS:
+    if aleph_account.get_address() in settings.MANAGER_PUBKEYS:
         try:
             resp, status = await aleph_session.fetch_aggregate(
                 "security", aleph_account.get_address()
@@ -46,9 +41,9 @@ async def initialize_aars():
         needed_authorizations = [
             {
                 "address": address,
-                "channels": [FISHNET_MESSAGE_CHANNEL],
+                "channels": [settings.MESSAGE_CHANNEL],
             }
-            for address in FISHNET_MANAGER_PUBKEYS
+            for address in settings.MANAGER_PUBKEYS
         ]
         if not all(auth in existing_authorizations for auth in needed_authorizations):
             aggregate = {

@@ -8,6 +8,7 @@ from starlette.requests import Request
 import pandas as pd
 
 from .api_model import ColumnNameType
+from ..core.conf import settings
 from ..core.model import (
     Dataset,
     Execution,
@@ -137,7 +138,7 @@ async def get_harmonized_timeseries_df(
 
 class OptionalSignatureChallengeTokenAuth(SignatureChallengeTokenAuth):
     def __call__(self, request: Request) -> Optional[WalletAuth]:
-        if os.environ.get("DISABLE_AUTH"):
+        if settings.DISABLE_AUTH:
             return None
         return super().__call__(request)
 

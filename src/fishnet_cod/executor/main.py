@@ -7,7 +7,7 @@ from aleph.sdk.vm.app import AlephApp
 from aleph_message.models import MessageType, PostMessage
 from fastapi import FastAPI
 
-from ..core.constants import EXECUTOR_MESSAGE_FILTER
+from ..core.conf import settings
 from ..core.execution import run_execution, try_get_execution_from_message
 from ..core.model import Execution
 from ..core.session import initialize_aars
@@ -41,7 +41,7 @@ async def index():
 globals_snapshot = globals().copy()
 
 
-@app.event(filters=EXECUTOR_MESSAGE_FILTER)
+@app.event(filters=settings.EXECUTOR_MESSAGE_FILTER)
 async def handle_execution(event: PostMessage) -> Optional[Execution]:
     logger.debug(f"Received event: {event.content.type}")
     execution = await try_get_execution_from_message(event)
@@ -66,11 +66,11 @@ async def handle_execution(event: PostMessage) -> Optional[Execution]:
 
 async def listen():
     global aars_client
-    logger.info(f"Listening for events on {EXECUTOR_MESSAGE_FILTER}")
+    logger.info(f"Listening for events on {settings.EXECUTOR_MESSAGE_FILTER}")
     async for message in aars_client.session.watch_messages(
-        message_type=MessageType(EXECUTOR_MESSAGE_FILTER[0]["type"]),
-        content_types=EXECUTOR_MESSAGE_FILTER[0]["post_type"],
-        channels=[EXECUTOR_MESSAGE_FILTER[0]["channel"]],
+        message_type=MessageType(settings.EXECUTOR_MESSAGE_FILTER[0]["type"]),
+        content_types=settings.EXECUTOR_MESSAGE_FILTER[0]["post_type"],
+        channels=[settings.EXECUTOR_MESSAGE_FILTER[0]["channel"]],
     ):
         if isinstance(message, PostMessage):
             await handle_execution(message)
