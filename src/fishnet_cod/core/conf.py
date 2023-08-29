@@ -2,15 +2,14 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    MESSAGE_CHANNEL = "FISHNET_TEST_V1.10"
+    MESSAGE_CHANNEL = "FISHNET_TEST_V1.14"
     """Name of the channel to use for the Fishnet network"""
 
-    CONFIG_CHANNEL = "FISHNET_TEST_CONFIG_V1.10"
+    CONFIG_CHANNEL = "FISHNET_TEST_CONFIG_V1.14"
     """Name of the channel to use for the Fishnet network"""
 
     MANAGER_PUBKEYS = [
         "5cyWHnWcqk8QpGntEWUnJAiSg8P78pnvs47WZd8jeHDH",  # Kingsley
-        "buyJ1YJMt8t3DrT8gh3CnZZv24gBvY26D2AehmmXBvr",  # Brick indexer / Riki
         "fishbsxxtW2iRwBgihKZEWGv4EMZ47G6ypx3P22Nhqx",  # Brick indexer 2
     ]
     """List of public keys of the managers of the Fishnet channel"""
