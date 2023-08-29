@@ -80,7 +80,7 @@ class UploadDatasetRequest(BaseModel):
     owner: Optional[str]  # TODO: to remove
     ownsAllTimeseries: Optional[bool]  # TODO: to remove
     timeseriesIDs: List[str]
-    price: Optional[Decimal]
+    price: Optional[str]
 
 
 class DatasetPermissionStatus(str, Enum):
