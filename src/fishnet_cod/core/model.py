@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from aars import Record
 from decimal import Decimal
 
+from pydantic import BaseModel
+
 
 class UserInfo(Record):
     username: str
@@ -24,6 +26,7 @@ class Timeseries(Record):
     avg: Optional[float]
     std: Optional[float]
     median: Optional[float]
+    tags: Optional[List[str]]
 
 
 # Check coinmarketcap.com for the exact granularity/aggregation timeframes
@@ -52,6 +55,7 @@ class Dataset(Record):
     desc: Optional[str]
     viewIDs: Optional[List[str]]
     price: Optional[str]
+    tags: Optional[List[str]]
 
 
 class Algorithm(Record):
@@ -112,5 +116,34 @@ class Permission(Record):
 class Result(Record):
     executionID: str
     owner: str
-    executor_vm: str
+    executorVM: str
     data: Any
+
+
+class TimeseriesSliceStats(BaseModel):
+    min: float
+    max: float
+    avg: float
+    std: float
+    median: float
+
+
+class Slice(Record):
+    datasetID: str
+    timeseriesStats: Dict[str, TimeseriesSliceStats]
+    startTime: int
+    endTime: int
+
+
+class DataNodeConfig(BaseModel):
+    """
+    Config for data nodes
+    """
+    ip: str
+    port: int
+    startTime: int
+    endTime: int
+
+
+class FishnetStorageConfig(Record):
+    nodes: Dict[str, List[DataNodeConfig]]
