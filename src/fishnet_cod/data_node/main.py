@@ -3,7 +3,10 @@
 # This code runs on multiple machines, where each machine has a different slice of the dataset.
 # It retrieves info about the datasets, permissions and network configuration from the Aleph API.
 import asyncio
+import io
 import logging
+import os
+from typing import Optional, List
 
 import pandas as pd
 from aars import AARS
@@ -13,6 +16,7 @@ from aleph.sdk.client import AlephClient
 from aleph.sdk.conf import settings
 from aleph.sdk.vm.app import AlephApp
 from pydantic import ValidationError
+from starlette.responses import StreamingResponse
 
 from ..core.model import Dataset, Permission, Timeseries, UserInfo, TimeseriesSliceStats, Slice
 from ..core.session import initialize_aars
@@ -25,6 +29,12 @@ aleph_client = AlephClient(settings.API_HOST)
 aars_client = initialize_aars()
 fishnet_config = aleph_client.fetch_aggregate("fishnet", "config").json()
 app = AlephApp(http_app=http_app)
+
+
+class DataFormat(str):
+    CSV = "csv"
+    PARQUET = "parquet"
+    FEATHER = "feather"
 
 
 async def re_index():
@@ -101,6 +111,11 @@ async def upload(
 
     file_path = f"./files/{datasetID}.parquet"
     logger.info(f"Received {len(df)} rows, saving to {file_path}")
+    existing_df = pd.read_parquet(file_path) if os.path.exists(file_path) else pd.DataFrame()
+    # columns stay the same, but it might be that the new data has more rows
+    df = pd.concat([existing_df, df])
+    # sort by index
+    df = df.sort_index()
     df.to_parquet(file_path)
     return slice
 
@@ -108,16 +123,42 @@ async def upload(
 @app.get("/download")
 async def download(
     datasetID: str,
+    dataFormat: Optional[DataFormat] = DataFormat.CSV,
     user: UserInfo = Depends(app.user_info),
-):
+) -> StreamingResponse:
+    """
+    Download a dataset or timeseries as a file.
+    """
     logger.info(f"Received download request for dataset {datasetID} from {user}")
+    dataset = await Dataset.fetch(datasetID).first()
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset does not exist")
+    # TODO: check if user has permission to download this dataset
+    file_path = f"./files/{datasetID}.parquet"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Dataset slice not found on this node")
+    df = pd.read_parquet(file_path)
 
-    timeseries = await Timeseries.filter(datasetID=datasetID).all()
-        if timeseries is None:
-            raise HTTPException(status_code=404, detail="Dataset not found")
-        if not await Permission.has_permission(user, timeseries):
-            raise HTTPException(status_code=403, detail="No permission to download this dataset")
-        return {"url": timeseries.url}
+    if dataFormat == DataFormat.CSV:
+        stream = io.StringIO()
+        df.to_csv(stream)
+        media_type = "text/csv"
+    elif dataFormat == DataFormat.FEATHER:
+        stream = io.BytesIO()
+        df.to_feather(stream)
+        media_type = "application/octet-stream"
+    elif dataFormat == DataFormat.PARQUET:
+        stream = io.BytesIO()
+        df.to_parquet(stream)
+        media_type = "application/octet-stream"
     else:
-        raise HTTPException(status_code=400, detail="Unsupported dataset type (only timeseries are supported)")
-    #
+        raise HTTPException(status_code=400, detail="Unsupported data format")
+    stream.seek(0)
+
+    def stream_generator():
+        yield stream.getvalue()
+
+    response = StreamingResponse(stream_generator(), media_type=media_type)
+    response.headers["Content-Disposition"] = f"attachment; filename={datasetID}.{dataFormat}"
+
+    return response
