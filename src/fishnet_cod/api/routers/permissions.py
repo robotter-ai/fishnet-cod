@@ -6,8 +6,6 @@ from fastapi_walletauth import JWTWalletAuthDep
 
 from ...core.model import (
     Dataset,
-    Execution,
-    ExecutionStatus,
     Permission,
     PermissionStatus,
     Timeseries,
@@ -31,6 +29,7 @@ router = APIRouter(
 @router.put("/approve")
 async def approve_permissions(
     permission_hashes: List[str],
+    user: JWTWalletAuthDep,
 ) -> ApprovePermissionsResponse:
     """
     Approve permission.
@@ -38,17 +37,17 @@ async def approve_permissions(
     If an 'item_hashes' is provided, it will change all the Permission status
     to 'Granted'.
     """
-    # TODO: Check if the user is the authorizer of the permissions
     permissions = await Permission.fetch(permission_hashes).all()
     if not permissions:
         return ApprovePermissionsResponse(
             updatedPermissions=[],
-            triggeredExecutions=[],
         )
 
-    timeseries = await Timeseries.fetch(
-        list(set(permission.timeseriesID for permission in permissions))
-    ).all()
+    if any([permission.authorizer != user.address for permission in permissions]):
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot approve permissions for other users",
+        )
 
     # grant permissions
     permission_requests = []
@@ -57,71 +56,32 @@ async def approve_permissions(
         permission_requests.append(permission.save())
     permissions = await asyncio.gather(*permission_requests)
 
-    # get all requested executions and their datasets
-    execution_requests = []
-    dataset_ids = set(
-        [permission.datasetID for permission in permissions]
-    )
-    for dataset_id in dataset_ids:
-        execution_requests.append(
-            Execution.filter(
-                datasetID=dataset_id, status=ExecutionStatus.REQUESTED
-            ).all()
-        )
-
-    dataset_executions_map = {
-        executions[0].datasetID: executions
-        for executions in await asyncio.gather(*execution_requests)
-        if executions and isinstance(executions[0], Execution)
-    }
-
-    # trigger executions if all permissions are granted
-    execution_requests = []
-    for dataset in await Dataset.fetch(list(dataset_executions_map.keys())).all():
-        executions = dataset_executions_map.get(str(dataset.item_hash), [])
-        # check if general permissions are granted
-        if dataset.ownsAllTimeseries:
-            general_permissions = [
-                permission
-                for permission in permissions
-                if permission.datasetID == dataset.item_hash and not permission.timeseriesID
-            ]
-            if general_permissions:
-                for execution in executions:
-                    execution.status = ExecutionStatus.PENDING
-                    execution_requests.append(execution.save())
-        for execution in executions:
-            # TODO: Check if more efficient way to do this
-            (
-                created_permissions,
-                updated_permissions,
-                unavailable_timeseries,
-            ) = await request_permissions(dataset, execution)
-            if not created_permissions and not updated_permissions:
-                execution.status = ExecutionStatus.PENDING
-                execution_requests.append(execution.save())
-    triggered_executions = list(await asyncio.gather(*execution_requests))
-
     return ApprovePermissionsResponse(
         updatedPermissions=permissions,
-        triggeredExecutions=triggered_executions,
     )
 
 
 @router.put("/deny")
-async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsResponse:
+async def deny_permissions(
+    permission_hashes: List[str],
+    user: JWTWalletAuthDep,
+) -> DenyPermissionsResponse:
     """
     Deny permission.
     This EndPoint will deny a list of permissions by their item hashes
     If an `item_hashes` is provided, it will change all the Permission status
     to 'Denied'.
     """
-    # TODO: Check if the user is the authorizer of the permissions
     permissions = await Permission.fetch(permission_hashes).all()
     if not permissions:
         return DenyPermissionsResponse(
             updatedPermissions=[],
-            deniedExecutions=[],
+        )
+
+    if any([permission.authorizer != user.address for permission in permissions]):
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot deny permissions for other users",
         )
 
     # deny permissions and get dataset ids
@@ -133,26 +93,8 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
         permission_requests.append(permission.save())
     await asyncio.gather(*permission_requests)
 
-    # get requested executions
-    # TODO: Check for correctness
-    execution_requests = []
-    for dataset_id in dataset_ids:
-        execution_requests.append(
-            Execution.filter(
-                datasetID=dataset_id, status=ExecutionStatus.REQUESTED
-            ).all()
-        )
-
-    # deny executions
-    execution_requests = []
-    for executions in await asyncio.gather(*execution_requests):
-        for execution in executions:
-            execution.status = ExecutionStatus.DENIED
-            execution_requests.append(await execution.save())
-    denied_executions = list(await asyncio.gather(*execution_requests))
-
     return DenyPermissionsResponse(
-        updatedPermissions=permissions, deniedExecutions=denied_executions
+        updatedPermissions=permissions
     )
 
 
@@ -189,12 +131,7 @@ async def request_dataset_permissions(
             ).all()
             # check if general permission exists
             for permission in permissions:
-                if (
-                    not permission.algorithmID
-                    or permission.algorithmID
-                    and permission.algorithmID == request.algorithmID
-                ):
-                    return [permission]
+                return [permission]
             # create general permission if requested
             if not request.timeseriesIDs:
                 return [
@@ -202,11 +139,8 @@ async def request_dataset_permissions(
                         authorizer=dataset.owner,
                         datasetID=dataset_id,
                         timeseriesID=None,
-                        algorithmID=request.algorithmID,
                         requestor=user.address,
                         status=PermissionStatus.REQUESTED,
-                        executionCount=0,
-                        maxExecutionCount=request.requestedExecutionCount,
                     ).save()
                 ]
 
@@ -229,14 +163,6 @@ async def request_dataset_permissions(
         timeseriesID__in=requested_timeseries_ids, requestor=user.address
     ).all()
 
-    # filter permissions by algorithmID
-    if request.algorithmID:
-        permissions = [
-            p
-            for p in permissions
-            if not p.algorithmID or p.algorithmID == request.algorithmID
-        ]
-
     # check if all requested timeseries have permissions
     permission_requests = []
     denied_permissions = []
@@ -248,12 +174,9 @@ async def request_dataset_permissions(
                 Permission(
                     datasetID=dataset_id,
                     timeseriesID=timeseries_id,
-                    algorithmID=request.algorithmID,
                     authorizer=dataset.owner,
                     requestor=user.address,
                     status=PermissionStatus.REQUESTED,
-                    executionCount=0,
-                    maxExecutionCount=request.requestedExecutionCount,
                 ).save()
             )
             continue
@@ -262,16 +185,6 @@ async def request_dataset_permissions(
         if permission.status == PermissionStatus.DENIED:
             denied_permissions.append(permission)
             continue
-        if permission.maxExecutionCount:
-            if request.requestedExecutionCount:
-                permission.maxExecutionCount += request.requestedExecutionCount
-            else:
-                permission.maxExecutionCount = None
-            permission.status = PermissionStatus.REQUESTED
-        if permission.algorithmID and request.algorithmID is None:
-            permission.algorithmID = None
-        if permission.changed:
-            permission_requests.append(permission.save())
 
     # execute any permission requests
     requested_permissions = []
@@ -310,25 +223,20 @@ async def grant_dataset_permissions(
             datasetID=dataset_id, requestor=request.requestor, timeseriesID=None
         ).all()
         for permission in permissions:
-            if permission.algorithmID == request.algorithmID:
-                if permission.status in [
-                    PermissionStatus.REQUESTED,
-                    PermissionStatus.DENIED,
-                ]:
-                    permission.status = PermissionStatus.GRANTED
-                    permission.maxExecutionCount = request.maxExecutionCount
-                    return [await permission.save()]
-                return [permission]
+            if permission.status in [
+                PermissionStatus.REQUESTED,
+                PermissionStatus.DENIED,
+            ]:
+                permission.status = PermissionStatus.GRANTED
+                return [await permission.save()]
+            return [permission]
         return [
             await Permission(
                 datasetID=dataset_id,
                 timeseriesID=None,
-                algorithmID=request.algorithmID,
                 authorizer=user.address,
                 requestor=request.requestor,
                 status=PermissionStatus.GRANTED,
-                executionCount=0,
-                maxExecutionCount=request.maxExecutionCount,
             ).save()
         ]
 
@@ -352,12 +260,9 @@ async def grant_dataset_permissions(
             Permission(
                 datasetID=dataset_id,
                 timeseriesID=ts.item_hash,
-                algorithmID=request.algorithmID,
                 authorizer=user.address,
                 requestor=request.requestor,
                 status=PermissionStatus.GRANTED,
-                executionCount=0,
-                maxExecutionCount=request.maxExecutionCount,
             ).save()
         )
     return list(await asyncio.gather(*permission_requests))

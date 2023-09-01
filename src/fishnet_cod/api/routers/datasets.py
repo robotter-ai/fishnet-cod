@@ -8,8 +8,6 @@ from fastapi_walletauth import JWTWalletAuthDep
 
 from ...core.model import (
     Dataset,
-    Execution,
-    ExecutionStatus,
     Permission,
     PermissionStatus,
     Timeseries,
@@ -370,7 +368,7 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
     param 'available':put the Boolean value
     """
 
-    requests: List[Awaitable[Union[Dataset, Timeseries, Execution]]] = []
+    requests: List[Awaitable[Union[Dataset, Timeseries]]] = []
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="No Dataset found")
@@ -385,12 +383,6 @@ async def set_dataset_available(dataset_id: str, available: bool) -> Dataset:
         if timeseries.available != available:
             timeseries.available = available
             requests.append(timeseries.save())
-
-    # TODO: background task
-    for execution in await Execution.filter(datasetID=dataset_id).all():
-        if execution.status == ExecutionStatus.PENDING:
-            execution.status = ExecutionStatus.DENIED
-            requests.append(execution.save())
 
     await asyncio.gather(*requests)
     return dataset

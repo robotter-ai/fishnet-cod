@@ -5,34 +5,21 @@ from aars import Index
 from pydantic import BaseModel
 
 from ..core.model import (
-    Algorithm,
     Dataset,
-    Execution,
     Granularity,
     Permission,
     PermissionStatus,
-    Result,
     Timeseries,
     UserInfo,
-    View, ExecutionStatus,
+    View,
 )
 
 # indexes to fetch by timeseries
 Index(Timeseries, "owner")
 
-# indexes to fetch by algorithm
-Index(Algorithm, "owner")
-Index(Algorithm, "name")
-
 # indexes to fetch by dataset
 Index(Dataset, "owner")
 Index(Dataset, "name")
-
-# indexes to fetch by execution
-Index(Execution, "owner")
-Index(Execution, "datasetID")
-Index(Execution, "status")
-Index(Execution, ["datasetID", "status"])
 
 # index to fetch permissions by timeseriesID and requestor
 Index(Permission, "requestor")
@@ -42,9 +29,6 @@ Index(Permission, ["timeseriesID", "authorizer"])
 Index(Permission, ["timeseriesID", "status"])
 Index(Permission, ["datasetID", "status"])
 Index(Permission, ["authorizer", "status"])
-
-# index to fetch results with owner
-Index(Result, "owner")
 
 Index(UserInfo, "address")
 Index(UserInfo, "username")
@@ -63,10 +47,7 @@ class UploadTimeseriesRequest(BaseModel):
 
 class PostPermission(BaseModel):
     timeseriesID: str
-    algorithmID: Optional[str]
     status: PermissionStatus
-    executionCount: int
-    maxExecutionCount: Optional[int]
     requestor: str
 
 
@@ -90,16 +71,13 @@ class DatasetResponse(Dataset):
 
 
 class RequestDatasetPermissionsRequest(BaseModel):
-    algorithmID: Optional[str]
     timeseriesIDs: Optional[List[str]]
     requestedExecutionCount: Optional[int]
 
 
 class GrantDatasetPermissionsRequest(BaseModel):
     requestor: str
-    algorithmID: Optional[str]
     timeseriesIDs: Optional[List[str]]
-    maxExecutionCount: Optional[int]
 
 
 class UploadDatasetTimeseriesRequest(BaseModel):
@@ -114,34 +92,13 @@ class UploadDatasetTimeseriesResponse(BaseModel):
 
 class PutUserInfo(BaseModel):
     username: str
-    address: str
     bio: Optional[str]
     email: Optional[str]
     link: Optional[str]
 
 
-class UploadAlgorithmRequest(BaseModel):
-    item_hash: Optional[str]
-    name: str
-    desc: str
-    code: str
-
-
-class RequestExecutionRequest(BaseModel):
-    algorithmID: str
-    datasetID: str
-    status: Optional[str] = ExecutionStatus.REQUESTED
-
-
-class ExecutionStatusHistory(BaseModel):
-    revision_hash: str
-    status: str
-    timestamp: float
-
-
 class NotificationType(str, Enum):
     PermissionRequest = "PermissionRequest"
-    ExecutionTriggered = "ExecutionTriggered"
 
 
 class Notification(BaseModel):
@@ -154,36 +111,14 @@ class PermissionRequestNotification(Notification):
     requestor: str
     datasetID: str
     uses: Optional[int]
-    algorithmIDs: Optional[List[str]]
-
-
-class ExecutionTriggeredNotification(Notification):
-    type: NotificationType = NotificationType.ExecutionTriggered
-    executionID: str
-    datasetID: str
-    algorithmID: str
-    status: ExecutionStatus
-
-
-class ExecutionResponse(BaseModel):
-    execution: Execution
-    statusHistory: List[ExecutionStatusHistory]
-
-
-class RequestExecutionResponse(BaseModel):
-    execution: Execution
-    permissionRequests: Optional[List[Permission]]
-    unavailableTimeseries: Optional[List[Timeseries]]
 
 
 class ApprovePermissionsResponse(BaseModel):
     updatedPermissions: List[Permission]
-    triggeredExecutions: List[Execution]
 
 
 class DenyPermissionsResponse(BaseModel):
     updatedPermissions: List[Permission]
-    deniedExecutions: List[Execution]
 
 
 class PutViewRequest(BaseModel):

@@ -54,30 +54,6 @@ class Dataset(Record):
     price: Optional[str]
 
 
-class Algorithm(Record):
-    name: str
-    desc: str
-    owner: str
-    code: str
-
-
-class ExecutionStatus(str, Enum):
-    REQUESTED = "REQUESTED"
-    PENDING = "PENDING"
-    DENIED = "DENIED"
-    RUNNING = "RUNNING"
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-
-
-class Execution(Record):
-    algorithmID: str
-    datasetID: str
-    owner: str
-    status: ExecutionStatus = ExecutionStatus.REQUESTED
-    params: Optional[dict]
-
-
 class PermissionStatus(str, Enum):
     REQUESTED = "REQUESTED"
     GRANTED = "GRANTED"
@@ -102,17 +78,7 @@ class Permission(Record):
     """
     The timeseriesID that the permission was requested for.
     """
-    algorithmID: Optional[str]
     status: PermissionStatus
-    executionCount: int
-    maxExecutionCount: Optional[int]
-
-
-class Result(Record):
-    executionID: str
-    owner: str
-    executorVM: str
-    data: Any
 
 
 class TimeseriesSliceStats(BaseModel):
@@ -172,5 +138,6 @@ class FishnetStorageConfig(Record):
     """
     nodes: Dict[str, List[DataNodeConfig]]
     """
-    The data nodes that the Fishnet API can use to store data.
+    The data nodes that the Fishnet API can use to store data. The keys are the item hashes of the PROGRAM
+    messages that created the data nodes.
     """

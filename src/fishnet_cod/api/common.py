@@ -2,14 +2,13 @@ import asyncio
 from typing import Dict, List, Tuple
 
 from fastapi import Depends
-from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager
+from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager, JWTWalletAuthDep
 
 import pandas as pd
 
 from .api_model import ColumnNameType
 from ..core.model import (
     Dataset,
-    Execution,
     Granularity,
     Permission,
     PermissionStatus,
@@ -42,21 +41,21 @@ def granularity_to_interval(granularity: Granularity) -> str:
 
 
 async def request_permissions(
-    dataset: Dataset, execution: Execution
+    dataset: Dataset,
+    user: JWTWalletAuthDep,
 ) -> Tuple[List[Permission], List[Permission], List[Timeseries]]:
     """
     Request permissions for a dataset given an execution.
 
     Args:
         dataset: The dataset to request permissions for.
-        execution: The execution requesting permissions.
 
     Returns:
         A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
     """
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
     permissions = await Permission.filter(
-        requestor=execution.owner
+        requestor=user.address
     ).all()
     permissions = [
         permission
@@ -71,7 +70,7 @@ async def request_permissions(
     update_permissions_requests = []
     unavailable_timeseries = []
     for ts in timeseries:
-        if ts.owner == execution.owner:
+        if ts.owner == user.address:
             continue
         if not ts.available:
             unavailable_timeseries.append(ts)
@@ -80,30 +79,17 @@ async def request_permissions(
                 Permission(
                     datasetID=str(dataset.item_hash),
                     timeseriesID=str(ts.item_hash),
-                    algorithmID=execution.algorithmID,
                     authorizer=ts.owner,
-                    requestor=execution.owner,
+                    requestor=user.address,
                     status=PermissionStatus.REQUESTED,
-                    executionCount=0,
-                    maxExecutionCount=-1,
                 ).save()
             )
         else:
             permission = ts_permission_map[ts.item_hash]
-            needs_update = False
             if permission.status == PermissionStatus.GRANTED:
                 continue
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED
-                needs_update = True
-            if (
-                permission.maxExecutionCount
-                and permission.maxExecutionCount <= permission.executionCount
-            ):
-                permission.maxExecutionCount = permission.executionCount + 1
-                permission.status = PermissionStatus.REQUESTED
-                needs_update = True
-            if needs_update:
                 update_permissions_requests.append(permission.save())
     created_permissions: List[Permission] = list(
         await asyncio.gather(*create_permissions_requests)
