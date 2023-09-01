@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import os
-from os import listdir
 from typing import Optional
 
 from aars import AARS, Record
@@ -90,20 +88,8 @@ async def startup():
 
 
 @app.get("/")
-async def index():
-    if os.path.exists("/opt/venv"):
-        opt_venv = list(listdir("/opt/venv"))
-    else:
-        opt_venv = []
-    return {
-        "vm_name": settings.MESSAGE_CHANNEL,
-        "endpoints": [
-            "/docs",
-        ],
-        "files_in_volumes": {
-            "/opt/venv": opt_venv,
-        },
-    }
+def root():
+    return RedirectResponse(url="/docs")
 
 
 @app.post("/event")
