@@ -20,9 +20,6 @@ class Settings(BaseSettings):
     TEST_CHANNEL = False
     """Whether to use a new channel on each startup"""
 
-    DISABLE_AUTH = False
-    """Whether to disable authentication for the API"""
-
     EXECUTOR_MESSAGE_FILTER = [
         {
             "channel": MESSAGE_CHANNEL,
