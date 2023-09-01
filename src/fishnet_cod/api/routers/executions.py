@@ -1,15 +1,16 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
+from fastapi_walletauth import WalletAuthDep
 
 from ...core.model import Dataset, Execution, ExecutionStatus
 from ..api_model import RequestExecutionRequest, RequestExecutionResponse
-from ..common import request_permissions, OptionalWalletAuthDep
+from ..common import request_permissions
 
 router = APIRouter(
     prefix="/executions",
     tags=["executions"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[WalletAuthDep],
 )
 
 

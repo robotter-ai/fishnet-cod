@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException
+from fastapi_walletauth import WalletAuthDep
 
-from ..common import OptionalWalletAuthDep
 from ...core.model import Result
 
 router = APIRouter(
     prefix="/results",
     tags=["results"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[WalletAuthDep],
 )
 
 

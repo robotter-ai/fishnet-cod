@@ -20,16 +20,13 @@ class Timeseries(Record):
     owner: str
     desc: Optional[str]
     available: bool = True
-    data: List[Tuple[int, float]]
     min: Optional[float]
     max: Optional[float]
     avg: Optional[float]
     std: Optional[float]
     median: Optional[float]
-    tags: Optional[List[str]]
 
 
-# Check coinmarketcap.com for the exact granularity/aggregation timeframes
 class Granularity(str, Enum):
     DAY = "DAY"  # 1 value every five minutes
     WEEK = "WEEK"  # 1 value every 15 minutes
@@ -55,7 +52,6 @@ class Dataset(Record):
     desc: Optional[str]
     viewIDs: Optional[List[str]]
     price: Optional[str]
-    tags: Optional[List[str]]
 
 
 class Algorithm(Record):
@@ -110,7 +106,6 @@ class Permission(Record):
     status: PermissionStatus
     executionCount: int
     maxExecutionCount: Optional[int]
-    tags: Optional[List[str]]
 
 
 class Result(Record):

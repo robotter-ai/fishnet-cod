@@ -1,8 +1,8 @@
 from typing import List, Optional
 
 from fastapi import APIRouter
+from fastapi_walletauth import WalletAuthDep
 
-from ..common import OptionalWalletAuthDep
 from ...core.model import Dataset, Permission, PermissionStatus, Result, UserInfo, Execution, ExecutionStatus
 from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification, \
     ExecutionTriggeredNotification
@@ -11,7 +11,7 @@ router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[WalletAuthDep],
 )
 
 
@@ -121,6 +121,7 @@ async def get_notification(address: str) -> List[Notification]:
 
     executions = await Execution.filter(owner=address, status__in=[ExecutionStatus.PENDING, ExecutionStatus.RUNNING]).all()
     for execution in executions:
+        assert execution.item_hash is not None
         notifications.append(
             ExecutionTriggeredNotification(
                 type=NotificationType.ExecutionTriggered,

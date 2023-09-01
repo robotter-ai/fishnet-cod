@@ -1,8 +1,8 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi_walletauth import WalletAuthDep
 
-from ..common import OptionalWalletAuthDep
 from ...core.model import Algorithm
 from ..api_model import UploadAlgorithmRequest
 
@@ -10,7 +10,7 @@ router = APIRouter(
     prefix="/algorithms",
     tags=["algorithms"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[WalletAuthDep],
 )
 
 
@@ -35,7 +35,10 @@ async def get_algorithms(
 
 
 @router.put("")
-async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
+async def upload_algorithm(
+    algorithm: UploadAlgorithmRequest,
+    user: WalletAuthDep,
+) -> Algorithm:
     """
     Upload an algorithm.
     If an `item_hash` is provided, it will update the algorithm with that id.
@@ -43,7 +46,7 @@ async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
     if algorithm.item_hash is not None:
         old_algorithm = await Algorithm.fetch(algorithm.item_hash).first()
         if old_algorithm is not None:
-            if old_algorithm.owner != algorithm.owner:
+            if old_algorithm.owner != user.address:
                 raise HTTPException(
                     status_code=403,
                     detail="Cannot overwrite algorithm that is not owned by you",
@@ -52,7 +55,7 @@ async def upload_algorithm(algorithm: UploadAlgorithmRequest) -> Algorithm:
             old_algorithm.desc = algorithm.desc
             old_algorithm.code = algorithm.code
             return await old_algorithm.save()
-    return await Algorithm(**algorithm.dict()).save()
+    return await Algorithm(**algorithm.dict(), owner=user.address).save()
 
 
 @router.get("/{algorithm_id}")

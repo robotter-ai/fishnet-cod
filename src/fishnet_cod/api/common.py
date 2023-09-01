@@ -134,15 +134,3 @@ async def get_harmonized_timeseries_df(
     df.index = pd.to_datetime(df.index, unit="s")
 
     return df
-
-
-class OptionalSignatureChallengeTokenAuth(SignatureChallengeTokenAuth):
-    def __call__(self, request: Request) -> Optional[WalletAuth]:
-        if settings.DISABLE_AUTH:
-            return None
-        return super().__call__(request)
-
-
-OptionalWalletAuth = OptionalSignatureChallengeTokenAuth()
-
-OptionalWalletAuthDep = Depends(OptionalWalletAuth)

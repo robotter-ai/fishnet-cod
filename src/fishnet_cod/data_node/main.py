@@ -6,7 +6,8 @@ import asyncio
 import io
 import logging
 import os
-from typing import Optional, List
+from enum import Enum
+from typing import Optional, List, Union
 
 import pandas as pd
 from aars import AARS
@@ -31,7 +32,7 @@ fishnet_config = aleph_client.fetch_aggregate("fishnet", "config").json()
 app = AlephApp(http_app=http_app)
 
 
-class DataFormat(str):
+class DataFormat(Enum):
     CSV = "csv"
     PARQUET = "parquet"
     FEATHER = "feather"
@@ -67,6 +68,8 @@ async def upload(
         raise HTTPException(status_code=400, detail="Dataset does not exist")
     if dataset.owner != user.address:
         raise HTTPException(status_code=403, detail="Only the dataset owner can upload files")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file name provided")
     if file.filename.endswith(".csv"):
         df = pd.read_csv(file.file)
     elif file.filename.endswith(".parquet"):
@@ -90,6 +93,7 @@ async def upload(
     for col in df.columns:
         try:
             timeseries_id = next(ts.item_hash for ts in timeseries if ts.name == col)
+            assert timeseries_id is not None
             timeseries_stats[timeseries_id] = (
                 TimeseriesSliceStats(
                     min=df[col].min(),
@@ -107,6 +111,8 @@ async def upload(
     slice = await Slice(
         datasetID=datasetID,
         timeseriesStats=timeseries_stats,
+        startTime=int(df.index.min().timestamp()),
+        endTime=int(df.index.max().timestamp()),
     ).save()
 
     file_path = f"./files/{datasetID}.parquet"
@@ -123,7 +129,7 @@ async def upload(
 @app.get("/download")
 async def download(
     datasetID: str,
-    dataFormat: Optional[DataFormat] = DataFormat.CSV,
+    dataFormat: DataFormat = DataFormat.CSV,
     user: UserInfo = Depends(app.user_info),
 ) -> StreamingResponse:
     """
@@ -139,6 +145,7 @@ async def download(
         raise HTTPException(status_code=404, detail="Dataset slice not found on this node")
     df = pd.read_parquet(file_path)
 
+    stream: Union[io.StringIO, io.BytesIO]
     if dataFormat == DataFormat.CSV:
         stream = io.StringIO()
         df.to_csv(stream)
