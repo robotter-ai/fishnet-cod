@@ -61,7 +61,6 @@ poetry run pytest src/fishnet_cod/api/test.py
 | `FISHNET_TEST_CACHE`      | Whether to use the test cache                             | `bool`   | `True`  |
 | `FISHNET_TEST_CHANNEL`    | Whether to use a fresh test channel                       | `bool`   | `False` |
 | `FISHNET_MESSAGE_CHANNEL` | The Aleph channel to use, is superseded by `TEST_CHANNEL` | `string` | `None`  |
-| `FISHNET_DISABLE_AUTH`    | Whether mandatory authentication is disabled              | `bool`   | `False` |
 
 Further environment variables are defined in the [conf.py](./src/fishnet_cod/core/conf.py) file.
 Notice that the `FISHNET_` prefix is required for all environment variables listed there.

@@ -1,14 +1,14 @@
 import asyncio
 import io
-from typing import List, Annotated, Optional
+from typing import List
 
 import pandas as pd
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
-from fastapi_walletauth import WalletAuth
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
+from ..common import AuthorizedRouterDep, get_harmonized_timeseries_df
 from ...core.model import Timeseries, Permission
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
@@ -16,14 +16,14 @@ router = APIRouter(
     prefix="/timeseries",
     tags=["timeseries"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
 @router.put("")
 async def upload_timeseries(
     req: UploadTimeseriesRequest,
-    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+    user: JWTWalletAuthDep
 ) -> List[Timeseries]:
     """
     Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,
@@ -31,12 +31,6 @@ async def upload_timeseries(
     A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
     it might be that a passed timeseries contained illegal data.
     """
-    for ts in req.timeseries:
-        if ts.owner != user.address:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot upload timeseries for other users",
-            )
     ids_to_fetch = [ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
     requests = []
     old_time_series = (
@@ -46,14 +40,9 @@ async def upload_timeseries(
     )
     for ts in req.timeseries:
         if old_time_series.get(ts.item_hash) is None:
-            requests.append(Timeseries(**dict(ts)).save())
+            requests.append(Timeseries(**dict(ts), owner=user.address).save())
             continue
         old_ts: Timeseries = old_time_series[ts.item_hash]
-        if ts.owner != old_ts.owner:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot overwrite timeseries that is not owned by you",
-            )
         old_ts.name = ts.name
         old_ts.data = ts.data
         old_ts.desc = ts.desc
@@ -64,7 +53,8 @@ async def upload_timeseries(
 
 @router.post("/csv")
 async def upload_timeseries_csv(
-    owner: str = Form(...), data_file: UploadFile = File(...)
+    user: JWTWalletAuthDep,
+    data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
     """
     Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
@@ -93,7 +83,7 @@ async def upload_timeseries_csv(
                     name=col,
                     desc=None,
                     data=data,
-                    owner=owner,
+                    owner=user.address,
                     min=df[col].min(),
                     max=df[col].max(),
                     avg=df[col].mean(),
@@ -111,6 +101,7 @@ async def upload_timeseries_csv(
 
 @router.post("/csv/download")
 async def download_timeseries_csv(
+    user: JWTWalletAuthDep,
     timeseriesIDs: List[str],
     column_names: ColumnNameType = ColumnNameType.item_hash,
     compression: bool = False
@@ -126,6 +117,18 @@ async def download_timeseries_csv(
     """
     # fetch required permissions
     timeseries = await Timeseries.fetch(timeseriesIDs).all()
+    if not all(ts.owner == user.address for ts in timeseries):
+        permissions = await Permission.filter(
+            requestor=user.address,
+        ).all()
+        ts_permission_map = {p.timeseriesID: p for p in permissions}
+        if not all(ts_permission_map.get(ts.item_hash) for ts in timeseries):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to access all requested timeseries",
+            )
+
+    # let's gooooo
     df = await get_harmonized_timeseries_df(timeseries, column_names=column_names)
 
     # Create an in-memory text stream
