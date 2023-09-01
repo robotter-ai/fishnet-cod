@@ -55,8 +55,7 @@ async def startup():
 
 @app.get("/")
 def root():
-    new_route_url = "/docs"
-    return RedirectResponse(url=new_route_url, status_code=301)
+    return RedirectResponse(url="/docs", status_code=301)
 
 
 @app.post("/upload")

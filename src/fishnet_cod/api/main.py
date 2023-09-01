@@ -80,8 +80,7 @@ async def startup():
 
 @app.get("/")
 def root():
-    new_route_url = "/docs"
-    return RedirectResponse(url=new_route_url)
+    return RedirectResponse(url="/docs")
 
 
 @app.post("/event")
