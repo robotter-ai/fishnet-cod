@@ -123,22 +123,54 @@ class TimeseriesSliceStats(BaseModel):
     median: float
 
 
-class Slice(Record):
+class DatasetSlice(Record):
+    """
+    Metadata and descriptive statistics about a time slice of a dataset.
+    The actual data is stored in a file on the location specified.
+    """
     datasetID: str
+    """
+    The datasetID that the slice belongs to.
+    """
+    locationUrl: str
+    """
+    The URL where the slice's timeseries data is stored.
+    """
     timeseriesStats: Dict[str, TimeseriesSliceStats]
+    """
+    The stats for each timeseries in the slice.
+    """
     startTime: int
+    """
+    The start time of the slice.
+    """
     endTime: int
+    """
+    The end time of the slice.
+    """
 
 
 class DataNodeConfig(BaseModel):
+    url: str
     """
-    Config for data nodes
+    The URL of the data node.
     """
-    ip: str
-    port: int
     startTime: int
+    """
+    The earliest timestamp that the data node has data for.
+    """
     endTime: int
+    """
+    The latest timestamp that the data node has data for.
+    """
 
 
 class FishnetStorageConfig(Record):
+    JWT_PUBLIC_KEY: str
+    """
+    The public key used to verify JWT tokens created by the Fishnet API.
+    """
     nodes: Dict[str, List[DataNodeConfig]]
+    """
+    The data nodes that the Fishnet API can use to store data.
+    """

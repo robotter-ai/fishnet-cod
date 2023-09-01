@@ -11,7 +11,7 @@ from typing import Union
 
 import pandas as pd
 from aars import AARS
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException
 
 from aleph.sdk.client import AlephClient
 from aleph.sdk.conf import settings
@@ -20,7 +20,7 @@ from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse, RedirectResponse
 
-from ..core.model import Dataset, Timeseries, TimeseriesSliceStats, Slice
+from ..core.model import Dataset, Timeseries, TimeseriesSliceStats, DatasetSlice
 from ..core.session import initialize_aars
 
 logger = logging.getLogger("uvicorn")
@@ -110,8 +110,10 @@ async def upload(
                 status_code=400,
                 detail=f"Invalid data encountered in column {col}: {e}",
             )
-    slice = await Slice(
+    slice = await DatasetSlice(
         datasetID=datasetID,
+        # TODO: fix locationUrl
+        locationUrl=f"{fishnet_config.url}/download?datasetID={datasetID}",
         timeseriesStats=timeseries_stats,
         startTime=int(df.index.min().timestamp()),
         endTime=int(df.index.max().timestamp()),
