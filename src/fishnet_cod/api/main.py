@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_walletauth import jwt_authorization_router as authorization_routes
 from pydantic import ValidationError
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from ..core.conf import settings
 from ..core.session import initialize_aars
@@ -79,20 +79,9 @@ async def startup():
 
 
 @app.get("/")
-async def index():
-    if os.path.exists("/opt/venv"):
-        opt_venv = list(listdir("/opt/venv"))
-    else:
-        opt_venv = []
-    return {
-        "vm_name": settings.MESSAGE_CHANNEL,
-        "endpoints": [
-            "/docs",
-        ],
-        "files_in_volumes": {
-            "/opt/venv": opt_venv,
-        },
-    }
+def root():
+    new_route_url = "/docs"
+    return RedirectResponse(url=new_route_url)
 
 
 @app.post("/event")

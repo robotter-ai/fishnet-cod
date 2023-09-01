@@ -27,7 +27,7 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import granularity_to_interval, AuthorizedRouterDep
+from ..common import granularity_to_interval, AuthorizedRouterDep, get_harmonized_timeseries_df
 from .timeseries import upload_timeseries
 
 router = APIRouter(

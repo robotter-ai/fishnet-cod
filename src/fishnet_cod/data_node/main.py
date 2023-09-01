@@ -7,7 +7,7 @@ import io
 import logging
 import os
 from enum import Enum
-from typing import Optional, List, Union
+from typing import Union
 
 import pandas as pd
 from aars import AARS
@@ -16,10 +16,11 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from aleph.sdk.client import AlephClient
 from aleph.sdk.conf import settings
 from aleph.sdk.vm.app import AlephApp
+from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse, RedirectResponse
 
-from ..core.model import Dataset, Permission, Timeseries, UserInfo, TimeseriesSliceStats, Slice
+from ..core.model import Dataset, Timeseries, TimeseriesSliceStats, Slice
 from ..core.session import initialize_aars
 
 logger = logging.getLogger("uvicorn")
@@ -28,8 +29,8 @@ logger.debug("imports done")
 http_app = FastAPI()
 aleph_client = AlephClient(settings.API_HOST)
 aars_client = initialize_aars()
-fishnet_config = aleph_client.fetch_aggregate("fishnet", "config").json()
 app = AlephApp(http_app=http_app)
+fishnet_config = None
 
 
 class DataFormat(Enum):
@@ -46,22 +47,23 @@ async def re_index():
 
 @app.on_event("startup")
 async def startup():
-    global aars_client
-    aars_client = initialize_aars()
+    global aars_client, fishnet_config
+    aars_client = await initialize_aars()
+    # fishnet_config = await aleph_client.fetch_aggregate("fishnet", "config")
     await re_index()
 
 
 @app.get("/")
 def root():
     new_route_url = "/docs"
-    return RedirectResponse(url=new_route_url)
+    return RedirectResponse(url=new_route_url, status_code=301)
 
 
 @app.post("/upload")
 async def upload(
     datasetID: str,
+    user: JWTWalletAuthDep,
     file: UploadFile = File(...),
-    user: UserInfo = Depends(app.user_info),
 ):
     logger.info(f"Received upload request for {file.filename} from {user}")
     dataset = await Dataset.fetch(datasetID).first()
@@ -130,8 +132,8 @@ async def upload(
 @app.get("/download")
 async def download(
     datasetID: str,
+    user: JWTWalletAuthDep,
     dataFormat: DataFormat = DataFormat.CSV,
-    user: UserInfo = Depends(app.user_info),
 ) -> StreamingResponse:
     """
     Download a dataset or timeseries as a file.
