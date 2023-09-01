@@ -1,10 +1,10 @@
 import asyncio
 import pandas as pd
-from typing import Awaitable, List, Optional, Union, Dict, Annotated
+from typing import Awaitable, List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi_walletauth import WalletAuth
+from fastapi import APIRouter, HTTPException
+from fastapi_walletauth import JWTWalletAuthDep
 
 from ...core.model import (
     Dataset,
@@ -27,14 +27,14 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import granularity_to_interval, OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
+from ..common import granularity_to_interval, AuthorizedRouterDep, get_harmonized_timeseries_df
 from .timeseries import upload_timeseries
 
 router = APIRouter(
     prefix="/datasets",
     tags=["datasets"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
@@ -126,47 +126,34 @@ def get_dataset_permission_status(
 
 @router.put("")
 async def upload_dataset(
-    dataset: UploadDatasetRequest,
-    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+    dataset_req: UploadDatasetRequest,
+    user: JWTWalletAuthDep
 ) -> Dataset:
     """
     Upload a dataset.
     If an `item_hash` is provided, it will update the dataset with that id.
     """
-    if user.address:
-        if dataset.owner != user.address:
-            raise HTTPException(
-                status_code=403, detail="Cannot upload dataset that is not owned by you"
-            )
-        if dataset.owner is None:
-            dataset.owner = user.address
-    else:
-        if dataset.owner is None:
-            raise HTTPException(
-                status_code=403, detail="Cannot upload dataset without owner"
-            )
-    if dataset.ownsAllTimeseries or dataset.ownsAllTimeseries is None:
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-        dataset.ownsAllTimeseries = all(
-            [ts.owner == dataset.owner for ts in timeseries]
-        )
-    if dataset.item_hash is not None:
-        old_dataset = await Dataset.fetch(dataset.item_hash).first()
+    timeseries = await Timeseries.fetch(dataset_req.timeseriesIDs).all()
+    owns_all_timeseries = all(
+        [ts.owner == user.address for ts in timeseries]
+    )
+    if dataset_req.item_hash is not None:
+        old_dataset = await Dataset.fetch(dataset_req.item_hash).first()
         if old_dataset is not None:
-            if old_dataset.owner != dataset.owner:
+            if old_dataset.owner != user.address:
                 raise HTTPException(
                     status_code=403,
                     detail="Cannot overwrite dataset that is not owned by you",
                 )
-            old_dataset.name = dataset.name
-            old_dataset.desc = dataset.desc
-            old_dataset.timeseriesIDs = dataset.timeseriesIDs
-            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            old_dataset.price = dataset.price
+            old_dataset.name = dataset_req.name
+            old_dataset.desc = dataset_req.desc
+            old_dataset.timeseriesIDs = dataset_req.timeseriesIDs
+            old_dataset.ownsAllTimeseries = owns_all_timeseries
+            old_dataset.price = dataset_req.price
             if old_dataset.changed:
                 await old_dataset.save()
             return old_dataset
-    return await Dataset(**dataset.dict()).save()
+    return await Dataset(**dataset_req.dict(), owner=user.address, ownsAllTimeseries=owns_all_timeseries).save()
 
 
 @router.get("/{dataset_id}")
@@ -230,7 +217,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
         # TODO: Generate chart image
         image="https://ipfs.io/ipfs/Qma2eje8yY57pNuaUyo4dsjtB9xwPz5yV6pCbK2PxpjUzo",
         animation_url=None,
-        external_url=f"http://localhost:5173/data/{dataset.item_hash}/details",
+        external_url=f"http://127.0.0.1:5173/data/{dataset.item_hash}/details",
         attributes=[
             Attribute(trait_type="Owner", value=dataset.owner),
             Attribute(trait_type="Last Updated", value=dataset.timestamp),
@@ -242,7 +229,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 @router.post("/upload/timeseries")
 async def upload_dataset_with_timeseries(
     upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
-    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+    user: JWTWalletAuthDep
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
@@ -269,9 +256,9 @@ async def upload_dataset_with_timeseries(
         user=user
     )
     upload_dataset_timeseries_request.dataset.timeseriesIDs = [
-        ts.item_hash for ts in timeseries
+        str(ts.item_hash) for ts in timeseries
     ]
-    dataset = await upload_dataset(dataset=upload_dataset_timeseries_request.dataset, user=user)
+    dataset = await upload_dataset(dataset_req=upload_dataset_timeseries_request.dataset, user=user)
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
         timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
@@ -302,7 +289,8 @@ async def get_views(dataset_id: str) -> List[View]:
 
 @router.put("/{dataset_id}/views")
 async def generate_view(
-    dataset_id: str, view_params: List[PutViewRequest]
+    dataset_id: str,
+    view_params: List[PutViewRequest]
 ) -> PutViewResponse:
     # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
@@ -336,18 +324,20 @@ async def generate_view(
         timeseries_df.round(2)
         # convert to dict of timeseries values
         view_values = {
-            ts.item_hash: [
-                [index.timestamp(), value]
+            str(ts.item_hash): [
+                (int(index.timestamp()), float(value))
                 for index, value in timeseries_df[ts.item_hash].items()
             ]
             for ts in timeseries
         }
         column_names = [ts.name for ts in timeseries]
         # prepare view request
+        start_time = int(timeseries_df.index.min().timestamp()) if view_req.startTime is None else view_req.startTime
+        end_time = int(timeseries_df.index.max().timestamp()) if view_req.endTime is None else view_req.endTime
         if views_map.get(view_req.item_hash):
             old_view = views_map[view_req.item_hash]
-            old_view.startTime = view_req.startTime
-            old_view.endTime = view_req.endTime
+            old_view.startTime = start_time
+            old_view.endTime = end_time
             old_view.granularity = view_req.granularity
             old_view.values = view_values
             view_requests.append(old_view.save())
@@ -355,8 +345,8 @@ async def generate_view(
             view_requests.append(
                 View(
                     item_hash=view_req.item_hash,
-                    startTime=view_req.startTime,
-                    endTime=view_req.endTime,
+                    startTime=start_time,
+                    endTime=end_time,
                     granularity=view_req.granularity,
                     columns=column_names,
                     values=view_values,

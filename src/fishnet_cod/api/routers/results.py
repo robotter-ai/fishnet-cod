@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException
+from fastapi_walletauth import JWTWalletAuthDep
 
-from ..common import OptionalWalletAuthDep
+from ..common import AuthorizedRouterDep
 from ...core.model import Result
 
 router = APIRouter(
     prefix="/results",
     tags=["results"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 

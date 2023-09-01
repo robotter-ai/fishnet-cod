@@ -3,7 +3,6 @@ from typing import List, Optional, Tuple, Union
 
 from aars import Index
 from pydantic import BaseModel
-from decimal import Decimal
 
 from ..core.model import (
     Algorithm,
@@ -54,7 +53,6 @@ Index(UserInfo, "username")
 class TimeseriesItem(BaseModel):
     item_hash: Optional[str]
     name: str
-    owner: Optional[str]  # TODO: to remove
     desc: Optional[str]
     data: List[Tuple[int, float]]
 
@@ -66,7 +64,6 @@ class UploadTimeseriesRequest(BaseModel):
 class PostPermission(BaseModel):
     timeseriesID: str
     algorithmID: Optional[str]
-    authorizer: str  # TODO: to remove
     status: PermissionStatus
     executionCount: int
     maxExecutionCount: Optional[int]
@@ -77,8 +74,6 @@ class UploadDatasetRequest(BaseModel):
     item_hash: Optional[str]
     name: str
     desc: Optional[str]
-    owner: Optional[str]  # TODO: to remove
-    ownsAllTimeseries: Optional[bool]  # TODO: to remove
     timeseriesIDs: List[str]
     price: Optional[str]
 
@@ -95,14 +90,12 @@ class DatasetResponse(Dataset):
 
 
 class RequestDatasetPermissionsRequest(BaseModel):
-    requestor: str  # TODO: to remove
     algorithmID: Optional[str]
     timeseriesIDs: Optional[List[str]]
     requestedExecutionCount: Optional[int]
 
 
 class GrantDatasetPermissionsRequest(BaseModel):
-    authorizer: str  # TODO: to remove
     requestor: str
     algorithmID: Optional[str]
     timeseriesIDs: Optional[List[str]]
@@ -131,14 +124,12 @@ class UploadAlgorithmRequest(BaseModel):
     item_hash: Optional[str]
     name: str
     desc: str
-    owner: str  # TODO: to remove
     code: str
 
 
 class RequestExecutionRequest(BaseModel):
     algorithmID: str
     datasetID: str
-    owner: str  # TODO: to remove
     status: Optional[str] = ExecutionStatus.REQUESTED
 
 

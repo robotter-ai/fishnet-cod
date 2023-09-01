@@ -1,14 +1,12 @@
 import asyncio
-import os
-from typing import Dict, List, Tuple, Optional, Annotated
+from typing import Dict, List, Tuple
 
 from fastapi import Depends
-from starlette.requests import Request
+from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager
 
 import pandas as pd
 
 from .api_model import ColumnNameType
-from ..core.conf import settings
 from ..core.model import (
     Dataset,
     Execution,
@@ -17,8 +15,6 @@ from ..core.model import (
     PermissionStatus,
     Timeseries,
 )
-
-from fastapi_walletauth.core import SignatureChallengeTokenAuth, WalletAuth
 
 
 def granularity_to_interval(granularity: Granularity) -> str:
@@ -136,13 +132,4 @@ async def get_harmonized_timeseries_df(
     return df
 
 
-class OptionalSignatureChallengeTokenAuth(SignatureChallengeTokenAuth):
-    def __call__(self, request: Request) -> Optional[WalletAuth]:
-        if settings.DISABLE_AUTH:
-            return None
-        return super().__call__(request)
-
-
-OptionalWalletAuth = OptionalSignatureChallengeTokenAuth()
-
-OptionalWalletAuthDep = Depends(OptionalWalletAuth)
+AuthorizedRouterDep = Depends(BearerWalletAuth(jwt_credentials_manager))

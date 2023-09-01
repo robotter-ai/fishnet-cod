@@ -13,8 +13,8 @@ async def handle_message(event: PostMessage) -> Optional[Execution]:
     print(f"Received event: {event.content.type}")
     if event.content.type in settings.API_MESSAGE_FILTER[0]["post_type"]:
         print(f"Sending event to API: {event}")
-        # call the api POST /event endpoint on localhost:8000
-        requests.post("http://localhost:8000/event", data=event.json())
+        # call the api POST /event endpoint on 127.0.0.1:8000
+        requests.post("http://127.0.0.1:8000/event", data=event.json())
     return None
 
 

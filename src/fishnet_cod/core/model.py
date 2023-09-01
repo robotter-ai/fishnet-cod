@@ -2,7 +2,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from aars import Record
-from decimal import Decimal
 
 
 class UserInfo(Record):
@@ -106,7 +105,6 @@ class Permission(Record):
     status: PermissionStatus
     executionCount: int
     maxExecutionCount: Optional[int]
-    tags: Optional[List[str]]
 
 
 class Result(Record):
