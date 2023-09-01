@@ -131,12 +131,12 @@ class DataNodeConfig(BaseModel):
     """
 
 
-class FishnetStorageConfig(Record):
+class FishnetConfig(Record):
     JWT_PUBLIC_KEY: str
     """
     The public key used to verify JWT tokens created by the Fishnet API.
     """
-    nodes: Dict[str, List[DataNodeConfig]]
+    nodes: Dict[str, DataNodeConfig]
     """
     The data nodes that the Fishnet API can use to store data. The keys are the item hashes of the PROGRAM
     messages that created the data nodes.

@@ -20,7 +20,7 @@ from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse, RedirectResponse
 
-from ..core.model import Dataset, Timeseries, TimeseriesSliceStats, DatasetSlice
+from ..core.model import Dataset, Timeseries, TimeseriesSliceStats, DatasetSlice, FishnetConfig, Permission
 from ..core.session import initialize_aars
 
 logger = logging.getLogger("uvicorn")
@@ -30,7 +30,7 @@ http_app = FastAPI()
 aleph_client = AlephClient(settings.API_HOST)
 aars_client = initialize_aars()
 app = AlephApp(http_app=http_app)
-fishnet_config = None
+fishnet_config: FishnetConfig
 
 
 class DataFormat(Enum):
@@ -49,7 +49,7 @@ async def re_index():
 async def startup():
     global aars_client, fishnet_config
     aars_client = await initialize_aars()
-    # fishnet_config = await aleph_client.fetch_aggregate("fishnet", "config")
+    fishnet_config = FishnetConfig.from_dict(await aleph_client.fetch_aggregate("fishnet", "config"))
     await re_index()
 
 
@@ -112,8 +112,7 @@ async def upload(
             )
     slice = await DatasetSlice(
         datasetID=datasetID,
-        # TODO: fix locationUrl
-        locationUrl=f"{fishnet_config.url}/download?datasetID={datasetID}",
+        locationUrl=f"{fishnet_config.nodes[app.vm_hash].url}/download?datasetID={datasetID}",
         timeseriesStats=timeseries_stats,
         startTime=int(df.index.min().timestamp()),
         endTime=int(df.index.max().timestamp()),
@@ -140,10 +139,18 @@ async def download(
     Download a dataset or timeseries as a file.
     """
     logger.info(f"Received download request for dataset {datasetID} from {user}")
+
     dataset = await Dataset.fetch(datasetID).first()
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset does not exist")
-    # TODO: check if user has permission to download this dataset
+
+    if dataset.owner != user.address:
+        permissions = await Permission.filter(
+            datasetID=datasetID, requestor=user.address
+        ).all()
+        if not permissions:
+            raise HTTPException(status_code=403, detail="User does not have access to this dataset")
+
     file_path = f"./files/{datasetID}.parquet"
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Dataset slice not found on this node")
