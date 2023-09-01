@@ -17,7 +17,7 @@ from aleph.sdk.client import AlephClient
 from aleph.sdk.conf import settings
 from aleph.sdk.vm.app import AlephApp
 from pydantic import ValidationError
-from starlette.responses import StreamingResponse
+from starlette.responses import StreamingResponse, RedirectResponse
 
 from ..core.model import Dataset, Permission, Timeseries, UserInfo, TimeseriesSliceStats, Slice
 from ..core.session import initialize_aars
@@ -52,8 +52,9 @@ async def startup():
 
 
 @app.get("/")
-async def index():
-    return {"status": "ok"}
+def root():
+    new_route_url = "/docs"
+    return RedirectResponse(url=new_route_url)
 
 
 @app.post("/upload")

@@ -2,7 +2,7 @@ import asyncio
 from typing import List, Optional, Dict
 
 from fastapi import APIRouter, HTTPException
-from fastapi_walletauth import WalletAuthDep
+from fastapi_walletauth import JWTWalletAuthDep
 
 from ...core.model import (
     Dataset,
@@ -18,13 +18,13 @@ from ..api_model import (
     RequestDatasetPermissionsRequest,
     GrantDatasetPermissionsRequest,
 )
-from ..common import request_permissions
+from ..common import request_permissions, AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/permissions",
     tags=["permissions"],
     responses={404: {"description": "Not found"}},
-    dependencies=[WalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
@@ -160,7 +160,7 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
 async def request_dataset_permissions(
     dataset_id: str,
     request: RequestDatasetPermissionsRequest,
-    user: WalletAuthDep
+    user: JWTWalletAuthDep
 ) -> List[Permission]:
     """
     Request permissions for a given dataset. If the dataset is non-mixed, a general
@@ -287,7 +287,7 @@ async def request_dataset_permissions(
 async def grant_dataset_permissions(
     dataset_id: str,
     request: GrantDatasetPermissionsRequest,
-    user: WalletAuthDep
+    user: JWTWalletAuthDep
 ) -> List[Permission]:
     """
     Grant permissions for a given dataset. This will grant permissions for all

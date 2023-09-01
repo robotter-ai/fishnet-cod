@@ -2,8 +2,9 @@ import asyncio
 from typing import List
 
 from fastapi import APIRouter
-from fastapi_walletauth import WalletAuthDep
+from fastapi_walletauth import JWTWalletAuthDep
 
+from ..common import AuthorizedRouterDep
 from ...core.model import Timeseries
 from ..api_model import UploadTimeseriesRequest
 
@@ -11,14 +12,14 @@ router = APIRouter(
     prefix="/timeseries",
     tags=["timeseries"],
     responses={404: {"description": "Not found"}},
-    dependencies=[WalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
 @router.put("")
 async def upload_timeseries(
     req: UploadTimeseriesRequest,
-    user: WalletAuthDep
+    user: JWTWalletAuthDep
 ) -> List[Timeseries]:
     """
     Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,

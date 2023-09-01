@@ -1,8 +1,9 @@
 from typing import List, Optional
 
 from fastapi import APIRouter
-from fastapi_walletauth import WalletAuthDep
+from fastapi_walletauth import JWTWalletAuthDep
 
+from ..common import AuthorizedRouterDep
 from ...core.model import Dataset, Permission, PermissionStatus, Result, UserInfo, Execution, ExecutionStatus
 from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification, \
     ExecutionTriggeredNotification
@@ -11,7 +12,7 @@ router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
-    dependencies=[WalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 

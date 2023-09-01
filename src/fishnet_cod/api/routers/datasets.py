@@ -4,7 +4,7 @@ from typing import Awaitable, List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException
-from fastapi_walletauth import WalletAuthDep
+from fastapi_walletauth import JWTWalletAuthDep
 
 from ...core.model import (
     Dataset,
@@ -27,14 +27,14 @@ from ..api_model import (
     UploadTimeseriesRequest,
     DatasetPermissionStatus,
 )
-from ..common import granularity_to_interval
+from ..common import granularity_to_interval, AuthorizedRouterDep
 from .timeseries import upload_timeseries
 
 router = APIRouter(
     prefix="/datasets",
     tags=["datasets"],
     responses={404: {"description": "Not found"}},
-    dependencies=[WalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
@@ -127,7 +127,7 @@ def get_dataset_permission_status(
 @router.put("")
 async def upload_dataset(
         dataset_req: UploadDatasetRequest,
-        user: WalletAuthDep
+        user: JWTWalletAuthDep
 ) -> Dataset:
     """
     Upload a dataset.
@@ -229,7 +229,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 @router.post("/upload/timeseries")
 async def upload_dataset_with_timeseries(
         upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
-        user: WalletAuthDep
+        user: JWTWalletAuthDep
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.

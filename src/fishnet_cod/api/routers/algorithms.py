@@ -1,8 +1,9 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
-from fastapi_walletauth import WalletAuthDep
+from fastapi_walletauth import JWTWalletAuthDep
 
+from ..common import AuthorizedRouterDep
 from ...core.model import Algorithm
 from ..api_model import UploadAlgorithmRequest
 
@@ -10,7 +11,7 @@ router = APIRouter(
     prefix="/algorithms",
     tags=["algorithms"],
     responses={404: {"description": "Not found"}},
-    dependencies=[WalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
@@ -37,7 +38,7 @@ async def get_algorithms(
 @router.put("")
 async def upload_algorithm(
     algorithm: UploadAlgorithmRequest,
-    user: WalletAuthDep,
+    user: JWTWalletAuthDep,
 ) -> Algorithm:
     """
     Upload an algorithm.
