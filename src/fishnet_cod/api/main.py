@@ -10,21 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_walletauth import authorization_routes
 from pydantic import ValidationError
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from ..core.conf import settings
-from ..core.model import (
-    Algorithm,
-    Dataset,
-    Execution,
-    Permission,
-    Result,
-    Timeseries,
-    UserInfo,
-    View,
-)
 from ..core.session import initialize_aars
-from .api_model import MessageResponse
 from .routers import (
     algorithms,
     datasets,
@@ -97,6 +86,19 @@ async def event(event: PostMessage):
     await fishnet_event(event)
 
 
+# DO NOT REMOVE THIS IMPORT
+from ..core.model import (  # noqa: F401 # pylint: disable=unused-import
+    Algorithm,
+    Dataset,
+    Execution,
+    Permission,
+    Result,
+    Timeseries,
+    UserInfo,
+    View,
+)
+
+
 @app.event(filters=settings.API_MESSAGE_FILTER)
 async def fishnet_event(event: PostMessage):
     record: Optional[Record]
@@ -118,6 +120,9 @@ async def fishnet_event(event: PostMessage):
             record = await cls.from_post(event)
         else:  # amend
             record = await Record.fetch(event.content.ref).first()
+            if record is None:
+                logger.error(f"Invalid amend event: {event}")
+                return
         assert record
         for inx in record.get_indices():
             inx.add_record(record)

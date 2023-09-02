@@ -1,5 +1,7 @@
-FROM python:3.11-bullseye
-LABEL authors="mhh"
+# Stage 1: Install Dependencies
+FROM python:3.11-bullseye AS dependencies
+
+WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -7,10 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install poetry
 
-WORKDIR /app
 COPY pyproject.toml poetry.lock README.md ./
-COPY ./src ./src
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi --no-root
 
-CMD ["poetry", "run", "uvicorn", "src.fishnet_cod.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY src ./src
+
+CMD ["echo", "Base image for fishnet services"]
