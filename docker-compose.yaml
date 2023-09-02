@@ -10,6 +10,7 @@ services:
       - fishnet_network
     environment:
       - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
+      - FISHNET_MESSAGES_KEY=<enter-your-private-key-here>
 
   local_listener:
     depends_on:
@@ -31,21 +32,22 @@ services:
     networks:
       - fishnet_network
     environment:
-      - SOLANA_RPC=https://rpc.helius.xyz/?api-key=fc7522c9-052e-4788-a7dc-10780b0eb50a
+      - SOLANA_RPC=<enter-your-RPC-url-here>
       - SPL_TOKEN_MINTS=kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6
       - NODE_OPTIONS=--max-old-space-size=4096
       - SOLANA_MAIN_PUBLIC_RPC=https://api.mainnet-beta.solana.com
 
   marketplace:
-    image: dipfit/fishnet-marketplace-node:latest
+    image: dipfit/fishnet-marketplace:latest
     ports:
       - "8003:50825"
     networks:
       - fishnet_network
     environment:
+      - MESSAGES_KEY=<enter-your-private-key-here>
       - INDEXER_API=http://indexer:8080
       - ALEPH_CHANNEL=FISHNET_DEMO_BERLIN_1
-      - RPC=https://rpc.heliu-s.xyz/?api-key=d6de3da9-da8e-4622-b159-3e2126c83e60
+      - RPC=<enter-your-RPC-url-here>
       - PORT=50825
 
 
