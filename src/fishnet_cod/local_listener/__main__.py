@@ -18,7 +18,7 @@ API_URL = os.getenv("API_URL")
 
 
 async def handle_message(event: PostMessage) -> Optional[Execution]:
-    logger.info(f"Received event: {event.content.type}")
+    logger.info(f"Received event: {event.content.type} {str(event.item_hash)}")
     if event.content.type in settings.API_MESSAGE_FILTER[0]["post_type"]:
         logger.debug(f"Sending event to API: {event}")
         # call the api POST /event endpoint on localhost:8000
@@ -36,14 +36,15 @@ async def handle_message(event: PostMessage) -> Optional[Execution]:
 
 async def listen():
     aars_client = await initialize_aars()
-    logger.info(f"Listening for events on {settings.API_MESSAGE_FILTER}")
+    listen_dict = {
+        "start_date": time.time(),
+        "message_type": MessageType(settings.API_MESSAGE_FILTER[0]["type"]),
+        "content_types": settings.API_MESSAGE_FILTER[0]["post_type"],
+        "channels": [settings.API_MESSAGE_FILTER[0]["channel"]],
+    }
+    logger.info(f"Listening for events on {listen_dict}")
     while True:
-        async for message in aars_client.session.watch_messages(
-            start_date=time.time(),
-            message_type=MessageType(settings.API_MESSAGE_FILTER[0]["type"]),
-            content_types=settings.API_MESSAGE_FILTER[0]["post_type"],
-            channels=[settings.API_MESSAGE_FILTER[0]["channel"]],
-        ):
+        async for message in aars_client.session.watch_messages(**listen_dict):
             if isinstance(message, PostMessage):
                 await handle_message(message)
             else:

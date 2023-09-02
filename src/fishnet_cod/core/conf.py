@@ -1,4 +1,4 @@
-from aleph.sdk.chains.sol import SOLAccount, get_fallback_account
+from aleph.sdk.chains.sol import get_fallback_account
 from pydantic import BaseSettings
 
 
@@ -70,3 +70,29 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+settings.API_MESSAGE_FILTER = [
+    {
+        "channel": settings.MESSAGE_CHANNEL,
+        "type": "POST",
+        "post_type": [
+            "Execution",
+            "Permission",
+            "Dataset",
+            "Timeseries",
+            "Algorithm",
+            "Result",
+            "View",
+            "UserInfo",
+            "amend",
+        ],
+    }
+]
+
+settings.EXECUTOR_MESSAGE_FILTER = [
+    {
+        "channel": settings.MESSAGE_CHANNEL,
+        "type": "POST",
+        "post_type": ["Execution", "amend"],
+    }
+]
