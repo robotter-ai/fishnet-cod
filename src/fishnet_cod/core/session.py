@@ -20,7 +20,7 @@ async def initialize_aars():
     else:
         cache = TestVmCache()
 
-    aleph_account = SOLAccount(bytes(settings.MESSAGES_KEY))
+    aleph_account = SOLAccount(bytes(settings.MESSAGES_KEY)[0:32])
     logging.info(f"Using account {aleph_account.get_address()}")
     aleph_session = AuthenticatedAlephClient(aleph_account, aleph_settings.API_HOST)
 
