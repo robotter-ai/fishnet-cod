@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from aars import Record
 from decimal import Decimal
 
+from pydantic import BaseModel
+
 
 class UserInfo(Record):
     username: str
@@ -18,7 +20,6 @@ class Timeseries(Record):
     owner: str
     desc: Optional[str]
     available: bool = True
-    data: List[Tuple[int, float]]
     min: Optional[float]
     max: Optional[float]
     avg: Optional[float]
@@ -26,7 +27,6 @@ class Timeseries(Record):
     median: Optional[float]
 
 
-# Check coinmarketcap.com for the exact granularity/aggregation timeframes
 class Granularity(str, Enum):
     DAY = "DAY"  # 1 value every five minutes
     WEEK = "WEEK"  # 1 value every 15 minutes
@@ -54,30 +54,6 @@ class Dataset(Record):
     price: Optional[str]
 
 
-class Algorithm(Record):
-    name: str
-    desc: str
-    owner: str
-    code: str
-
-
-class ExecutionStatus(str, Enum):
-    REQUESTED = "REQUESTED"
-    PENDING = "PENDING"
-    DENIED = "DENIED"
-    RUNNING = "RUNNING"
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-
-
-class Execution(Record):
-    algorithmID: str
-    datasetID: str
-    owner: str
-    status: ExecutionStatus = ExecutionStatus.REQUESTED
-    params: Optional[dict]
-
-
 class PermissionStatus(str, Enum):
     REQUESTED = "REQUESTED"
     GRANTED = "GRANTED"
@@ -102,15 +78,66 @@ class Permission(Record):
     """
     The timeseriesID that the permission was requested for.
     """
-    algorithmID: Optional[str]
     status: PermissionStatus
-    executionCount: int
-    maxExecutionCount: Optional[int]
-    tags: Optional[List[str]]
 
 
-class Result(Record):
-    executionID: str
-    owner: str
-    executor_vm: str
-    data: Any
+class TimeseriesSliceStats(BaseModel):
+    min: float
+    max: float
+    avg: float
+    std: float
+    median: float
+
+
+class DatasetSlice(Record):
+    """
+    Metadata and descriptive statistics about a time slice of a dataset.
+    The actual data is stored in a file on the location specified.
+    """
+    datasetID: str
+    """
+    The datasetID that the slice belongs to.
+    """
+    locationUrl: str
+    """
+    The URL where the slice's timeseries data is stored.
+    """
+    timeseriesStats: Dict[str, TimeseriesSliceStats]
+    """
+    The stats for each timeseries in the slice.
+    """
+    startTime: int
+    """
+    The start time of the slice.
+    """
+    endTime: int
+    """
+    The end time of the slice.
+    """
+
+
+class DataNodeConfig(BaseModel):
+    url: str
+    """
+    The URL of the data node.
+    """
+    startTime: int
+    """
+    The earliest timestamp that the data node has data for.
+    """
+    endTime: int
+    """
+    The latest timestamp that the data node has data for.
+    """
+
+
+class FishnetConfig(Record):
+    JWT_PUBLIC_KEY: str
+    """
+    The public key used to verify JWT tokens created by the Fishnet API.
+    """
+    nodes: Dict[str, DataNodeConfig]
+    """
+    The data nodes that the Fishnet API can use to store data. The keys are the item hashes of the PROGRAM
+    messages that created the data nodes.
+    """
