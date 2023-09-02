@@ -37,7 +37,7 @@ services:
       - SOLANA_MAIN_PUBLIC_RPC=https://api.mainnet-beta.solana.com
 
   marketplace:
-    image: dipfit/fishnet-marketplace:latest
+    image: dipfit/fishnet-marketplace-node:latest
     ports:
       - "8003:50825"
     networks:
