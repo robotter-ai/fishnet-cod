@@ -1,10 +1,11 @@
 # Stage 1: Install Dependencies
-FROM python:3.11-bullseye AS dependencies
+FROM python:3.11 AS dependencies
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install poetry
