@@ -37,16 +37,18 @@ async def handle_message(event: PostMessage) -> Optional[Execution]:
 async def listen():
     aars_client = await initialize_aars()
     logger.info(f"Listening for events on {settings.API_MESSAGE_FILTER}")
-    async for message in aars_client.session.watch_messages(
-        start_date=time.time(),
-        message_type=MessageType(settings.API_MESSAGE_FILTER[0]["type"]),
-        content_types=settings.API_MESSAGE_FILTER[0]["post_type"],
-        channels=[settings.API_MESSAGE_FILTER[0]["channel"]],
-    ):
-        if isinstance(message, PostMessage):
-            await handle_message(message)
-        else:
-            logger.warning(f"Received invalid message: {message.type}")
+    while True:
+        async for message in aars_client.session.watch_messages(
+            start_date=time.time(),
+            message_type=MessageType(settings.API_MESSAGE_FILTER[0]["type"]),
+            content_types=settings.API_MESSAGE_FILTER[0]["post_type"],
+            channels=[settings.API_MESSAGE_FILTER[0]["channel"]],
+        ):
+            if isinstance(message, PostMessage):
+                await handle_message(message)
+            else:
+                logger.warning(f"Received invalid message: {message.type}")
+        logger.info("Restarting websocket connection to Aleph API")
 
 
 async def main():
