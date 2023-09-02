@@ -8,6 +8,9 @@ services:
       - "8000:8000"
     networks:
       - fishnet_network
+    environment:
+      - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
+      - MESSAGES_KEY=[112,50,88,117,216,125,140,109,184,75,96,247,105,225,191,175,234,25,93,220,31,27,49,253,180,220,127,237,206,76,191,226,9,235,107,1,0,12,185,194,35,96,211,230,100,112,152,254,179,230,166,90,159,233,50,94,63,186,178,116,244,164,52,47]
 
   local_listener:
     depends_on:
@@ -20,11 +23,12 @@ services:
       - fishnet_network
     environment:
       - API_URL=http://api:8000
+      - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
 
   indexer:
-    image: ricardocr987/indexer:latest
+    image: dipfit/fishnet-indexer:latest
     ports:
-      - "8002:8000"
+      - "8002:8080"
     networks:
       - fishnet_network
     environment:
@@ -32,6 +36,20 @@ services:
       - SPL_TOKEN_MINTS=kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6
       - NODE_OPTIONS=--max-old-space-size=4096
       - SOLANA_MAIN_PUBLIC_RPC=https://api.mainnet-beta.solana.com
+
+  marketplace:
+    image: dipfit/fishnet-marketplace:latest
+    ports:
+      - "8003:50825"
+    networks:
+      - fishnet_network
+    environment:
+      - MESSAGES_KEY=[112,50,88,117,216,125,140,109,184,75,96,247,105,225,191,175,234,25,93,220,31,27,49,253,180,220,127,237,206,76,191,226,9,235,107,1,0,12,185,194,35,96,211,230,100,112,152,254,179,230,166,90,159,233,50,94,63,186,178,116,244,164,52,47]
+      - INDEXER_API=http://indexer:8080
+      - ALEPH_CHANNEL=FISHNET_DEMO_BERLIN_1
+      - RPC=https://rpc.heliu-s.xyz/?api-key=d6de3da9-da8e-4622-b159-3e2126c83e60
+      - PORT=50825
+
 
 networks:
   fishnet_network:

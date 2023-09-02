@@ -1,3 +1,4 @@
+from aleph.sdk.chains.sol import SOLAccount, get_fallback_account
 from pydantic import BaseSettings
 
 
@@ -7,6 +8,11 @@ class Settings(BaseSettings):
 
     CONFIG_CHANNEL = "FISHNET_TEST_CONFIG_V1.14"
     """Name of the channel to use for the Fishnet network"""
+
+    MESSAGES_KEY = [int(byte) for byte in get_fallback_account().private_key]
+    """
+    The private key of the Solana account as a uint8array.
+    """
 
     MANAGER_PUBKEYS = [
         "5cyWHnWcqk8QpGntEWUnJAiSg8P78pnvs47WZd8jeHDH",  # Kingsley
