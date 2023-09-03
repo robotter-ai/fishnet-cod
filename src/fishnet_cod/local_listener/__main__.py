@@ -36,14 +36,14 @@ async def handle_message(event: PostMessage) -> Optional[Execution]:
 
 async def listen():
     aars_client = await initialize_aars()
-    listen_dict = {
-        "start_date": time.time(),
-        "message_type": MessageType(settings.API_MESSAGE_FILTER[0]["type"]),
-        "content_types": settings.API_MESSAGE_FILTER[0]["post_type"],
-        "channels": [settings.API_MESSAGE_FILTER[0]["channel"]],
-    }
-    logger.info(f"Listening for events on {listen_dict}")
     while True:
+        listen_dict = {
+            "start_date": time.time(),
+            "message_type": MessageType(settings.API_MESSAGE_FILTER[0]["type"]),
+            "content_types": settings.API_MESSAGE_FILTER[0]["post_type"],
+            "channels": [settings.API_MESSAGE_FILTER[0]["channel"]],
+        }
+        logger.info(f"Listening for events on {listen_dict}")
         async for message in aars_client.session.watch_messages(**listen_dict):
             if isinstance(message, PostMessage):
                 await handle_message(message)

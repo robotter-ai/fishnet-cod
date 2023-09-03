@@ -319,6 +319,7 @@ async def grant_dataset_permissions(
                 datasetID=dataset_id,
                 timeseriesID=None,
                 algorithmID=request.algorithmID,
+                authorizer=request.authorizer,
                 requestor=request.requestor,
                 status=PermissionStatus.GRANTED,
                 executionCount=0,

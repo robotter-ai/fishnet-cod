@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
 from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
-from ...core.model import Timeseries, Permission
+from ...core.model import Timeseries, Permission, UserInfo
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
 
 router = APIRouter(
@@ -127,6 +127,15 @@ async def download_timeseries_csv(
     # fetch required permissions
     timeseries = await Timeseries.fetch(timeseriesIDs).all()
     df = await get_harmonized_timeseries_df(timeseries, column_names=column_names)
+
+    # increase download count
+    owners = {ts.owner for ts in timeseries}
+    user_infos = await UserInfo.fetch(owners).all()
+    requests = []
+    for user_info in user_infos:
+        user_info.downloads += 1
+        requests.append(user_info.save())
+    await asyncio.gather(*requests)
 
     # Create an in-memory text stream
     stream = io.StringIO()

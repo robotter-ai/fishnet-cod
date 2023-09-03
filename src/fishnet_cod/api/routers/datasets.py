@@ -58,34 +58,54 @@ async def get_datasets(
     datasets = await dataset_resp.page(page=page, page_size=page_size)
 
     if view_as:
-        ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
-        ts_ids_unique = list(set(ts_ids))
-        dataset_ids = [dataset.item_hash for dataset in datasets]
-
-        resp = await asyncio.gather(
-            Permission.filter(timeseriesID__in=ts_ids_unique, requestor=view_as).all(),
-            Permission.filter(
-                datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None
-            ).all(),
-        )
-        permissions = [item for sublist in resp for item in sublist]
-
-        returned_datasets: List[DatasetResponse] = []
-        for dataset in datasets:
-            returned_datasets.append(
-                DatasetResponse(
-                    **dataset.dict(),
-                    permission_status=get_dataset_permission_status(
-                        dataset, permissions
-                    ),
-                )
-            )
-        return returned_datasets
+        return await view_datasets_as(datasets, view_as)
     else:
         return [
             DatasetResponse(**dataset.dict(), permission_status=None)
             for dataset in datasets
         ]
+
+
+@router.post("/getByIDs")
+async def get_datasets_by_ids(
+    dataset_ids: List[str], view_as: Optional[str] = None
+) -> List[DatasetResponse]:
+    """
+    Get all datasets by their ids. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
+    If `view_as` is not given, the permission status will be `none` for all datasets.
+    """
+    datasets = await Dataset.fetch(dataset_ids).all()
+    if view_as:
+        return await view_datasets_as(datasets, view_as)
+    else:
+        return [
+            DatasetResponse(**dataset.dict(), permission_status=None)
+            for dataset in datasets
+        ]
+
+
+async def view_datasets_as(datasets, view_as):
+    ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
+    ts_ids_unique = list(set(ts_ids))
+    dataset_ids = [dataset.item_hash for dataset in datasets]
+    resp = await asyncio.gather(
+        Permission.filter(timeseriesID__in=ts_ids_unique, requestor=view_as).all(),
+        Permission.filter(
+            datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None
+        ).all(),
+    )
+    permissions = [item for sublist in resp for item in sublist]
+    returned_datasets: List[DatasetResponse] = []
+    for dataset in datasets:
+        returned_datasets.append(
+            DatasetResponse(
+                **dataset.dict(),
+                permission_status=get_dataset_permission_status(
+                    dataset, permissions
+                ),
+            )
+        )
+    return returned_datasets
 
 
 def get_dataset_permission_status(
@@ -344,10 +364,12 @@ async def generate_view(
         }
         column_names = [ts.name for ts in timeseries]
         # prepare view request
+        start_time = int(timeseries_df.index.min().timestamp()) if view_req.startTime is None else view_req.startTime
+        end_time = int(timeseries_df.index.max().timestamp()) if view_req.endTime is None else view_req.endTime
         if views_map.get(view_req.item_hash):
             old_view = views_map[view_req.item_hash]
-            old_view.startTime = view_req.startTime
-            old_view.endTime = view_req.endTime
+            old_view.startTime = start_time
+            old_view.endTime = end_time
             old_view.granularity = view_req.granularity
             old_view.values = view_values
             view_requests.append(old_view.save())
@@ -355,8 +377,8 @@ async def generate_view(
             view_requests.append(
                 View(
                     item_hash=view_req.item_hash,
-                    startTime=view_req.startTime,
-                    endTime=view_req.endTime,
+                    startTime=start_time,
+                    endTime=end_time,
                     granularity=view_req.granularity,
                     columns=column_names,
                     values=view_values,

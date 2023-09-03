@@ -8,6 +8,7 @@ from decimal import Decimal
 class UserInfo(Record):
     username: str
     address: str
+    downloads: Optional[int] = 0
     bio: Optional[str]
     email: Optional[str]
     link: Optional[str]
@@ -105,8 +106,8 @@ class Permission(Record):
     algorithmID: Optional[str]
     status: PermissionStatus
     executionCount: int
-    maxExecutionCount: Optional[int]
-    tags: Optional[List[str]]
+    maxExecutionCount: Optional[int] = None
+    tags: Optional[List[str]] = None
 
 
 class Result(Record):
