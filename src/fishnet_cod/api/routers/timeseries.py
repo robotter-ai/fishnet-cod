@@ -130,7 +130,7 @@ async def download_timeseries_csv(
 
     # increase download count
     owners = {ts.owner for ts in timeseries}
-    user_infos = await UserInfo.fetch(owners).all()
+    user_infos = await UserInfo.filter(address__in=owners).all()
     requests = []
     for user_info in user_infos:
         user_info.downloads = user_info.downloads + 1 if user_info.downloads else 1
