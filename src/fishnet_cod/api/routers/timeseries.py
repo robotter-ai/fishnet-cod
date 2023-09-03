@@ -133,7 +133,7 @@ async def download_timeseries_csv(
     user_infos = await UserInfo.fetch(owners).all()
     requests = []
     for user_info in user_infos:
-        user_info.downloads += 1
+        user_info.downloads = user_info.downloads + 1 if user_info.downloads else 1
         requests.append(user_info.save())
     await asyncio.gather(*requests)
 
