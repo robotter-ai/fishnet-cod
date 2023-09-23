@@ -14,20 +14,22 @@ from aars import AARS
 from fastapi import FastAPI, File, UploadFile, HTTPException
 
 from aleph.sdk.client import AlephClient
-from aleph.sdk.conf import settings
+from aleph.sdk.conf import settings as aleph_settings
 from aleph.sdk.vm.app import AlephApp
 from fastapi_walletauth import JWTWalletAuthDep
+from fastapi_walletauth.common import settings as jwt_settings
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse, RedirectResponse
 
 from ..core.model import Dataset, Timeseries, TimeseriesSliceStats, DatasetSlice, FishnetConfig, Permission
 from ..core.session import initialize_aars
+from ..core.conf import settings
 
 logger = logging.getLogger("uvicorn")
 logger.debug("imports done")
 
 http_app = FastAPI()
-aleph_client = AlephClient(settings.API_HOST)
+aleph_client = AlephClient(aleph_settings.API_HOST)
 aars_client = initialize_aars()
 app = AlephApp(http_app=http_app)
 fishnet_config: FishnetConfig
@@ -49,7 +51,7 @@ async def re_index():
 async def startup():
     global aars_client, fishnet_config
     aars_client = await initialize_aars()
-    fishnet_config = FishnetConfig.from_dict(await aleph_client.fetch_aggregate("fishnet", "config"))
+    fishnet_config = FishnetConfig.from_dict(await aleph_client.fetch_aggregate(settings.MANAGER_PUBKEY, "fishnet-config"))
     await re_index()
 
 

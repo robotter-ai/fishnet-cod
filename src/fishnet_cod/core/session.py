@@ -1,5 +1,3 @@
-from os import getenv
-
 import pandas as pd
 from aars import AARS
 from aleph.sdk.client import AuthenticatedAlephClient
@@ -23,8 +21,6 @@ async def initialize_aars():
         channel = "FISHNET_TEST_" + str(pd.to_datetime("now", utc=True))
     else:
         channel = settings.MESSAGE_CHANNEL
-
-    print("Using channel: " + channel)
 
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session

@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import os
-from os import listdir
 from typing import Optional
 
 from aars import AARS, Record
@@ -11,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_walletauth import jwt_authorization_router as authorization_routes
+from fastapi_walletauth.common import settings as jwt_settings
 from pydantic import ValidationError
 from starlette.responses import JSONResponse, RedirectResponse
 
@@ -23,11 +22,7 @@ from .routers import (
     users,
 )
 
-logger = (
-    logging.getLogger(__name__)
-    if __name__ != "__main__"
-    else logging.getLogger("uvicorn")
-)
+logger = logging.getLogger("uvicorn")
 http_app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/challenge")
@@ -59,16 +54,19 @@ async def validation_exception_handler(request, exc):
     )
 
 
-async def re_index():
-    logger.info(f"API re-indexing channel {AARS.channel}")
-    await asyncio.wait_for(AARS.sync_indices(), timeout=None)
-    logger.info("API re-indexing done")
-
-
 @app.on_event("startup")
 async def startup():
     app.aars = await initialize_aars()
-    print("Syncing indices...")
+    logger.info(f"API re-indexing channel {AARS.channel}")
+    await asyncio.wait_for(AARS.sync_indices(), timeout=None)
+    logger.info("API re-indexing done, posting config")
+    await app.aars.session.create_aggregate(
+        "fishnet-config",
+        settings.NODE_CONFIG,
+        settings.MANAGER_PUBKEY,
+        channel=settings.CONFIG_CHANNEL,
+    )
+    logger.info("JWT public key: 0x{}".format(jwt_settings.PUBLIC_KEY.hex()))
     await re_index()
 
 

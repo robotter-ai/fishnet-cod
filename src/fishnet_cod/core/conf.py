@@ -2,17 +2,14 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    MESSAGE_CHANNEL = "FISHNET_TEST_V1.14"
+    MESSAGE_CHANNEL = "FISHNET_TEST_V1.16"
     """Name of the channel to use for the Fishnet network"""
 
-    CONFIG_CHANNEL = "FISHNET_TEST_CONFIG_V1.14"
+    CONFIG_CHANNEL = None
     """Name of the channel to use for the Fishnet network"""
 
-    MANAGER_PUBKEYS = [
-        "5cyWHnWcqk8QpGntEWUnJAiSg8P78pnvs47WZd8jeHDH",  # Kingsley
-        "fishbsxxtW2iRwBgihKZEWGv4EMZ47G6ypx3P22Nhqx",  # Brick indexer 2
-    ]
-    """List of public keys of the managers of the Fishnet channel"""
+    MANAGER_PUBKEY = "FishebefjVYAkRWvfdVqvgfzao9fx8R1S8fiwYF23zEq"
+    """Pubkey of the manager account"""
 
     TEST_CACHE = True
     """Whether to use the aleph.sdk.vm.TestVmCache or the aleph.sdk.vm.VmCache"""
@@ -20,28 +17,15 @@ class Settings(BaseSettings):
     TEST_CHANNEL = False
     """Whether to use a new channel on each startup"""
 
-    DISABLE_AUTH = False
-    """Whether to disable authentication for the API"""
-
-    EXECUTOR_MESSAGE_FILTER = [
-        {
-            "channel": MESSAGE_CHANNEL,
-            "type": "POST",
-            "post_type": ["Execution", "amend"],
-        }
-    ]
-    """Filter for the messages to listen to for the executor"""
-
     API_MESSAGE_FILTER = [
         {
             "channel": MESSAGE_CHANNEL,
             "type": "POST",
             "post_type": [
-                "Execution",
                 "Permission",
                 "Dataset",
+                "DatasetSlice",
                 "Timeseries",
-                "Algorithm",
                 "Result",
                 "View",
                 "UserInfo",
@@ -64,3 +48,5 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+if settings.CONFIG_CHANNEL is None:
+    settings.CONFIG_CHANNEL = settings.MESSAGE_CHANNEL + "_CONFIG"
