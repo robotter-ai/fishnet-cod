@@ -67,7 +67,6 @@ async def startup():
         channel=settings.CONFIG_CHANNEL,
     )
     logger.info("JWT public key: 0x{}".format(jwt_settings.PUBLIC_KEY.hex()))
-    await re_index()
 
 
 @app.get("/")

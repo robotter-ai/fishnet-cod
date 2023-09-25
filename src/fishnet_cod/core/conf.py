@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     MANAGER_PUBKEY = "FishebefjVYAkRWvfdVqvgfzao9fx8R1S8fiwYF23zEq"
     """Pubkey of the manager account"""
 
+    NODES_CONFIG = []
+
     TEST_CACHE = True
     """Whether to use the aleph.sdk.vm.TestVmCache or the aleph.sdk.vm.VmCache"""
 
