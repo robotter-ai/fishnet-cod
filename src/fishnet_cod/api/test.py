@@ -21,14 +21,14 @@ def client():
 def test_full_request_execution_flow_with_own_dataset(client):
     with client:
         upload_dataset_req = UploadDatasetTimeseriesRequest(
-            dataset=UploadDatasetRequest(
+            dataset=CreateDatasetRequest(
                 name="test",
                 owner="test",
                 ownsAllTimeseries=True,
                 timeseriesIDs=[],
             ),
             timeseries=[
-                TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+                CreateTimeseriesRequest(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
             ]
         )
         response = client.post("/datasets/upload/timeseries", json=upload_dataset_req.dict())
@@ -55,7 +55,7 @@ def test_full_request_execution_flow_with_own_dataset(client):
 
 def test_requests_approval_deny(client):
     authorizer_address = "Approve_test_authorizer"
-    timeseries_item = TimeseriesItem(
+    timeseries_item = CreateTimeseriesRequest(
         name="Approve_test",
         owner=authorizer_address,
         available=True,
@@ -67,7 +67,7 @@ def test_requests_approval_deny(client):
     assert response.json()["item_hash"] is not None
     timeseries_id = response.json()["item_hash"]
 
-    upload_dataset_req = UploadDatasetRequest(
+    upload_dataset_req = CreateDatasetRequest(
         name="Approve_test",
         owner="test",
         ownsAllTimeseries=True,
@@ -110,7 +110,7 @@ def test_requests_approval_deny(client):
 def test_get_algorithm(client):
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            CreateTimeseriesRequest(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
         ]
     )
     req_body = upload_timeseries_req.dict()
@@ -119,7 +119,7 @@ def test_get_algorithm(client):
     assert response.json()[0]["item_hash"] is not None
     timeseries_id = response.json()[0]["item_hash"]
 
-    upload_dataset_req = UploadDatasetRequest(
+    upload_dataset_req = CreateDatasetRequest(
         name="test",
         owner="test",
         ownsAllTimeseries=True,
@@ -149,7 +149,7 @@ def test_get_algorithm(client):
 def test_incoming_permission(client):
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            CreateTimeseriesRequest(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
         ]
     )
     req_body = upload_timeseries_req.dict()
@@ -158,7 +158,7 @@ def test_incoming_permission(client):
     assert response.json()[0]["item_hash"] is not None
     timeseries_id = response.json()[0]["item_hash"]
     # - Upload dataset
-    upload_dataset_req = UploadDatasetRequest(
+    upload_dataset_req = CreateDatasetRequest(
         name="test",
         owner="test",
         ownsAllTimeseries=True,
@@ -258,7 +258,7 @@ def test_incoming_permission(client):
 def test_outgoing_permission(client):
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            CreateTimeseriesRequest(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
         ]
     )
     req_body = upload_timeseries_req.dict()
@@ -267,7 +267,7 @@ def test_outgoing_permission(client):
     assert response.json()[0]["item_hash"] is not None
     timeseries_id = response.json()[0]["item_hash"]
     # - Upload dataset
-    upload_dataset_req = UploadDatasetRequest(
+    upload_dataset_req = CreateDatasetRequest(
         name="test",
         owner="test",
         ownsAllTimeseries=True,

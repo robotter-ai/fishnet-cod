@@ -1,5 +1,3 @@
-from os import getenv
-
 import pandas as pd
 from aars import AARS
 from aleph.sdk.client import AuthenticatedAlephClient
@@ -29,33 +27,31 @@ async def initialize_aars():
     else:
         channel = settings.MESSAGE_CHANNEL
 
-    logging.info("Using channel: " + channel)
-
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session
     )
 
-    manager_pubkeys = settings.MANAGER_PUBKEYS + [aleph_account.get_address()]
-    try:
-        resp, status = await aleph_session.fetch_aggregate(
-            "security", aleph_account.get_address()
-        )
-        existing_authorizations = resp.json().get("authorizations", [])
-    except:
-        existing_authorizations = []
-    needed_authorizations = [
-        {
-            "address": address,
-            "channels": [settings.MESSAGE_CHANNEL],
-        }
-        for address in manager_pubkeys
-    ]
-    if not all(auth in existing_authorizations for auth in needed_authorizations):
-        aggregate = {
-            "authorizations": needed_authorizations,
-        }
-        await aleph_session.create_aggregate(
-            "security", aggregate, aleph_account.get_address(), channel="security"
-        )
+    if aleph_account.get_address() in settings.MANAGER_PUBKEYS:
+        try:
+            resp, status = await aleph_session.fetch_aggregate(
+                "security", aleph_account.get_address()
+            )
+            existing_authorizations = resp.json().get("authorizations", [])
+        except:
+            existing_authorizations = []
+        needed_authorizations = [
+            {
+                "address": address,
+                "channels": [settings.MESSAGE_CHANNEL],
+            }
+            for address in settings.MANAGER_PUBKEYS
+        ]
+        if not all(auth in existing_authorizations for auth in needed_authorizations):
+            aggregate = {
+                "authorizations": needed_authorizations,
+            }
+            await aleph_session.create_aggregate(
+                "security", aggregate, aleph_account.get_address(), channel="security"
+            )
 
     return aars

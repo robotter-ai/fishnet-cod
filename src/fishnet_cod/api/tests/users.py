@@ -22,7 +22,7 @@ def test_get_notification(client):
     owner_address = "test_get_notification_owner"
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            TimeseriesItem(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            CreateTimeseriesRequest(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
         ]
     )
     req_body = upload_timeseries_req.dict()
@@ -31,7 +31,7 @@ def test_get_notification(client):
     assert response.json()[0]["item_hash"] is not None
     timeseries_id = response.json()[0]["item_hash"]
     # - Upload dataset
-    upload_dataset_req = UploadDatasetRequest(
+    upload_dataset_req = CreateDatasetRequest(
         name="test",
         owner=owner_address,
         ownsAllTimeseries=True,

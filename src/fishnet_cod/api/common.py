@@ -1,24 +1,22 @@
 import asyncio
 import os
-from typing import Dict, List, Tuple, Optional, Annotated
+from typing import Dict, List, Tuple, Union, Optional
 
-from fastapi import Depends
-from starlette.requests import Request
+from fastapi import Depends, HTTPException
+from fastapi_walletauth import JWTWalletAuthDep
+from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager, JWTWalletAuthDep
 
 import pandas as pd
+from pydantic import ValidationError
 
-from .api_model import ColumnNameType
-from ..core.conf import settings
+from .api_model import ColumnNameType, CreateTimeseriesRequest, UpdateTimeseriesRequest
 from ..core.model import (
     Dataset,
-    Execution,
     Granularity,
     Permission,
     PermissionStatus,
     Timeseries,
 )
-
-from fastapi_walletauth.core import SignatureChallengeTokenAuth, WalletAuth
 
 
 def granularity_to_interval(granularity: Granularity) -> str:
@@ -46,21 +44,21 @@ def granularity_to_interval(granularity: Granularity) -> str:
 
 
 async def request_permissions(
-    dataset: Dataset, execution: Execution
+    dataset: Dataset,
+    user: JWTWalletAuthDep,
 ) -> Tuple[List[Permission], List[Permission], List[Timeseries]]:
     """
     Request permissions for a dataset given an execution.
 
     Args:
         dataset: The dataset to request permissions for.
-        execution: The execution requesting permissions.
 
     Returns:
         A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
     """
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
     permissions = await Permission.filter(
-        requestor=execution.owner
+        requestor=user.address
     ).all()
     permissions = [
         permission
@@ -75,7 +73,7 @@ async def request_permissions(
     update_permissions_requests = []
     unavailable_timeseries = []
     for ts in timeseries:
-        if ts.owner == execution.owner:
+        if ts.owner == user.address:
             continue
         if not ts.available:
             unavailable_timeseries.append(ts)
@@ -84,30 +82,17 @@ async def request_permissions(
                 Permission(
                     datasetID=str(dataset.item_hash),
                     timeseriesID=str(ts.item_hash),
-                    algorithmID=execution.algorithmID,
                     authorizer=ts.owner,
-                    requestor=execution.owner,
+                    requestor=user.address,
                     status=PermissionStatus.REQUESTED,
-                    executionCount=0,
-                    maxExecutionCount=-1,
                 ).save()
             )
         else:
             permission = ts_permission_map[ts.item_hash]
-            needs_update = False
             if permission.status == PermissionStatus.GRANTED:
                 continue
             if permission.status == PermissionStatus.DENIED:
                 permission.status = PermissionStatus.REQUESTED
-                needs_update = True
-            if (
-                permission.maxExecutionCount
-                and permission.maxExecutionCount <= permission.executionCount
-            ):
-                permission.maxExecutionCount = permission.executionCount + 1
-                permission.status = PermissionStatus.REQUESTED
-                needs_update = True
-            if needs_update:
                 update_permissions_requests.append(permission.save())
     created_permissions: List[Permission] = list(
         await asyncio.gather(*create_permissions_requests)
@@ -118,31 +103,88 @@ async def request_permissions(
     return created_permissions, updated_permissions, unavailable_timeseries
 
 
-async def get_harmonized_timeseries_df(
-    timeseries: List[Timeseries],
-    column_names: ColumnNameType = ColumnNameType.item_hash,
-) -> pd.DataFrame:
+AuthorizedRouterDep = Depends(BearerWalletAuth(jwt_credentials_manager))
 
-    # parse all as series
-    if column_names == ColumnNameType.item_hash:
-        series = [pd.Series(dict(ts.data), name=ts.item_hash) for ts in timeseries]
-    else:
-        series = [pd.Series(dict(ts.data), name=ts.name) for ts in timeseries]
-    # merge all series into one dataframe and pad missing values
-    df = pd.concat(series, axis=1).fillna(method="pad")
-    # set the index to the python timestamp
-    df.index = pd.to_datetime(df.index, unit="s")
 
+def get_dataset_df(dataset_id: str) -> pd.DataFrame:
+    file_path = f"./files/{dataset_id}.parquet"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Dataset slice not found on this node")
+    df = pd.read_parquet(file_path)
     return df
 
 
-class OptionalSignatureChallengeTokenAuth(SignatureChallengeTokenAuth):
-    def __call__(self, request: Request) -> Optional[WalletAuth]:
-        if settings.DISABLE_AUTH:
-            return None
-        return super().__call__(request)
+def load_data_file(file):
+    if file.filename.endswith(".csv"):
+        df = pd.read_csv(file.file)
+    elif file.filename.endswith(".parquet"):
+        df = pd.read_parquet(file.file)
+    elif file.filename.endswith(".feather"):
+        df = pd.read_feather(file.file)
+    else:
+        raise HTTPException(status_code=400,
+                            detail="Unsupported file format (only CSV, parquet and feather are supported)")
+
+    # find the first column with a timestamp or ISO8601 date and use it as the index
+    for col in df.columns:
+        if "unnamed" in col.lower():
+            df = df.drop(columns=col)
+            continue
+        if "date" in col.lower() or "time" in col.lower():
+            df.index = pd.to_datetime(df[col])
+            df = df.drop(columns=col)
+    return df
 
 
-OptionalWalletAuth = OptionalSignatureChallengeTokenAuth()
+async def update_timeseries(
+    df: pd.DataFrame,
+    metadata: Union[List[CreateTimeseriesRequest], List[UpdateTimeseriesRequest]],
+    timeseries: Optional[List[Timeseries]],
+    user: JWTWalletAuthDep,
+) -> List[Timeseries]:
 
-OptionalWalletAuthDep = Depends(OptionalWalletAuth)
+    timeseries_by_name: Dict[str, Timeseries] = {ts.name: ts for ts in timeseries} if timeseries else {}
+    metadata_by_item_hash: Dict[str, UpdateTimeseriesRequest] = {
+        ts.item_hash: ts for ts in metadata
+        if isinstance(ts, UpdateTimeseriesRequest) and ts.item_hash in metadata
+    } if metadata else {}
+    metadata_by_name: Dict[str, Union[CreateTimeseriesRequest, UpdateTimeseriesRequest]] = {
+        ts.name: ts for ts in metadata
+        if ts.name in metadata
+    } if metadata else {}
+    timeseries_requests = []
+    for col in df.columns:
+        try:
+            ts = timeseries_by_name.get(col)
+            if not ts:
+                md = metadata_by_name.get(col)
+                ts = Timeseries(
+                    item_hash=None,
+                    name=col,
+                    desc=md.desc if md else None,
+                    owner=user.address,
+                    min=df[col].min(),
+                    max=df[col].max(),
+                    avg=df[col].mean(),
+                    std=df[col].std(),
+                    median=df[col].median(),
+                )
+            else:
+                md = metadata_by_item_hash.get(str(ts.item_hash))
+                if md:
+                    ts.name = md.name if md.name else ts.name
+                    ts.desc = md.desc if md.desc else ts.desc
+                ts.min = df[col].min()
+                ts.max = df[col].max()
+                ts.avg = df[col].mean()
+                ts.std = df[col].std()
+                ts.median = df[col].median()
+            assert ts is not None
+            ts.name = col
+            timeseries_requests.append(ts.save())
+        except (ValidationError, TypeError, ValueError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid data encountered in column {col}: {e}",
+            )
+    return await asyncio.gather(*timeseries_requests)

@@ -8,27 +8,20 @@ from aleph_message.models import PostMessage
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
-from fastapi_walletauth import authorization_routes
+from fastapi_walletauth import jwt_authorization_router as authorization_routes
+from fastapi_walletauth.common import settings as jwt_settings
 from pydantic import ValidationError
 from starlette.responses import JSONResponse, RedirectResponse
 
 from ..core.conf import settings
 from ..core.session import initialize_aars
 from .routers import (
-    algorithms,
     datasets,
-    executions,
     permissions,
-    results,
-    timeseries,
     users,
 )
 
-logger = (
-    logging.getLogger(__name__)
-    if __name__ != "__main__"
-    else logging.getLogger("uvicorn")
-)
+logger = logging.getLogger("uvicorn")
 http_app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/challenge")
@@ -43,12 +36,8 @@ http_app.add_middleware(
     allow_headers=["*"],
 )
 
-http_app.include_router(algorithms.router)
 http_app.include_router(datasets.router)
-http_app.include_router(executions.router)
 http_app.include_router(permissions.router)
-http_app.include_router(results.router)
-http_app.include_router(timeseries.router)
 http_app.include_router(users.router)
 http_app.include_router(authorization_routes)
 
@@ -63,17 +52,19 @@ async def validation_exception_handler(request, exc):
     )
 
 
-async def re_index():
-    logger.info(f"API re-indexing channel {AARS.channel}")
-    await asyncio.wait_for(AARS.sync_indices(), timeout=None)
-    logger.info("API re-indexing done")
-
-
 @app.on_event("startup")
 async def startup():
     app.aars = await initialize_aars()
-    print("Syncing indices...")
-    await re_index()
+    logger.info(f"API re-indexing channel {AARS.channel}")
+    await asyncio.wait_for(AARS.sync_indices(), timeout=None)
+    logger.info("API re-indexing done, posting config")
+    await app.aars.session.create_aggregate(
+        "fishnet-config",
+        settings.NODE_CONFIG,
+        settings.MANAGER_PUBKEY,
+        channel=settings.CONFIG_CHANNEL,
+    )
+    logger.info("JWT public key: 0x{}".format(jwt_settings.PUBLIC_KEY.hex()))
 
 
 @app.get("/")
@@ -88,11 +79,8 @@ async def event(event: PostMessage):
 
 # DO NOT REMOVE THIS IMPORT
 from ..core.model import (  # noqa: F401 # pylint: disable=unused-import
-    Algorithm,
     Dataset,
-    Execution,
     Permission,
-    Result,
     Timeseries,
     UserInfo,
     View,
