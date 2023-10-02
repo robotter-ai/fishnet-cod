@@ -25,6 +25,7 @@ aars = "^0.7.2"
 python-multipart = "^0.0.6"
 fastapi-walletauth = "1.0.0a1"
 aiofiles = "^23.2.1"
+peewee = "^3.16.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
