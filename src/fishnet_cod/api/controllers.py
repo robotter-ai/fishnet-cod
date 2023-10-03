@@ -1,46 +1,23 @@
 import asyncio
+import io
 import os
-from typing import Dict, List, Tuple, Union, Optional
-
-from fastapi import Depends, HTTPException
-from fastapi_walletauth import JWTWalletAuthDep
-from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager, JWTWalletAuthDep
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
+from fastapi import File, HTTPException, UploadFile
+from fastapi_walletauth.middleware import JWTWalletAuthDep
 from pydantic import ValidationError
 
-from .api_model import ColumnNameType, CreateTimeseriesRequest, UpdateTimeseriesRequest
-from ..core.model import (
-    Dataset,
-    Granularity,
-    Permission,
-    PermissionStatus,
-    Timeseries,
+from ..core.model import Dataset, Permission, PermissionStatus, Timeseries
+from .api_model import (
+    CreateTimeseriesRequest,
+    DataFormat,
+    PutViewRequest,
+    UpdateTimeseriesRequest,
 )
-
-
-def granularity_to_interval(granularity: Granularity) -> str:
-    """
-    Get pandas-compatible interval from Granularity
-
-    Args:
-        start: start timestamp
-        end: end timestamp
-        granularity: granularity (frequency) of timestamps
-
-    Returns:
-        List of timestamps
-    """
-    if granularity == Granularity.DAY:
-        return "5min"
-    elif granularity == Granularity.WEEK:
-        return "15min"
-    elif granularity == Granularity.MONTH:
-        return "H"
-    elif granularity == Granularity.THREE_MONTHS:
-        return "3H"
-    else:  # granularity == Granularity.YEAR:
-        return "D"
+from .routers.datasets import generate_view, get_views
+from .utils import granularity_to_interval
 
 
 async def request_permissions(
@@ -57,9 +34,7 @@ async def request_permissions(
         A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
     """
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    permissions = await Permission.filter(
-        requestor=user.address
-    ).all()
+    permissions = await Permission.filter(requestor=user.address).all()
     permissions = [
         permission
         for permission in permissions
@@ -103,18 +78,19 @@ async def request_permissions(
     return created_permissions, updated_permissions, unavailable_timeseries
 
 
-AuthorizedRouterDep = Depends(BearerWalletAuth(jwt_credentials_manager))
-
-
 def get_dataset_df(dataset_id: str) -> pd.DataFrame:
     file_path = f"./files/{dataset_id}.parquet"
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Dataset slice not found on this node")
+        raise HTTPException(
+            status_code=404, detail="Dataset slice not found on this node"
+        )
     df = pd.read_parquet(file_path)
     return df
 
 
-def load_data_file(file):
+def load_data_df(file: UploadFile):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Please provide a filename")
     if file.filename.endswith(".csv"):
         df = pd.read_csv(file.file)
     elif file.filename.endswith(".parquet"):
@@ -122,8 +98,10 @@ def load_data_file(file):
     elif file.filename.endswith(".feather"):
         df = pd.read_feather(file.file)
     else:
-        raise HTTPException(status_code=400,
-                            detail="Unsupported file format (only CSV, parquet and feather are supported)")
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format (only CSV, parquet and feather are supported)",
+        )
 
     # find the first column with a timestamp or ISO8601 date and use it as the index
     for col in df.columns:
@@ -142,16 +120,21 @@ async def update_timeseries(
     timeseries: Optional[List[Timeseries]],
     user: JWTWalletAuthDep,
 ) -> List[Timeseries]:
-
-    timeseries_by_name: Dict[str, Timeseries] = {ts.name: ts for ts in timeseries} if timeseries else {}
-    metadata_by_item_hash: Dict[str, UpdateTimeseriesRequest] = {
-        ts.item_hash: ts for ts in metadata
-        if isinstance(ts, UpdateTimeseriesRequest) and ts.item_hash in metadata
-    } if metadata else {}
-    metadata_by_name: Dict[str, Union[CreateTimeseriesRequest, UpdateTimeseriesRequest]] = {
-        ts.name: ts for ts in metadata
-        if ts.name in metadata
-    } if metadata else {}
+    timeseries_by_name: Dict[str, Timeseries] = (
+        {ts.name: ts for ts in timeseries} if timeseries else {}
+    )
+    metadata_by_item_hash: Dict[str, UpdateTimeseriesRequest] = (
+        {
+            ts.item_hash: ts
+            for ts in metadata
+            if isinstance(ts, UpdateTimeseriesRequest) and ts.item_hash in metadata
+        }
+        if metadata
+        else {}
+    )
+    metadata_by_name: Dict[
+        str, Union[CreateTimeseriesRequest, UpdateTimeseriesRequest]
+    ] = ({ts.name: ts for ts in metadata if ts.name in metadata} if metadata else {})
     timeseries_requests = []
     for col in df.columns:
         try:
@@ -188,3 +171,83 @@ async def update_timeseries(
                 detail=f"Invalid data encountered in column {col}: {e}",
             )
     return await asyncio.gather(*timeseries_requests)
+
+
+async def get_data_stream(df: pd.DataFrame, data_format: DataFormat = DataFormat.CSV):
+    stream: Union[io.StringIO, io.BytesIO]
+    if data_format == DataFormat.CSV:
+        stream = io.StringIO()
+        df.to_csv(stream)
+        media_type = "text/csv"
+    elif data_format == DataFormat.FEATHER:
+        stream = io.BytesIO()
+        df.to_feather(stream)
+        media_type = "application/octet-stream"
+    elif data_format == DataFormat.PARQUET:
+        stream = io.BytesIO()
+        df.to_parquet(stream)
+        media_type = "application/octet-stream"
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported data format")
+    stream.seek(0)
+    return media_type, stream
+
+
+async def merge_data(df: pd.DataFrame, file_path: Path, update_values: bool = False):
+    existing_df = (
+        pd.read_parquet(file_path) if os.path.exists(file_path) else pd.DataFrame()
+    )
+    df = pd.concat([existing_df, df])
+
+    df = df[~df.index.duplicated(keep="last" if update_values else "first")]
+    df = df.sort_index()
+    return df
+
+
+async def update_views(dataset_id):
+    views = await get_views(dataset_id)
+    views_params = [
+        PutViewRequest(
+            item_hash=view.item_hash,
+            startTime=view.startTime,
+            endTime=view.endTime,
+            granularity=view.granularity,
+            columns=view.columns,
+        )
+        for view in views
+    ]
+    await generate_view(dataset_id, views_params)
+
+
+async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
+    # filter by time window
+    if view_req.startTime is not None:
+        start_date = pd.to_datetime(view_req.startTime, unit="s")
+        df = df[df.index >= start_date]
+    if view_req.endTime is not None:
+        end_date = pd.to_datetime(view_req.endTime, unit="s")
+        df = df[df.index <= end_date]
+    # normalize and round values
+    df = (df - df.min()) / (df.max() - df.min())
+    # drop points according to granularity
+    df = df.resample(granularity_to_interval(view_req.granularity)).mean().dropna()
+    df.round(2)
+
+    view_values = {
+        str(col): [
+            (int(index.timestamp()), float(value)) for index, value in df[col].items()
+        ]
+        for col in df.columns
+    }
+
+    start_time = (
+        int(df.index.min().timestamp())
+        if view_req.startTime is None
+        else view_req.startTime
+    )
+    end_time = (
+        int(df.index.max().timestamp())
+        if view_req.endTime is None
+        else view_req.endTime
+    )
+    return end_time, start_time, view_values

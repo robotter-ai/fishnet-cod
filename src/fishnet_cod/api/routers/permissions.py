@@ -1,22 +1,17 @@
 import asyncio
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep
 
-from ...core.model import (
-    Dataset,
-    Permission,
-    PermissionStatus,
-    Timeseries,
-)
+from ...core.model import Dataset, Permission, PermissionStatus, Timeseries
 from ..api_model import (
     ApprovePermissionsResponse,
     DenyPermissionsResponse,
-    RequestDatasetPermissionsRequest,
     GrantDatasetPermissionsRequest,
+    RequestDatasetPermissionsRequest,
 )
-from ..common import AuthorizedRouterDep
+from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/permissions",
@@ -93,16 +88,12 @@ async def deny_permissions(
         permission_requests.append(permission.save())
     await asyncio.gather(*permission_requests)
 
-    return DenyPermissionsResponse(
-        updatedPermissions=permissions
-    )
+    return DenyPermissionsResponse(updatedPermissions=permissions)
 
 
 @router.put("/datasets/{dataset_id}/request")
 async def request_dataset_permissions(
-    dataset_id: str,
-    request: RequestDatasetPermissionsRequest,
-    user: JWTWalletAuthDep
+    dataset_id: str, request: RequestDatasetPermissionsRequest, user: JWTWalletAuthDep
 ) -> List[Permission]:
     """
     Request permissions for a given dataset. If the dataset is non-mixed, a general
@@ -198,9 +189,7 @@ async def request_dataset_permissions(
 
 @router.put("/datasets/{dataset_id}/grant")
 async def grant_dataset_permissions(
-    dataset_id: str,
-    request: GrantDatasetPermissionsRequest,
-    user: JWTWalletAuthDep
+    dataset_id: str, request: GrantDatasetPermissionsRequest, user: JWTWalletAuthDep
 ) -> List[Permission]:
     """
     Grant permissions for a given dataset. This will grant permissions for all

@@ -15,11 +15,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from ..core.conf import settings
 from ..core.session import initialize_aars
-from .routers import (
-    datasets,
-    permissions,
-    users,
-)
+from .routers import datasets, permissions, users
 
 logger = logging.getLogger("uvicorn")
 http_app = FastAPI()

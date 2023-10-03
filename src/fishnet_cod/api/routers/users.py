@@ -3,9 +3,14 @@ from typing import List, Optional
 from fastapi import APIRouter
 from fastapi_walletauth import JWTWalletAuthDep
 
-from ..common import AuthorizedRouterDep
 from ...core.model import Dataset, Permission, PermissionStatus, UserInfo
-from ..api_model import Notification, NotificationType, PutUserInfo, PermissionRequestNotification
+from ..api_model import (
+    Notification,
+    NotificationType,
+    PermissionRequestNotification,
+    PutUserInfo,
+)
+from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/users",

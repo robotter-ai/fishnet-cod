@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from aars import Index
 from pydantic import BaseModel
@@ -89,11 +89,6 @@ class UploadDatasetTimeseriesRequest(BaseModel):
     timeseries: List[CreateTimeseriesRequest]
 
 
-class UploadDatasetTimeseriesResponse(BaseModel):
-    dataset: Dataset
-    timeseries: List[Timeseries]
-
-
 class PutUserInfo(BaseModel):
     username: str
     bio: Optional[str]
@@ -153,10 +148,6 @@ class FungibleAssetStandard(BaseModel):
     attributes: List[Attribute]
 
 
-class MessageResponse(BaseModel):
-    response: str
-
-
 class ColumnNameType(Enum):
     item_hash = "item_hash"
     name = "name"
@@ -166,4 +157,3 @@ class DataFormat(Enum):
     CSV = "csv"
     PARQUET = "parquet"
     FEATHER = "feather"
-

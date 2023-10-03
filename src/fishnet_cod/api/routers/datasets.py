@@ -1,32 +1,34 @@
 import asyncio
-import io
 import logging
-import os
-
-import pandas as pd
 from typing import Awaitable, List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi_walletauth import JWTWalletAuthDep
 from starlette.responses import StreamingResponse
 
-from ...core.model import (
-    Dataset,
-    Permission,
-    PermissionStatus,
-    Timeseries,
-    View,
-)
+from ...core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from ..api_model import (
     Attribute,
+    CreateDatasetRequest,
+    DataFormat,
+    DatasetPermissionStatus,
     DatasetResponse,
     FungibleAssetStandard,
     PutViewRequest,
     PutViewResponse,
-    CreateDatasetRequest,
-    DatasetPermissionStatus, DataFormat, UpdateDatasetRequest, )
-from ..common import granularity_to_interval, AuthorizedRouterDep, get_dataset_df, load_data_file, update_timeseries
+    UpdateDatasetRequest,
+)
+from ..controllers import (
+    calculate_view,
+    get_data_stream,
+    get_dataset_df,
+    load_data_df,
+    merge_data,
+    update_timeseries,
+    update_views,
+)
+from ..utils import AuthorizedRouterDep, get_file_path
 
 logger = logging.getLogger("uvicorn")
 
@@ -100,9 +102,7 @@ async def view_datasets_as(datasets: List[Dataset], view_as: str):
         returned_datasets.append(
             DatasetResponse(
                 **dataset.dict(),
-                permission_status=get_dataset_permission_status(
-                    dataset, permissions
-                ),
+                permission_status=get_dataset_permission_status(dataset, permissions),
             )
         )
     return returned_datasets
@@ -142,6 +142,7 @@ def get_dataset_permission_status(
         return DatasetPermissionStatus.REQUESTED
 
     raise Exception("Should not reach here")
+
 
 @router.get("/{dataset_id}")
 async def get_dataset(
@@ -208,32 +209,18 @@ async def download_data(
             datasetID=dataset_id, requestor=user.address
         ).all()
         if not permissions:
-            raise HTTPException(status_code=403, detail="User does not have access to this dataset")
+            raise HTTPException(
+                status_code=403, detail="User does not have access to this dataset"
+            )
 
     df = get_dataset_df(dataset_id)
 
-    stream: Union[io.StringIO, io.BytesIO]
-    if dataFormat == DataFormat.CSV:
-        stream = io.StringIO()
-        df.to_csv(stream)
-        media_type = "text/csv"
-    elif dataFormat == DataFormat.FEATHER:
-        stream = io.BytesIO()
-        df.to_feather(stream)
-        media_type = "application/octet-stream"
-    elif dataFormat == DataFormat.PARQUET:
-        stream = io.BytesIO()
-        df.to_parquet(stream)
-        media_type = "application/octet-stream"
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported data format")
-    stream.seek(0)
+    media_type, stream = await get_data_stream(df, dataFormat)
 
-    def stream_generator():
-        yield stream.getvalue()
-
-    response = StreamingResponse(stream_generator(), media_type=media_type)
-    response.headers["Content-Disposition"] = f"attachment; filename={dataset_id}.{dataFormat}"
+    response = StreamingResponse(stream, media_type=media_type)
+    response.headers[
+        "Content-Disposition"
+    ] = f"attachment; filename={dataset_id}.{dataFormat}"
 
     return response
 
@@ -272,8 +259,10 @@ async def upload_dataset(
     """
     Upload a new dataset.
     """
-    df = load_data_file(file)
-    timeseries = await update_timeseries(df, metadata=dataset_req.timeseries, timeseries=None, user=user)
+    df = load_data_df(file)
+    timeseries = await update_timeseries(
+        df, metadata=dataset_req.timeseries, timeseries=None, user=user
+    )
     dataset = await Dataset(
         name=dataset_req.name,
         desc=dataset_req.desc,
@@ -301,7 +290,9 @@ async def update_dataset_info(
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset does not exist")
     if dataset.owner != user.address:
-        raise HTTPException(status_code=403, detail="Only the dataset owner can update the dataset")
+        raise HTTPException(
+            status_code=403, detail="Only the dataset owner can update the dataset"
+        )
     if name is not None:
         dataset.name = name
     if desc is not None:
@@ -326,41 +317,26 @@ async def update_data(
     if dataset is None:
         raise HTTPException(status_code=400, detail="Dataset does not exist")
     if dataset.owner != user.address:
-        raise HTTPException(status_code=403, detail="Only the dataset owner can upload files")
+        raise HTTPException(
+            status_code=403, detail="Only the dataset owner can upload files"
+        )
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file name provided")
-    df = load_data_file(file)
-    file_path = f"./files/{dataset_id}.parquet"
-    logger.info(f"Received {len(df)} rows, saving to {file_path}")
-    existing_df = pd.read_parquet(file_path) if os.path.exists(file_path) else pd.DataFrame()
-    # columns stay the same, but it might be that the new data has more rows
-    df = pd.concat([existing_df, df])
-    # drop duplicates, update only if explicitly requested
-    df = df[~df.index.duplicated(keep="last" if update_values else "first")]
-    df = df.sort_index()
-    # update stats
+
+    df = load_data_df(file)
+    file_path = await get_file_path(dataset_id)
+    logger.info(f"Received {len(df)} rows, saving to {str(file_path)}")
+
+    df = await merge_data(df, file_path, update_values)
+
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
     timeseries = await update_timeseries(
-        df,
-        metadata.timeseries if metadata else [],  # type: ignore
-        timeseries,
-        user
+        df, metadata.timeseries if metadata else [], timeseries, user  # type: ignore
     )
-    # update views
+
     if update_values:
-        views = await get_views(dataset_id)
-        views_params = [
-            PutViewRequest(
-                item_hash=view.item_hash,
-                startTime=view.startTime,
-                endTime=view.endTime,
-                granularity=view.granularity,
-                columns=view.columns,
-            )
-            for view in views
-        ]
-        await generate_view(dataset_id, views_params)
-    # save
+        await update_views(dataset_id)
+
     df.to_parquet(file_path)
     return timeseries
 
@@ -389,50 +365,21 @@ async def get_views(dataset_id: str) -> List[View]:
 
 @router.put("/{dataset_id}/views")
 async def generate_view(
-    dataset_id: str,
-    view_params: List[PutViewRequest]
+    dataset_id: str, view_params: List[PutViewRequest]
 ) -> PutViewResponse:
-    # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    # get the views
+
     view_ids = [view.item_hash for view in view_params if view.item_hash is not None]
     views_map = {view.item_hash: view for view in await View.fetch(view_ids).all()}
-    view_requests = []
-    # get the data
+
     full_df = get_dataset_df(dataset_id)
+    view_requests = []
     for view_req in view_params:
         df = full_df[view_req.columns].copy()
-        # filter by time window
-        if view_req.startTime is not None:
-            start_date = pd.to_datetime(view_req.startTime, unit="s")
-            df = df[df.index >= start_date]
-        if view_req.endTime is not None:
-            end_date = pd.to_datetime(view_req.endTime, unit="s")
-            df = df[df.index <= end_date]
-        # normalize and round values
-        df = (df - df.min()) / (
-            df.max() - df.min()
-        )
-        # drop points according to granularity
-        df = (
-            df.resample(granularity_to_interval(view_req.granularity))
-            .mean()
-            .dropna()
-        )
-        df.round(2)
-        # convert to dict of timeseries values
-        view_values = {
-            str(col): [
-                (int(index.timestamp()), float(value))
-                for index, value in df[col].items()
-            ]
-            for col in df.columns
-        }
-        # prepare view request
-        start_time = int(df.index.min().timestamp()) if view_req.startTime is None else view_req.startTime
-        end_time = int(df.index.max().timestamp()) if view_req.endTime is None else view_req.endTime
+        end_time, start_time, view_values = await calculate_view(df, view_req)
+
         if views_map.get(view_req.item_hash):
             old_view = views_map[view_req.item_hash]
             old_view.startTime = start_time
@@ -451,7 +398,6 @@ async def generate_view(
                 ).save()
             )
 
-    # save all records
     views = await asyncio.gather(*view_requests)
     dataset.viewIDs = [view.item_hash for view in views]
     await dataset.save()

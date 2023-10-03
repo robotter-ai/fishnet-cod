@@ -1,4 +1,5 @@
 import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,7 +23,9 @@ def test_get_notification(client):
     owner_address = "test_get_notification_owner"
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            CreateTimeseriesRequest(name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            CreateTimeseriesRequest(
+                name="test", owner="test", data=[[1.0, 2.0], [3.0, 4.0]]
+            )
         ]
     )
     req_body = upload_timeseries_req.dict()
@@ -71,9 +74,7 @@ def test_get_notification(client):
     # - Approve permission
     permission_ids = [permission["item_hash"]]
 
-    response = client.put(
-        "/permissions/approve", json=permission_ids
-    )
+    response = client.put("/permissions/approve", json=permission_ids)
     assert response.status_code == 200
     new_permission = response.json()["updatedPermissions"][0]
     assert new_permission["status"] == PermissionStatus.GRANTED
