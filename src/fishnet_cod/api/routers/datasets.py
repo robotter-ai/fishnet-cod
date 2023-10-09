@@ -4,8 +4,10 @@ from typing import Awaitable, List, Optional, Union, Annotated
 
 from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi_walletauth import WalletAuth
+from fastapi_walletauth import JWTWalletAuthDep
 
+from ..controllers import view_datasets_as, PutViewRequest, get_dataset_permission_status, load_data_df, get_dataset_df
+from ..utils import AuthorizedRouterDep, granularity_to_interval
 from ...core.model import (
     Dataset,
     Permission,
@@ -14,25 +16,19 @@ from ...core.model import (
     View,
 )
 from ..api_model import (
-    Attribute,
     DatasetResponse,
-    FungibleAssetStandard,
-    PutViewRequest,
-    PutViewResponse,
     UploadDatasetRequest,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    UploadTimeseriesRequest,
-    DatasetPermissionStatus,
+    UploadTimeseriesRequest, PutViewResponse, Attribute, FungibleAssetStandard,
 )
-from ..common import granularity_to_interval, OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
 from .timeseries import upload_timeseries
 
 router = APIRouter(
     prefix="/datasets",
     tags=["datasets"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
@@ -82,70 +78,10 @@ async def get_datasets_by_ids(
         ]
 
 
-async def view_datasets_as(datasets, view_as):
-    ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
-    ts_ids_unique = list(set(ts_ids))
-    dataset_ids = [dataset.item_hash for dataset in datasets]
-    resp = await asyncio.gather(
-        Permission.filter(timeseriesID__in=ts_ids_unique, requestor=view_as).all(),
-        Permission.filter(
-            datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None
-        ).all(),
-    )
-    permissions = [item for sublist in resp for item in sublist]
-    returned_datasets: List[DatasetResponse] = []
-    for dataset in datasets:
-        returned_datasets.append(
-            DatasetResponse(
-                **dataset.dict(),
-                permission_status=get_dataset_permission_status(
-                    dataset, permissions
-                ),
-            )
-        )
-    return returned_datasets
-
-
-def get_dataset_permission_status(
-    dataset: Dataset, permissions: List[Permission]
-) -> DatasetPermissionStatus:
-    """
-    Get the permission status for a given dataset and a list of timeseries ids and their permissions.
-    """
-    permissions = [
-        p
-        for p in permissions
-        if p.datasetID == dataset.item_hash or p.timeseriesID in dataset.timeseriesIDs
-    ]
-
-    if not permissions:
-        return DatasetPermissionStatus.NOT_REQUESTED
-
-    for permission in permissions:
-        if permission.timeseriesID is None:
-            if permission.status == PermissionStatus.GRANTED:
-                return DatasetPermissionStatus.GRANTED
-            elif permission.status == PermissionStatus.DENIED:
-                return DatasetPermissionStatus.DENIED
-            elif permission.status == PermissionStatus.REQUESTED:
-                return DatasetPermissionStatus.REQUESTED
-
-    permissions_status = [p.status for p in permissions]
-
-    if all(status == PermissionStatus.GRANTED for status in permissions_status):
-        return DatasetPermissionStatus.GRANTED
-    elif PermissionStatus.DENIED in permissions_status:
-        return DatasetPermissionStatus.DENIED
-    elif PermissionStatus.REQUESTED in permissions_status:
-        return DatasetPermissionStatus.REQUESTED
-
-    raise Exception("Should not reach here")
-
-
 @router.put("")
 async def upload_dataset(
     dataset: UploadDatasetRequest,
-    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+    user: JWTWalletAuthDep
 ) -> Dataset:
     """
     Upload a dataset.
@@ -260,7 +196,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 @router.post("/upload/timeseries")
 async def upload_dataset_with_timeseries(
     upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
-    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+    user: JWTWalletAuthDep
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
@@ -287,7 +223,7 @@ async def upload_dataset_with_timeseries(
         user=user
     )
     upload_dataset_timeseries_request.dataset.timeseriesIDs = [
-        ts.item_hash for ts in timeseries
+        str(ts.item_hash) for ts in timeseries
     ]
     dataset = await upload_dataset(dataset=upload_dataset_timeseries_request.dataset, user=user)
     return UploadDatasetTimeseriesResponse(
@@ -333,7 +269,7 @@ async def generate_view(
     for view_req in view_params:
         # get all the timeseries
         timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
-        timeseries_df = await get_harmonized_timeseries_df(timeseries)
+        timeseries_df = await get_dataset_df(dataset_id)
         # filter by time window
         if view_req.startTime is not None:
             start_date = pd.to_datetime(view_req.startTime, unit="s")
@@ -354,8 +290,8 @@ async def generate_view(
         timeseries_df.round(2)
         # convert to dict of timeseries values
         view_values = {
-            ts.item_hash: [
-                [index.timestamp(), value]
+            str(ts.item_hash): [
+                (int(index.timestamp()), float(value))
                 for index, value in timeseries_df[ts.item_hash].items()
             ]
             for ts in timeseries

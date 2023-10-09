@@ -1,19 +1,18 @@
 import asyncio
 import io
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
-from fastapi import File, HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile
 from fastapi_walletauth.middleware import JWTWalletAuthDep
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 
-from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View
+from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View, Granularity
 from .api_model import (
-    DataFormat,
-    PutViewRequest,
-    PutViewResponse,
+    DatasetResponse, DatasetPermissionStatus, PutViewResponse,
 )
 from .utils import granularity_to_interval
 
@@ -112,6 +111,7 @@ def load_data_df(file: UploadFile):
     return df
 
 
+"""
 async def update_timeseries(
     df: pd.DataFrame,
     metadata: Union[List[CreateTimeseriesRequest], List[UpdateTimeseriesRequest]],
@@ -169,6 +169,12 @@ async def update_timeseries(
                 detail=f"Invalid data encountered in column {col}: {e}",
             )
     return await asyncio.gather(*timeseries_requests)
+"""
+
+class DataFormat(Enum):
+    CSV = "csv"
+    PARQUET = "parquet"
+    FEATHER = "feather"
 
 
 async def get_data_stream(df: pd.DataFrame, data_format: DataFormat = DataFormat.CSV):
@@ -263,6 +269,14 @@ async def update_views(dataset_id):
     await generate_views(dataset_id, views_params)
 
 
+class PutViewRequest(BaseModel):
+    item_hash: Optional[str]
+    timeseriesIDs: List[str]
+    granularity: Granularity = Granularity.YEAR
+    startTime: Optional[int] = None
+    endTime: Optional[int] = None
+
+
 async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
     # filter by time window
     if view_req.startTime is not None:
@@ -295,3 +309,63 @@ async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
         else view_req.endTime
     )
     return end_time, start_time, view_values
+
+
+async def view_datasets_as(datasets: List[Dataset], view_as: str):
+    ts_ids = [ts_id for dataset in datasets for ts_id in dataset.timeseriesIDs]
+    ts_ids_unique = list(set(ts_ids))
+    dataset_ids = [dataset.item_hash for dataset in datasets]
+    resp = await asyncio.gather(
+        Permission.filter(timeseriesID__in=ts_ids_unique, requestor=view_as).all(),
+        Permission.filter(
+            datasetID__in=dataset_ids, requestor=view_as, timeseriesID=None
+        ).all(),
+    )
+    permissions = [item for sublist in resp for item in sublist]
+    returned_datasets: List[DatasetResponse] = []
+    for dataset in datasets:
+        returned_datasets.append(
+            DatasetResponse(
+                **dataset.dict(),
+                permission_status=get_dataset_permission_status(
+                    dataset, permissions
+                ),
+            )
+        )
+    return returned_datasets
+
+
+def get_dataset_permission_status(
+    dataset: Dataset, permissions: List[Permission]
+) -> DatasetPermissionStatus:
+    """
+    Get the permission status for a given dataset and a list of timeseries ids and their permissions.
+    """
+    permissions = [
+        p
+        for p in permissions
+        if p.datasetID == dataset.item_hash or p.timeseriesID in dataset.timeseriesIDs
+    ]
+
+    if not permissions:
+        return DatasetPermissionStatus.NOT_REQUESTED
+
+    for permission in permissions:
+        if permission.timeseriesID is None:
+            if permission.status == PermissionStatus.GRANTED:
+                return DatasetPermissionStatus.GRANTED
+            elif permission.status == PermissionStatus.DENIED:
+                return DatasetPermissionStatus.DENIED
+            elif permission.status == PermissionStatus.REQUESTED:
+                return DatasetPermissionStatus.REQUESTED
+
+    permissions_status = [p.status for p in permissions]
+
+    if all(status == PermissionStatus.GRANTED for status in permissions_status):
+        return DatasetPermissionStatus.GRANTED
+    elif PermissionStatus.DENIED in permissions_status:
+        return DatasetPermissionStatus.DENIED
+    elif PermissionStatus.REQUESTED in permissions_status:
+        return DatasetPermissionStatus.REQUESTED
+
+    raise Exception("Should not reach here")

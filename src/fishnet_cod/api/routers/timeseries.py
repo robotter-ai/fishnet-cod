@@ -1,29 +1,30 @@
 import asyncio
 import io
-from typing import List, Annotated, Optional
+from typing import List
 
 import pandas as pd
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
-from fastapi_walletauth import WalletAuth
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
-from ...core.model import Timeseries, Permission, UserInfo
+from ..common import get_harmonized_timeseries_df
+from ...core.model import Timeseries, UserInfo
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
+from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/timeseries",
     tags=["timeseries"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
 @router.put("")
 async def upload_timeseries(
     req: UploadTimeseriesRequest,
-    user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)]
+    user: JWTWalletAuthDep,
 ) -> List[Timeseries]:
     """
     Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,

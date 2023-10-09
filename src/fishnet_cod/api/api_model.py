@@ -6,12 +6,10 @@ from pydantic import BaseModel
 
 from ..core.model import (
     Dataset,
-    Granularity,
     Permission,
     PermissionStatus,
     Timeseries,
-    UserInfo,
-    View,
+    UserInfo, View,
 )
 
 # indexes to fetch by timeseries
@@ -128,14 +126,6 @@ class DenyPermissionsResponse(BaseModel):
     updatedPermissions: List[Permission]
 
 
-class PutViewRequest(BaseModel):
-    item_hash: Optional[str]
-    timeseriesIDs: List[str]
-    granularity: Granularity = Granularity.YEAR
-    startTime: Optional[int] = None
-    endTime: Optional[int] = None
-
-
 class PutViewResponse(BaseModel):
     dataset: Dataset
     views: List[View]
@@ -159,9 +149,3 @@ class FungibleAssetStandard(BaseModel):
 class ColumnNameType(Enum):
     item_hash = "item_hash"
     name = "name"
-
-
-class DataFormat(Enum):
-    CSV = "csv"
-    PARQUET = "parquet"
-    FEATHER = "feather"
