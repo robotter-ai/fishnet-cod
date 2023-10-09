@@ -35,7 +35,6 @@ Index(UserInfo, "username")
 class TimeseriesItem(BaseModel):
     item_hash: Optional[str]
     name: str
-    owner: Optional[str]  # TODO: to remove
     desc: Optional[str]
     data: List[Tuple[int, float]]
 
@@ -46,11 +45,7 @@ class UploadTimeseriesRequest(BaseModel):
 
 class PostPermission(BaseModel):
     timeseriesID: str
-    algorithmID: Optional[str]
-    authorizer: str  # TODO: to remove
     status: PermissionStatus
-    executionCount: int
-    maxExecutionCount: Optional[int]
     requestor: str
 
 
@@ -58,8 +53,6 @@ class UploadDatasetRequest(BaseModel):
     item_hash: Optional[str]
     name: str
     desc: Optional[str]
-    owner: Optional[str]  # TODO: to remove
-    ownsAllTimeseries: Optional[bool]  # TODO: to remove
     timeseriesIDs: List[str]
     price: Optional[str] = None
 
@@ -77,12 +70,10 @@ class DatasetResponse(Dataset):
 
 class RequestDatasetPermissionsRequest(BaseModel):
     timeseriesIDs: Optional[List[str]]
-    requestedExecutionCount: Optional[int]
 
 
-class GrantDatasetPermissionsRequest(BaseModel):
+class GrantDatasetPermissionsRequest(RequestDatasetPermissionsRequest):
     requestor: str
-    timeseriesIDs: Optional[List[str]]
 
 
 class UploadDatasetTimeseriesRequest(BaseModel):
@@ -118,11 +109,7 @@ class PermissionRequestNotification(Notification):
     uses: Optional[int]
 
 
-class ApprovePermissionsResponse(BaseModel):
-    updatedPermissions: List[Permission]
-
-
-class DenyPermissionsResponse(BaseModel):
+class UpdatedPermissionsResponse(BaseModel):
     updatedPermissions: List[Permission]
 
 
