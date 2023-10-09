@@ -15,11 +15,8 @@ from starlette.responses import JSONResponse, RedirectResponse
 from ..core.conf import settings
 from ..core.session import initialize_aars
 from .routers import (
-    algorithms,
     datasets,
-    executions,
     permissions,
-    results,
     timeseries,
     users,
 )
@@ -43,11 +40,8 @@ http_app.add_middleware(
     allow_headers=["*"],
 )
 
-http_app.include_router(algorithms.router)
 http_app.include_router(datasets.router)
-http_app.include_router(executions.router)
 http_app.include_router(permissions.router)
-http_app.include_router(results.router)
 http_app.include_router(timeseries.router)
 http_app.include_router(users.router)
 http_app.include_router(authorization_routes)
@@ -88,11 +82,8 @@ async def event(event: PostMessage):
 
 # DO NOT REMOVE THIS IMPORT
 from ..core.model import (  # noqa: F401 # pylint: disable=unused-import
-    Algorithm,
     Dataset,
-    Execution,
     Permission,
-    Result,
     Timeseries,
     UserInfo,
     View,
@@ -104,14 +95,11 @@ async def fishnet_event(event: PostMessage):
     record: Optional[Record]
     try:
         if event.content.type in [
-            "Execution",
-            "Permission",
             "Dataset",
+            "Permission",
             "Timeseries",
-            "Algorithm",
-            "View",
             "UserInfo",
-            "Result",
+            "View",
         ]:
             print(f"Received event: {event.content.type} - {event.item_hash}")
             if Record.is_indexed(event.item_hash):

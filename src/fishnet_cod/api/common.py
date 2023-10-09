@@ -1,6 +1,5 @@
 import asyncio
-import os
-from typing import Dict, List, Tuple, Optional, Annotated
+from typing import Dict, List, Tuple, Optional
 
 from fastapi import Depends
 from starlette.requests import Request
@@ -11,7 +10,6 @@ from .api_model import ColumnNameType
 from ..core.conf import settings
 from ..core.model import (
     Dataset,
-    Execution,
     Granularity,
     Permission,
     PermissionStatus,
@@ -46,7 +44,7 @@ def granularity_to_interval(granularity: Granularity) -> str:
 
 
 async def request_permissions(
-    dataset: Dataset, execution: Execution
+    dataset: Dataset
 ) -> Tuple[List[Permission], List[Permission], List[Timeseries]]:
     """
     Request permissions for a dataset given an execution.

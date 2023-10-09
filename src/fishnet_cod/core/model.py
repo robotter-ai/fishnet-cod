@@ -1,8 +1,7 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from aars import Record
-from decimal import Decimal
 
 
 class UserInfo(Record):
@@ -27,7 +26,6 @@ class Timeseries(Record):
     median: Optional[float]
 
 
-# Check coinmarketcap.com for the exact granularity/aggregation timeframes
 class Granularity(str, Enum):
     DAY = "DAY"  # 1 value every five minutes
     WEEK = "WEEK"  # 1 value every 15 minutes
@@ -55,30 +53,6 @@ class Dataset(Record):
     price: Optional[str]
 
 
-class Algorithm(Record):
-    name: str
-    desc: str
-    owner: str
-    code: str
-
-
-class ExecutionStatus(str, Enum):
-    REQUESTED = "REQUESTED"
-    PENDING = "PENDING"
-    DENIED = "DENIED"
-    RUNNING = "RUNNING"
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-
-
-class Execution(Record):
-    algorithmID: str
-    datasetID: str
-    owner: str
-    status: ExecutionStatus = ExecutionStatus.REQUESTED
-    params: Optional[dict]
-
-
 class PermissionStatus(str, Enum):
     REQUESTED = "REQUESTED"
     GRANTED = "GRANTED"
@@ -103,15 +77,4 @@ class Permission(Record):
     """
     The timeseriesID that the permission was requested for.
     """
-    algorithmID: Optional[str]
     status: PermissionStatus
-    executionCount: int
-    maxExecutionCount: Optional[int] = None
-    tags: Optional[List[str]] = None
-
-
-class Result(Record):
-    executionID: str
-    owner: str
-    executor_vm: str
-    data: Any

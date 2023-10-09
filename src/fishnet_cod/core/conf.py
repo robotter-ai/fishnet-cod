@@ -1,54 +1,36 @@
-from aleph.sdk.chains.sol import get_fallback_account
+from typing import Optional, Union
+
+import base58
+from aleph.sdk.chains.sol import generate_key
 from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    MESSAGE_CHANNEL = "FISHNET_TEST_V1.14"
+    MESSAGE_CHANNEL: str = "FISHNET_TEST_V1.16"
     """Name of the channel to use for the Fishnet network"""
 
-    CONFIG_CHANNEL = "FISHNET_TEST_CONFIG_V1.14"
+    CONFIG_CHANNEL: Optional[str] = None
     """Name of the channel to use for the Fishnet network"""
 
-    MESSAGES_KEY = [int(byte) for byte in get_fallback_account().private_key]
-    """
-    The private key of the Solana account as a uint8array.
-    """
+    MESSAGES_KEY: Optional[str] = None
 
-    MANAGER_PUBKEYS = [
-        "5cyWHnWcqk8QpGntEWUnJAiSg8P78pnvs47WZd8jeHDH",  # Kingsley
-        "fishbsxxtW2iRwBgihKZEWGv4EMZ47G6ypx3P22Nhqx",  # Brick indexer 2
-    ]
-    """List of public keys of the managers of the Fishnet channel"""
+    MANAGER_PUBKEY: str = "FishebefjVYAkRWvfdVqvgfzao9fx8R1S8fiwYF23zEq"
+    """Pubkey of the manager account"""
 
-    TEST_CACHE = True
+    TEST_CACHE: bool = True
     """Whether to use the aleph.sdk.vm.TestVmCache or the aleph.sdk.vm.VmCache"""
 
-    TEST_CHANNEL = False
+    TEST_CHANNEL: bool = False
     """Whether to use a new channel on each startup"""
-
-    DISABLE_AUTH = False
-    """Whether to disable authentication for the API"""
-
-    EXECUTOR_MESSAGE_FILTER = [
-        {
-            "channel": MESSAGE_CHANNEL,
-            "type": "POST",
-            "post_type": ["Execution", "amend"],
-        }
-    ]
-    """Filter for the messages to listen to for the executor"""
 
     API_MESSAGE_FILTER = [
         {
             "channel": MESSAGE_CHANNEL,
             "type": "POST",
             "post_type": [
-                "Execution",
                 "Permission",
                 "Dataset",
                 "Timeseries",
-                "Algorithm",
-                "Result",
                 "View",
                 "UserInfo",
                 "amend",
@@ -70,29 +52,25 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+if settings.CONFIG_CHANNEL is None:
+    settings.CONFIG_CHANNEL = settings.MESSAGE_CHANNEL + "_CONFIG"
 
-settings.API_MESSAGE_FILTER = [
-    {
-        "channel": settings.MESSAGE_CHANNEL,
-        "type": "POST",
-        "post_type": [
-            "Execution",
-            "Permission",
-            "Dataset",
-            "Timeseries",
-            "Algorithm",
-            "Result",
-            "View",
-            "UserInfo",
-            "amend",
-        ],
-    }
-]
 
-settings.EXECUTOR_MESSAGE_FILTER = [
-    {
-        "channel": settings.MESSAGE_CHANNEL,
-        "type": "POST",
-        "post_type": ["Execution", "amend"],
-    }
-]
+# parse keys from hex, base58 or uint8 array
+def parse_key(key: str) -> str:
+    if key.startswith("0x"):
+        return key[2:]
+    elif key.startswith("[") and key.endswith("]"):
+        raw = bytes([int(x) for x in key[1:-1].split(",")])[:32]
+        return raw.hex()
+    else:
+        try:
+            return base58.b58decode(key).hex()
+        except ValueError:
+            return key
+
+
+if settings.MESSAGES_KEY is None:
+    settings.MESSAGES_KEY = generate_key().hex()
+else:
+    settings.MESSAGES_KEY = parse_key(settings.MESSAGES_KEY)

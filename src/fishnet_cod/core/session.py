@@ -1,15 +1,13 @@
-from os import getenv
+import logging
 
 import pandas as pd
 from aars import AARS
-from aleph.sdk.client import AuthenticatedAlephClient
 from aleph.sdk.chains.sol import SOLAccount
+from aleph.sdk.client import AuthenticatedAlephClient
 from aleph.sdk.conf import settings as aleph_settings
-from aleph.sdk.vm.cache import TestVmCache, VmCache
+from aleph.sdk.vm.cache import LocalVmCache, VmCache
 
 from .conf import settings
-
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,9 +16,9 @@ async def initialize_aars():
     if str(settings.TEST_CACHE).lower() == "false":
         cache = VmCache()
     else:
-        cache = TestVmCache()
+        cache = LocalVmCache()
 
-    aleph_account = SOLAccount(bytes(settings.MESSAGES_KEY)[0:32])
+    aleph_account = SOLAccount(bytes.fromhex(settings.MESSAGES_KEY)[0:32])
     logging.info(f"Using account {aleph_account.get_address()}")
     aleph_session = AuthenticatedAlephClient(aleph_account, aleph_settings.API_HOST)
 
@@ -29,33 +27,30 @@ async def initialize_aars():
     else:
         channel = settings.MESSAGE_CHANNEL
 
-    logging.info("Using channel: " + channel)
-
     aars = AARS(
         account=aleph_account, channel=channel, cache=cache, session=aleph_session
     )
 
-    manager_pubkeys = settings.MANAGER_PUBKEYS + [aleph_account.get_address()]
-    try:
-        resp, status = await aleph_session.fetch_aggregate(
-            "security", aleph_account.get_address()
-        )
-        existing_authorizations = resp.json().get("authorizations", [])
-    except:
-        existing_authorizations = []
-    needed_authorizations = [
-        {
-            "address": address,
-            "channels": [settings.MESSAGE_CHANNEL],
-        }
-        for address in manager_pubkeys
-    ]
-    if not all(auth in existing_authorizations for auth in needed_authorizations):
-        aggregate = {
-            "authorizations": needed_authorizations,
-        }
-        await aleph_session.create_aggregate(
-            "security", aggregate, aleph_account.get_address(), channel="security"
-        )
+    if aleph_account.get_address() == settings.MANAGER_PUBKEY:
+        try:
+            resp, status = await aleph_session.fetch_aggregate(
+                "security", aleph_account.get_address()
+            )
+            existing_authorizations = resp.json().get("authorizations", [])
+        except:
+            existing_authorizations = []
+        needed_authorizations = [
+            {
+                "address": settings.MANAGER_PUBKEY,
+                "channels": [settings.MESSAGE_CHANNEL],
+            }
+        ]
+        if not all(auth in existing_authorizations for auth in needed_authorizations):
+            aggregate = {
+                "authorizations": needed_authorizations,
+            }
+            await aleph_session.create_aggregate(
+                "security", aggregate, aleph_account.get_address(), channel="security"
+            )
 
     return aars

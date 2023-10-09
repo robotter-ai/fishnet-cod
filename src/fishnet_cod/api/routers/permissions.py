@@ -1,12 +1,10 @@
 import asyncio
-from typing import List, Optional, Dict
+from typing import List, Dict
 
 from fastapi import APIRouter, HTTPException
 
 from ...core.model import (
     Dataset,
-    Execution,
-    ExecutionStatus,
     Permission,
     PermissionStatus,
     Timeseries,
@@ -42,12 +40,7 @@ async def approve_permissions(
     if not permissions:
         return ApprovePermissionsResponse(
             updatedPermissions=[],
-            triggeredExecutions=[],
         )
-
-    timeseries = await Timeseries.fetch(
-        list(set(permission.timeseriesID for permission in permissions))
-    ).all()
 
     # grant permissions
     permission_requests = []
@@ -56,54 +49,8 @@ async def approve_permissions(
         permission_requests.append(permission.save())
     permissions = await asyncio.gather(*permission_requests)
 
-    # get all requested executions and their datasets
-    execution_requests = []
-    dataset_ids = set(
-        [permission.datasetID for permission in permissions]
-    )
-    for dataset_id in dataset_ids:
-        execution_requests.append(
-            Execution.filter(
-                datasetID=dataset_id, status=ExecutionStatus.REQUESTED
-            ).all()
-        )
-
-    dataset_executions_map = {
-        executions[0].datasetID: executions
-        for executions in await asyncio.gather(*execution_requests)
-        if executions and isinstance(executions[0], Execution)
-    }
-
-    # trigger executions if all permissions are granted
-    execution_requests = []
-    for dataset in await Dataset.fetch(list(dataset_executions_map.keys())).all():
-        executions = dataset_executions_map.get(dataset.item_hash, [])
-        # check if general permissions are granted
-        if dataset.ownsAllTimeseries:
-            general_permissions = [
-                permission
-                for permission in permissions
-                if permission.datasetID == dataset.item_hash and not permission.timeseriesID
-            ]
-            if general_permissions:
-                for execution in executions:
-                    execution.status = ExecutionStatus.PENDING
-                    execution_requests.append(execution.save())
-        for execution in executions:
-            # TODO: Check if more efficient way to do this
-            (
-                created_permissions,
-                updated_permissions,
-                unavailable_timeseries,
-            ) = await request_permissions(dataset, execution)
-            if not created_permissions and not updated_permissions:
-                execution.status = ExecutionStatus.PENDING
-                execution_requests.append(execution.save())
-    triggered_executions = list(await asyncio.gather(*execution_requests))
-
     return ApprovePermissionsResponse(
         updatedPermissions=permissions,
-        triggeredExecutions=triggered_executions,
     )
 
 
@@ -120,7 +67,6 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
     if not permissions:
         return DenyPermissionsResponse(
             updatedPermissions=[],
-            deniedExecutions=[],
         )
 
     # deny permissions and get dataset ids
@@ -132,26 +78,8 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
         permission_requests.append(permission.save())
     await asyncio.gather(*permission_requests)
 
-    # get requested executions
-    # TODO: Check for correctness
-    execution_requests = []
-    for dataset_id in dataset_ids:
-        execution_requests.append(
-            Execution.filter(
-                datasetID=dataset_id, status=ExecutionStatus.REQUESTED
-            ).all()
-        )
-
-    # deny executions
-    execution_requests = []
-    for executions in await asyncio.gather(*execution_requests):
-        for execution in executions:
-            execution.status = ExecutionStatus.DENIED
-            execution_requests.append(await execution.save())
-    denied_executions = list(await asyncio.gather(*execution_requests))
-
     return DenyPermissionsResponse(
-        updatedPermissions=permissions, deniedExecutions=denied_executions
+        updatedPermissions=permissions
     )
 
 
@@ -202,8 +130,6 @@ async def request_dataset_permissions(
                         algorithmID=request.algorithmID,
                         requestor=request.requestor,
                         status=PermissionStatus.REQUESTED,
-                        executionCount=0,
-                        maxExecutionCount=request.requestedExecutionCount,
                     ).save()
                 ]
 
@@ -249,8 +175,6 @@ async def request_dataset_permissions(
                     authorizer=dataset.owner,
                     requestor=request.requestor,
                     status=PermissionStatus.REQUESTED,
-                    executionCount=0,
-                    maxExecutionCount=request.requestedExecutionCount,
                 ).save()
             )
             continue
@@ -318,12 +242,9 @@ async def grant_dataset_permissions(
             await Permission(
                 datasetID=dataset_id,
                 timeseriesID=None,
-                algorithmID=request.algorithmID,
                 authorizer=request.authorizer,
                 requestor=request.requestor,
                 status=PermissionStatus.GRANTED,
-                executionCount=0,
-                maxExecutionCount=request.maxExecutionCount,
             ).save()
         ]
 

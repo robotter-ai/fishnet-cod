@@ -1,15 +1,12 @@
 import os
 import time
-from typing import Optional
+from logging import INFO, basicConfig, getLogger
 
 import requests
 from aleph_message.models import MessageType, PostMessage
 
 from ..core.conf import settings
-from ..core.model import Execution
 from ..core.session import initialize_aars
-
-from logging import basicConfig, getLogger, INFO
 
 basicConfig(level=INFO)
 logger = getLogger(__name__)
@@ -17,7 +14,7 @@ logger = getLogger(__name__)
 API_URL = os.getenv("API_URL")
 
 
-async def handle_message(event: PostMessage) -> Optional[Execution]:
+async def handle_message(event: PostMessage) -> None:
     logger.info(f"Received event: {event.content.type} {str(event.item_hash)}")
     if event.content.type in settings.API_MESSAGE_FILTER[0]["post_type"]:
         logger.debug(f"Sending event to API: {event}")
