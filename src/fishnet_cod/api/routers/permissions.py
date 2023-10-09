@@ -4,6 +4,7 @@ from typing import List, Dict
 from fastapi import APIRouter, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep
 
+from ..utils import AuthorizedRouterDep
 from ...core.model import (
     Dataset,
     Permission,
@@ -12,33 +13,39 @@ from ...core.model import (
 )
 from ..api_model import (
     RequestDatasetPermissionsRequest,
-    GrantDatasetPermissionsRequest, ApprovePermissionsResponse, DenyPermissionsResponse,
+    GrantDatasetPermissionsRequest,
+    UpdatedPermissionsResponse,
 )
-from ..common import request_permissions, OptionalWalletAuthDep
 
 router = APIRouter(
     prefix="/permissions",
     tags=["permissions"],
     responses={404: {"description": "Not found"}},
-    dependencies=[OptionalWalletAuthDep],
+    dependencies=[AuthorizedRouterDep],
 )
 
 
 @router.put("/approve")
 async def approve_permissions(
-    permission_hashes: List[str],
-) -> ApprovePermissionsResponse:
+    permission_hashes: List[str],  # TODO: rename to ids
+    user: JWTWalletAuthDep,
+) -> UpdatedPermissionsResponse:
     """
     Approve permission.
     This EndPoint will approve a list of permissions by their item hashes
     If an 'item_hashes' is provided, it will change all the Permission status
     to 'Granted'.
     """
-    # TODO: Check if the user is the authorizer of the permissions
     permissions = await Permission.fetch(permission_hashes).all()
     if not permissions:
-        return ApprovePermissionsResponse(
+        return UpdatedPermissionsResponse(
             updatedPermissions=[],
+        )
+
+    if any([permission.authorizer != user.address for permission in permissions]):
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot approve permissions for other users",
         )
 
     # grant permissions
@@ -48,13 +55,16 @@ async def approve_permissions(
         permission_requests.append(permission.save())
     permissions = await asyncio.gather(*permission_requests)
 
-    return ApprovePermissionsResponse(
+    return UpdatedPermissionsResponse(
         updatedPermissions=permissions,
     )
 
 
 @router.put("/deny")
-async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsResponse:
+async def deny_permissions(
+    permission_hashes: List[str],
+    user: JWTWalletAuthDep
+) -> UpdatedPermissionsResponse:
     """
     Deny permission.
     This EndPoint will deny a list of permissions by their item hashes
@@ -64,8 +74,14 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
     # TODO: Check if the user is the authorizer of the permissions
     permissions = await Permission.fetch(permission_hashes).all()
     if not permissions:
-        return DenyPermissionsResponse(
+        return UpdatedPermissionsResponse(
             updatedPermissions=[],
+        )
+
+    if any([permission.authorizer != user.address for permission in permissions]):
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot approve permissions for other users",
         )
 
     # deny permissions and get dataset ids
@@ -77,7 +93,7 @@ async def deny_permissions(permission_hashes: List[str]) -> DenyPermissionsRespo
         permission_requests.append(permission.save())
     await asyncio.gather(*permission_requests)
 
-    return DenyPermissionsResponse(
+    return UpdatedPermissionsResponse(
         updatedPermissions=permissions
     )
 
