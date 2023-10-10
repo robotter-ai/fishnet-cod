@@ -1,27 +1,29 @@
 import asyncio
-import pandas as pd
-from typing import Awaitable, List, Optional, Union, Annotated
+from typing import Awaitable, List, Optional, Union
 
+import pandas as pd
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep
 
-from ..controllers import view_datasets_as, PutViewRequest, get_dataset_permission_status, load_data_df, get_dataset_df
-from ..utils import AuthorizedRouterDep, granularity_to_interval
-from ...core.model import (
-    Dataset,
-    Permission,
-    PermissionStatus,
-    Timeseries,
-    View,
-)
+from ...core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from ..api_model import (
+    Attribute,
     DatasetResponse,
+    FungibleAssetStandard,
+    PutViewRequest,
+    PutViewResponse,
     UploadDatasetRequest,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    UploadTimeseriesRequest, PutViewResponse, Attribute, FungibleAssetStandard,
+    UploadTimeseriesRequest,
 )
+from ..controllers import (
+    get_dataset_df,
+    get_dataset_permission_status,
+    view_datasets_as,
+)
+from ..utils import AuthorizedRouterDep, granularity_to_interval
 from .timeseries import upload_timeseries
 
 router = APIRouter(
@@ -80,8 +82,7 @@ async def get_datasets_by_ids(
 
 @router.put("")
 async def upload_dataset(
-    dataset: UploadDatasetRequest,
-    user: JWTWalletAuthDep
+    dataset: UploadDatasetRequest, user: JWTWalletAuthDep
 ) -> Dataset:
     """
     Upload a dataset.
@@ -196,7 +197,7 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 @router.post("/upload/timeseries")
 async def upload_dataset_with_timeseries(
     upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
-    user: JWTWalletAuthDep
+    user: JWTWalletAuthDep,
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
@@ -220,12 +221,14 @@ async def upload_dataset_with_timeseries(
         req=UploadTimeseriesRequest(
             timeseries=upload_dataset_timeseries_request.timeseries
         ),
-        user=user
+        user=user,
     )
     upload_dataset_timeseries_request.dataset.timeseriesIDs = [
         str(ts.item_hash) for ts in timeseries
     ]
-    dataset = await upload_dataset(dataset=upload_dataset_timeseries_request.dataset, user=user)
+    dataset = await upload_dataset(
+        dataset=upload_dataset_timeseries_request.dataset, user=user
+    )
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
         timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
@@ -298,8 +301,16 @@ async def generate_view(
         }
         column_names = [ts.name for ts in timeseries]
         # prepare view request
-        start_time = int(timeseries_df.index.min().timestamp()) if view_req.startTime is None else view_req.startTime
-        end_time = int(timeseries_df.index.max().timestamp()) if view_req.endTime is None else view_req.endTime
+        start_time = (
+            int(timeseries_df.index.min().timestamp())
+            if view_req.startTime is None
+            else view_req.startTime
+        )
+        end_time = (
+            int(timeseries_df.index.max().timestamp())
+            if view_req.endTime is None
+            else view_req.endTime
+        )
         if views_map.get(view_req.item_hash):
             old_view = views_map[view_req.item_hash]
             old_view.startTime = start_time

@@ -8,9 +8,8 @@ from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from ..common import get_harmonized_timeseries_df
 from ...core.model import Timeseries, UserInfo
-from ..api_model import UploadTimeseriesRequest, ColumnNameType
+from ..api_model import ColumnNameType, UploadTimeseriesRequest
 from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
@@ -46,6 +45,7 @@ async def upload_timeseries(
         else {}
     )
     for ts in req.timeseries:
+        # TODO: save each timeseries in its own file
         if old_time_series.get(ts.item_hash) is None:
             requests.append(Timeseries(**dict(ts)).save())
             continue
@@ -114,7 +114,7 @@ async def upload_timeseries_csv(
 async def download_timeseries_csv(
     timeseriesIDs: List[str],
     column_names: ColumnNameType = ColumnNameType.item_hash,
-    compression: bool = False
+    compression: bool = False,
 ) -> StreamingResponse:
     """
     Download a csv file with timeseries data. The csv file will have a `timestamp` column and a column for each

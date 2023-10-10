@@ -18,7 +18,6 @@ class Timeseries(Record):
     owner: str
     desc: Optional[str]
     available: bool = True
-    data: List[Tuple[int, float]]
     min: Optional[float]
     max: Optional[float]
     avg: Optional[float]

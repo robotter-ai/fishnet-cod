@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 
 import base58
 from aleph.sdk.chains.sol import generate_key

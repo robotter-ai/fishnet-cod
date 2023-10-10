@@ -3,16 +3,18 @@ import io
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
 from fastapi_walletauth.middleware import JWTWalletAuthDep
-from pydantic import ValidationError, BaseModel
 
-from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View, Granularity
+from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from .api_model import (
-    DatasetResponse, DatasetPermissionStatus, PutViewResponse,
+    DatasetPermissionStatus,
+    DatasetResponse,
+    PutViewRequest,
+    PutViewResponse,
 )
 from .utils import granularity_to_interval
 
@@ -171,6 +173,7 @@ async def update_timeseries(
     return await asyncio.gather(*timeseries_requests)
 """
 
+
 class DataFormat(Enum):
     CSV = "csv"
     PARQUET = "parquet"
@@ -269,14 +272,6 @@ async def update_views(dataset_id):
     await generate_views(dataset_id, views_params)
 
 
-class PutViewRequest(BaseModel):
-    item_hash: Optional[str]
-    timeseriesIDs: List[str]
-    granularity: Granularity = Granularity.YEAR
-    startTime: Optional[int] = None
-    endTime: Optional[int] = None
-
-
 async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
     # filter by time window
     if view_req.startTime is not None:
@@ -327,9 +322,7 @@ async def view_datasets_as(datasets: List[Dataset], view_as: str):
         returned_datasets.append(
             DatasetResponse(
                 **dataset.dict(),
-                permission_status=get_dataset_permission_status(
-                    dataset, permissions
-                ),
+                permission_status=get_dataset_permission_status(dataset, permissions),
             )
         )
     return returned_datasets

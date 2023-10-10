@@ -1,21 +1,16 @@
 import asyncio
-from typing import List, Dict
+from typing import Dict, List
 
 from fastapi import APIRouter, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep
 
-from ..utils import AuthorizedRouterDep
-from ...core.model import (
-    Dataset,
-    Permission,
-    PermissionStatus,
-    Timeseries,
-)
+from ...core.model import Dataset, Permission, PermissionStatus, Timeseries
 from ..api_model import (
-    RequestDatasetPermissionsRequest,
     GrantDatasetPermissionsRequest,
+    RequestDatasetPermissionsRequest,
     UpdatedPermissionsResponse,
 )
+from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/permissions",
@@ -62,8 +57,7 @@ async def approve_permissions(
 
 @router.put("/deny")
 async def deny_permissions(
-    permission_hashes: List[str],
-    user: JWTWalletAuthDep
+    permission_hashes: List[str], user: JWTWalletAuthDep
 ) -> UpdatedPermissionsResponse:
     """
     Deny permission.
@@ -93,9 +87,7 @@ async def deny_permissions(
         permission_requests.append(permission.save())
     await asyncio.gather(*permission_requests)
 
-    return UpdatedPermissionsResponse(
-        updatedPermissions=permissions
-    )
+    return UpdatedPermissionsResponse(updatedPermissions=permissions)
 
 
 @router.put("/datasets/{dataset_id}/request")

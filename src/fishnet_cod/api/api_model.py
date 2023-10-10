@@ -6,10 +6,12 @@ from pydantic import BaseModel
 
 from ..core.model import (
     Dataset,
+    Granularity,
     Permission,
     PermissionStatus,
     Timeseries,
-    UserInfo, View,
+    UserInfo,
+    View,
 )
 
 # indexes to fetch by timeseries
@@ -35,6 +37,7 @@ Index(UserInfo, "username")
 class TimeseriesItem(BaseModel):
     item_hash: Optional[str]
     name: str
+    owner: Optional[str]
     desc: Optional[str]
     data: List[Tuple[int, float]]
 
@@ -136,3 +139,11 @@ class FungibleAssetStandard(BaseModel):
 class ColumnNameType(Enum):
     item_hash = "item_hash"
     name = "name"
+
+
+class PutViewRequest(BaseModel):
+    item_hash: Optional[str]
+    timeseriesIDs: List[str]
+    granularity: Granularity = Granularity.YEAR
+    startTime: Optional[int] = None
+    endTime: Optional[int] = None
