@@ -46,6 +46,10 @@ class UploadTimeseriesRequest(BaseModel):
     timeseries: List[TimeseriesItem]
 
 
+class TimeseriesWithData(Timeseries):
+    data: List[Tuple[int, float]]
+
+
 class PostPermission(BaseModel):
     timeseriesID: str
     status: PermissionStatus

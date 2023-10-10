@@ -42,7 +42,6 @@ def granularity_to_interval(granularity: Granularity) -> str:
 AuthorizedRouterDep = Depends(BearerWalletAuth(jwt_credentials_manager))
 
 
-async def get_file_path(dataset_id):
-    # TODO: Fix this
-    file_path = Path(f"./files/{dataset_id}.parquet")
+def get_file_path(timeseries_id: str) -> Path:
+    file_path = Path(f"/app/data/timeseries/{timeseries_id}.parquet")
     return file_path

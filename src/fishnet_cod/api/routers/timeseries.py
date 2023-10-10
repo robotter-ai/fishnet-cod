@@ -9,8 +9,9 @@ from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
 from ...core.model import Timeseries, UserInfo
-from ..api_model import ColumnNameType, UploadTimeseriesRequest
-from ..utils import AuthorizedRouterDep
+from ..api_model import ColumnNameType, TimeseriesWithData, UploadTimeseriesRequest
+from ..controllers import get_harmonized_timeseries_df
+from ..utils import AuthorizedRouterDep, get_file_path
 
 router = APIRouter(
     prefix="/timeseries",
@@ -31,45 +32,60 @@ async def upload_timeseries(
     A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
     it might be that a passed timeseries contained illegal data.
     """
-    for ts in req.timeseries:
-        if ts.owner != user.address:
+    timeseries_ids = [ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
+    old_time_series = {
+        ts.item_hash: ts for ts in await Timeseries.fetch(timeseries_ids).all()
+    }
+    requests = {}
+    data_series = {}
+    for ts_req in req.timeseries:
+        if ts_req.owner != user.address:
             raise HTTPException(
                 status_code=403,
                 detail="Cannot upload timeseries for other users",
             )
-    ids_to_fetch = [ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
-    requests = []
-    old_time_series = (
-        {ts.item_hash: ts for ts in await Timeseries.fetch(ids_to_fetch).all()}
-        if ids_to_fetch
-        else {}
-    )
-    for ts in req.timeseries:
-        # TODO: save each timeseries in its own file
-        if old_time_series.get(ts.item_hash) is None:
-            requests.append(Timeseries(**dict(ts)).save())
-            continue
-        old_ts: Timeseries = old_time_series[ts.item_hash]
-        if ts.owner != old_ts.owner:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot overwrite timeseries that is not owned by you",
-            )
-        old_ts.name = ts.name
-        old_ts.data = ts.data
-        old_ts.desc = ts.desc
-        requests.append(old_ts.save())
-    upserted_timeseries = await asyncio.gather(*requests)
+        if old_time_series.get(ts_req.item_hash) is None:
+            ts = Timeseries.parse_obj(ts_req.dict(exclude={"data"}))
+            requests[ts.name] = ts.save()
+        else:
+            ts = old_time_series[ts_req.item_hash]
+            if ts_req.owner != ts.owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot overwrite timeseries that is not owned by you",
+                )
+            ts.name = ts_req.name
+            ts.data = ts_req.data
+            ts.desc = ts_req.desc
+            requests[ts.name] = ts.save()
+
+        data_series[ts.name] = pd.DataFrame(ts_req.data, columns=["Timestamp", "Value"])
+
+    # save metadata
+    upserted_timeseries = {
+        ts.name: ts for ts in await asyncio.gather(*requests.values())
+    }
+
+    # save data
+    for name, data in data_series.items():
+        file_path = get_file_path(upserted_timeseries[name].item_hash)
+        # load old data if existent
+        if file_path.exists():
+            old_data = pd.read_parquet(file_path)
+            data = pd.concat([old_data, data])
+        data.to_parquet(file_path)
+
     return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
 
 
 @router.post("/csv")
-async def upload_timeseries_csv(
+async def preprocess_timeseries_csv(
     owner: str = Form(...), data_file: UploadFile = File(...)
-) -> List[Timeseries]:
+) -> List[TimeseriesWithData]:
     """
-    Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
+    Preprocess a csv file with timeseries data. The csv file must have a header row with the following columns:
     `item_hash`, `name`, `desc`, `data`. The `data` column must contain a json string with the timeseries data.
+    The returned list of timeseries will not be persisted yet.
     """
     if data_file.filename and not data_file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a csv file")
@@ -89,7 +105,7 @@ async def upload_timeseries_csv(
         try:
             data = [(timestamps[i], value) for i, value in enumerate(df[col].tolist())]
             timeseries.append(
-                Timeseries(
+                TimeseriesWithData(
                     item_hash=None,
                     name=col,
                     desc=None,
@@ -113,7 +129,7 @@ async def upload_timeseries_csv(
 @router.post("/csv/download")
 async def download_timeseries_csv(
     timeseriesIDs: List[str],
-    column_names: ColumnNameType = ColumnNameType.item_hash,
+    column_names: ColumnNameType = ColumnNameType.name,
     compression: bool = False,
 ) -> StreamingResponse:
     """
@@ -127,7 +143,7 @@ async def download_timeseries_csv(
     """
     # fetch required permissions
     timeseries = await Timeseries.fetch(timeseriesIDs).all()
-    df = await get_harmonized_timeseries_df(timeseries, column_names=column_names)
+    df = get_harmonized_timeseries_df(timeseries, column_names=column_names)
 
     # increase download count
     owners = {ts.owner for ts in timeseries}

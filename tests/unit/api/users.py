@@ -4,14 +4,14 @@ from typing import List
 import pytest
 from fastapi.testclient import TestClient
 
-from ...core.model import PermissionStatus
-from ..api_model import (
+from fishnet_cod.api.api_model import (
     RequestDatasetPermissionsRequest,
     TimeseriesItem,
     UploadDatasetRequest,
     UploadTimeseriesRequest,
 )
-from ..main import app
+from fishnet_cod.api.main import app
+from fishnet_cod.core.model import PermissionStatus
 
 
 @pytest.fixture(scope="session")
@@ -26,7 +26,6 @@ def client():
         yield client
 
 
-@pytest.skip
 def test_get_notification(client):
     owner_address = "test_get_notification_owner"
     upload_timeseries_req = UploadTimeseriesRequest(

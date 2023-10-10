@@ -8,6 +8,8 @@ services:
       - "8000:8000"
     networks:
       - fishnet_network
+    volumes:
+      - storage:/app/data
     environment:
       - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
       - FISHNET_MESSAGES_KEY=<enter-your-private-key-here>
@@ -49,6 +51,10 @@ services:
       - ALEPH_CHANNEL=FISHNET_DEMO_BERLIN_1
       - RPC=<enter-your-RPC-url-here>
       - PORT=50825
+
+
+volumes:
+  storage:
 
 
 networks:

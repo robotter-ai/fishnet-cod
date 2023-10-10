@@ -1,7 +1,6 @@
 import asyncio
 from typing import Awaitable, List, Optional, Union
 
-import pandas as pd
 from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep
@@ -19,11 +18,11 @@ from ..api_model import (
     UploadTimeseriesRequest,
 )
 from ..controllers import (
-    get_dataset_df,
+    generate_views,
     get_dataset_permission_status,
     view_datasets_as,
 )
-from ..utils import AuthorizedRouterDep, granularity_to_interval
+from ..utils import AuthorizedRouterDep
 from .timeseries import upload_timeseries
 
 router = APIRouter(
@@ -82,46 +81,38 @@ async def get_datasets_by_ids(
 
 @router.put("")
 async def upload_dataset(
-    dataset: UploadDatasetRequest, user: JWTWalletAuthDep
+    dataset_req: UploadDatasetRequest,
+    user: JWTWalletAuthDep,
 ) -> Dataset:
     """
     Upload a dataset.
     If an `item_hash` is provided, it will update the dataset with that id.
     """
-    if user.address:
+    timeseries = await Timeseries.fetch(dataset_req.timeseriesIDs).all()
+    owns_all_timeseries = all([ts.owner == user.address for ts in timeseries])
+    if dataset_req.item_hash is None:
+        return await Dataset(
+            **dataset_req.dict(),
+            owner=user.address,
+            ownsAllTimeseries=owns_all_timeseries,
+        ).save()
+    else:
+        dataset = await Dataset.fetch(dataset_req.item_hash).first()
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset not found")
         if dataset.owner != user.address:
             raise HTTPException(
-                status_code=403, detail="Cannot upload dataset that is not owned by you"
+                status_code=403,
+                detail="Cannot overwrite dataset that is not owned by you",
             )
-        if dataset.owner is None:
-            dataset.owner = user.address
-    else:
-        if dataset.owner is None:
-            raise HTTPException(
-                status_code=403, detail="Cannot upload dataset without owner"
-            )
-    if dataset.ownsAllTimeseries or dataset.ownsAllTimeseries is None:
-        timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-        dataset.ownsAllTimeseries = all(
-            [ts.owner == dataset.owner for ts in timeseries]
-        )
-    if dataset.item_hash is not None:
-        old_dataset = await Dataset.fetch(dataset.item_hash).first()
-        if old_dataset is not None:
-            if old_dataset.owner != dataset.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite dataset that is not owned by you",
-                )
-            old_dataset.name = dataset.name
-            old_dataset.desc = dataset.desc
-            old_dataset.timeseriesIDs = dataset.timeseriesIDs
-            old_dataset.ownsAllTimeseries = dataset.ownsAllTimeseries
-            old_dataset.price = dataset.price
-            if old_dataset.changed:
-                await old_dataset.save()
-            return old_dataset
-    return await Dataset(**dataset.dict()).save()
+        dataset.name = dataset_req.name
+        dataset.desc = dataset_req.desc
+        dataset.timeseriesIDs = dataset_req.timeseriesIDs
+        dataset.ownsAllTimeseries = owns_all_timeseries
+        dataset.price = dataset_req.price
+        if dataset.changed:
+            await dataset.save()
+        return dataset
 
 
 @router.get("/{dataset_id}")
@@ -227,7 +218,7 @@ async def upload_dataset_with_timeseries(
         str(ts.item_hash) for ts in timeseries
     ]
     dataset = await upload_dataset(
-        dataset=upload_dataset_timeseries_request.dataset, user=user
+        dataset_req=upload_dataset_timeseries_request.dataset, user=user
     )
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
@@ -261,81 +252,10 @@ async def get_views(dataset_id: str) -> List[View]:
 async def generate_view(
     dataset_id: str, view_params: List[PutViewRequest]
 ) -> PutViewResponse:
-    # get the dataset
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    # get the views
-    view_ids = [view.item_hash for view in view_params if view.item_hash is not None]
-    views_map = {view.item_hash: view for view in await View.fetch(view_ids).all()}
-    view_requests = []
-    for view_req in view_params:
-        # get all the timeseries
-        timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
-        timeseries_df = await get_dataset_df(dataset_id)
-        # filter by time window
-        if view_req.startTime is not None:
-            start_date = pd.to_datetime(view_req.startTime, unit="s")
-            timeseries_df = timeseries_df[timeseries_df.index >= start_date]
-        if view_req.endTime is not None:
-            end_date = pd.to_datetime(view_req.endTime, unit="s")
-            timeseries_df = timeseries_df[timeseries_df.index <= end_date]
-        # normalize and round values
-        timeseries_df = (timeseries_df - timeseries_df.min()) / (
-            timeseries_df.max() - timeseries_df.min()
-        )
-        # drop points according to granularity
-        timeseries_df = (
-            timeseries_df.resample(granularity_to_interval(view_req.granularity))
-            .mean()
-            .dropna()
-        )
-        timeseries_df.round(2)
-        # convert to dict of timeseries values
-        view_values = {
-            str(ts.item_hash): [
-                (int(index.timestamp()), float(value))
-                for index, value in timeseries_df[ts.item_hash].items()
-            ]
-            for ts in timeseries
-        }
-        column_names = [ts.name for ts in timeseries]
-        # prepare view request
-        start_time = (
-            int(timeseries_df.index.min().timestamp())
-            if view_req.startTime is None
-            else view_req.startTime
-        )
-        end_time = (
-            int(timeseries_df.index.max().timestamp())
-            if view_req.endTime is None
-            else view_req.endTime
-        )
-        if views_map.get(view_req.item_hash):
-            old_view = views_map[view_req.item_hash]
-            old_view.startTime = start_time
-            old_view.endTime = end_time
-            old_view.granularity = view_req.granularity
-            old_view.values = view_values
-            view_requests.append(old_view.save())
-        else:
-            view_requests.append(
-                View(
-                    item_hash=view_req.item_hash,
-                    startTime=start_time,
-                    endTime=end_time,
-                    granularity=view_req.granularity,
-                    columns=column_names,
-                    values=view_values,
-                ).save()
-            )
-
-    # save all records
-    views = await asyncio.gather(*view_requests)
-    dataset.viewIDs = [view.item_hash for view in views]
-    await dataset.save()
-
-    return PutViewResponse(dataset=dataset, views=views)
+    return await generate_views(dataset, view_params)
 
 
 @router.put("/{dataset_id}/available/{available}")

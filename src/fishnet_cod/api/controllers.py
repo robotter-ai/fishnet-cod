@@ -3,20 +3,23 @@ import io
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
 from fastapi_walletauth.middleware import JWTWalletAuthDep
+from pydantic import ValidationError
 
 from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from .api_model import (
+    ColumnNameType,
     DatasetPermissionStatus,
     DatasetResponse,
     PutViewRequest,
     PutViewResponse,
+    TimeseriesItem,
 )
-from .utils import granularity_to_interval
+from .utils import get_file_path, granularity_to_interval
 
 
 async def request_permissions(
@@ -28,6 +31,7 @@ async def request_permissions(
 
     Args:
         dataset: The dataset to request permissions for.
+        user: The user requesting permissions.
 
     Returns:
         A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
@@ -77,13 +81,38 @@ async def request_permissions(
     return created_permissions, updated_permissions, unavailable_timeseries
 
 
-def get_dataset_df(dataset_id: str) -> pd.DataFrame:
-    file_path = f"./files/{dataset_id}.parquet"
-    if not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=404, detail="Dataset slice not found on this node"
-        )
-    df = pd.read_parquet(file_path)
+async def get_dataset_df(
+    dataset: Dataset,
+    column_names: ColumnNameType = ColumnNameType.item_hash,
+) -> pd.DataFrame:
+    timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
+    return get_harmonized_timeseries_df(
+        timeseries=timeseries,
+        column_names=column_names,
+    )
+
+
+def get_harmonized_timeseries_df(
+    timeseries: List[Timeseries],
+    column_names: ColumnNameType = ColumnNameType.item_hash,
+) -> pd.DataFrame:
+    # parse all as series
+    df = pd.DataFrame()
+    for ts in timeseries:
+        assert ts.item_hash
+        ts_df = pd.read_parquet(get_file_path(ts.item_hash))
+        if column_names == ColumnNameType.name:
+            ts_df.columns = [ts.name]
+        elif column_names == ColumnNameType.item_hash:
+            ts_df.columns = [ts.item_hash]
+        else:
+            raise ValueError("Invalid column name type")
+        df = pd.concat([df, ts_df], axis=1)
+
+    # set the index to the python timestamp
+    df.index = pd.to_datetime(df.index, unit="s")
+    df = df.pad()
+
     return df
 
 
@@ -113,28 +142,23 @@ def load_data_df(file: UploadFile):
     return df
 
 
-"""
 async def update_timeseries(
     df: pd.DataFrame,
-    metadata: Union[List[CreateTimeseriesRequest], List[UpdateTimeseriesRequest]],
+    metadata: Union[List[TimeseriesItem]],
     timeseries: Optional[List[Timeseries]],
     user: JWTWalletAuthDep,
 ) -> List[Timeseries]:
     timeseries_by_name: Dict[str, Timeseries] = (
         {ts.name: ts for ts in timeseries} if timeseries else {}
     )
-    metadata_by_item_hash: Dict[str, UpdateTimeseriesRequest] = (
-        {
-            ts.item_hash: ts
-            for ts in metadata
-            if isinstance(ts, UpdateTimeseriesRequest) and ts.item_hash in metadata
-        }
+    metadata_by_item_hash = (
+        {ts.item_hash: ts for ts in metadata if ts.item_hash in metadata}
         if metadata
         else {}
     )
-    metadata_by_name: Dict[
-        str, Union[CreateTimeseriesRequest, UpdateTimeseriesRequest]
-    ] = ({ts.name: ts for ts in metadata if ts.name in metadata} if metadata else {})
+    metadata_by_name = (
+        {ts.name: ts for ts in metadata if ts.name in metadata} if metadata else {}
+    )
     timeseries_requests = []
     for col in df.columns:
         try:
@@ -171,7 +195,6 @@ async def update_timeseries(
                 detail=f"Invalid data encountered in column {col}: {e}",
             )
     return await asyncio.gather(*timeseries_requests)
-"""
 
 
 class DataFormat(Enum):
@@ -211,25 +234,18 @@ async def merge_data(df: pd.DataFrame, file_path: Path, update_values: bool = Fa
     return df
 
 
-async def get_views_by_dataset(dataset_id):
-    dataset = await Dataset.fetch(dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+async def get_views_by_dataset(dataset: Dataset):
     return await View.fetch(dataset.viewIDs).all()
 
 
-async def generate_views(dataset_id, view_params):
-    dataset = await Dataset.fetch(dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
-
+async def generate_views(dataset: Dataset, view_params: List[PutViewRequest]):
     view_ids = [view.item_hash for view in view_params if view.item_hash is not None]
     views_map = {view.item_hash: view for view in await View.fetch(view_ids).all()}
 
-    full_df = get_dataset_df(dataset_id)
+    full_df = await get_dataset_df(dataset)
     view_requests = []
     for view_req in view_params:
-        df = full_df[view_req.columns].copy()
+        df = full_df[view_req.timeseriesIDs].copy()
         end_time, start_time, view_values = await calculate_view(df, view_req)
 
         if views_map.get(view_req.item_hash):
@@ -257,19 +273,19 @@ async def generate_views(dataset_id, view_params):
     return PutViewResponse(dataset=dataset, views=views)
 
 
-async def update_views(dataset_id):
-    views = await get_views_by_dataset(dataset_id)
+async def update_views(dataset: Dataset):
+    views = await get_views_by_dataset(dataset)
     views_params = [
         PutViewRequest(
             item_hash=view.item_hash,
             startTime=view.startTime,
             endTime=view.endTime,
             granularity=view.granularity,
-            columns=view.columns,
+            timeseriesIDs=view.values.keys(),
         )
         for view in views
     ]
-    await generate_views(dataset_id, views_params)
+    await generate_views(dataset, views_params)
 
 
 async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
