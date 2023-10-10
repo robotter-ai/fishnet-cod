@@ -8,7 +8,7 @@ from aleph_message.models import PostMessage
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
-from fastapi_walletauth import router as authorization_routes
+from fastapi_walletauth import jwt_authorization_router as authorization_routes
 from pydantic import ValidationError
 from starlette.responses import JSONResponse, RedirectResponse
 

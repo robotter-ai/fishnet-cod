@@ -5,7 +5,7 @@ from aars import AARS
 from aleph.sdk.chains.sol import SOLAccount
 from aleph.sdk.client import AuthenticatedAlephClient
 from aleph.sdk.conf import settings as aleph_settings
-from aleph.sdk.vm.cache import LocalVmCache, VmCache
+from aleph.sdk.vm.cache import TestVmCache, VmCache
 
 from .conf import settings
 
@@ -16,7 +16,7 @@ async def initialize_aars():
     if str(settings.TEST_CACHE).lower() == "false":
         cache = VmCache()
     else:
-        cache = LocalVmCache()
+        cache = TestVmCache()
 
     aleph_account = SOLAccount(bytes.fromhex(settings.MESSAGES_KEY)[0:32])
     logging.info(f"Using account {aleph_account.get_address()}")

@@ -17,13 +17,13 @@ pandas = "^2.0.1"
 PyNaCl = "^1.5.0"
 base58 = "^2.1.1"
 semver = "^3.0.0"
-pydantic = "^1.10.7"
+pydantic = "^1.10.5"
 fastapi = "^0.95.1"
-aleph-sdk-python = {git = "https://github.com/aleph-im/aleph-sdk-python.git"}
 aiohttp = "^3.8.4"
-aars = "^0.7.2"
 python-multipart = "^0.0.6"
-fastapi-walletauth = "^0.1.8"
+fastapi-walletauth = "1.0.0a3"
+aars = "0.7.5"
+aleph-sdk-python = "^0.7.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
