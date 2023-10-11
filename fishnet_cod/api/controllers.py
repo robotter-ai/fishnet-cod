@@ -1,9 +1,7 @@
 import asyncio
-import io
 import os
 from enum import Enum
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
@@ -20,65 +18,6 @@ from .api_model import (
     PutTimeseriesRequest,
 )
 from .utils import get_file_path, granularity_to_interval
-
-
-async def request_permissions(
-    dataset: Dataset,
-    user: JWTWalletAuthDep,
-) -> Tuple[List[Permission], List[Permission], List[Timeseries]]:
-    """
-    Request permissions for a dataset.
-
-    Args:
-        dataset: The dataset to request permissions for.
-        user: The user requesting permissions.
-
-    Returns:
-        A tuple of lists of permissions to create, permissions to update, and timeseries that are unavailable.
-    """
-    timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    permissions = await Permission.filter(requestor=user.address).all()
-    permissions = [
-        permission
-        for permission in permissions
-        if permission.timeseriesID in dataset.timeseriesIDs
-    ]
-
-    ts_permission_map: Dict[str, Permission] = {
-        permission.timeseriesID: permission for permission in permissions if permission  # type: ignore
-    }
-    create_permissions_requests = []
-    update_permissions_requests = []
-    unavailable_timeseries = []
-    for ts in timeseries:
-        if ts.owner == user.address:
-            continue
-        if not ts.available:
-            unavailable_timeseries.append(ts)
-        if ts.item_hash not in ts_permission_map:
-            create_permissions_requests.append(
-                Permission(
-                    datasetID=str(dataset.item_hash),
-                    timeseriesID=str(ts.item_hash),
-                    authorizer=ts.owner,
-                    requestor=user.address,
-                    status=PermissionStatus.REQUESTED,
-                ).save()
-            )
-        else:
-            permission = ts_permission_map[ts.item_hash]
-            if permission.status == PermissionStatus.GRANTED:
-                continue
-            if permission.status == PermissionStatus.DENIED:
-                permission.status = PermissionStatus.REQUESTED
-                update_permissions_requests.append(permission.save())
-    created_permissions: List[Permission] = list(
-        await asyncio.gather(*create_permissions_requests)
-    )
-    updated_permissions: List[Permission] = list(
-        await asyncio.gather(*update_permissions_requests)
-    )
-    return created_permissions, updated_permissions, unavailable_timeseries
 
 
 async def get_dataset_df(
@@ -280,36 +219,6 @@ async def update_timeseries_metadata(
     return updated_timeseries, created_timeseries
 
 
-class DataFormat(Enum):
-    CSV = "csv"
-    PARQUET = "parquet"
-    FEATHER = "feather"
-
-
-async def get_data_stream(df: pd.DataFrame, data_format: DataFormat = DataFormat.CSV):
-    stream: Union[io.StringIO, io.BytesIO]
-    if data_format == DataFormat.CSV:
-        stream = io.StringIO()
-        df.to_csv(stream)
-        media_type = "text/csv"
-    elif data_format == DataFormat.FEATHER:
-        stream = io.BytesIO()
-        df.to_feather(stream)
-        media_type = "application/octet-stream"
-    elif data_format == DataFormat.PARQUET:
-        stream = io.BytesIO()
-        df.to_parquet(stream)
-        media_type = "application/octet-stream"
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported data format")
-    stream.seek(0)
-    return media_type, stream
-
-
-async def get_views_by_dataset(dataset: Dataset):
-    return await View.fetch(dataset.viewIDs).all()
-
-
 async def generate_views(dataset: Dataset, view_params: List[PutViewRequest]):
     view_ids = [view.item_hash for view in view_params if view.item_hash is not None]
     views_map = {view.item_hash: view for view in await View.fetch(view_ids).all()}
@@ -343,21 +252,6 @@ async def generate_views(dataset: Dataset, view_params: List[PutViewRequest]):
     await dataset.save()
 
     return PutViewResponse(dataset=dataset, views=views)
-
-
-async def update_views(dataset: Dataset):
-    views = await get_views_by_dataset(dataset)
-    views_params = [
-        PutViewRequest(
-            item_hash=view.item_hash,
-            startTime=view.startTime,
-            endTime=view.endTime,
-            granularity=view.granularity,
-            timeseriesIDs=view.values.keys(),
-        )
-        for view in views
-    ]
-    await generate_views(dataset, views_params)
 
 
 async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
