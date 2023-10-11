@@ -1,8 +1,9 @@
 import asyncio
+import os
 
 import base58
 import pytest
-from aleph.sdk.chains.sol import SOLAccount
+from aleph.sdk.chains.sol import SOLAccount, generate_key
 
 from fastapi_walletauth.common import SupportedChains
 from nacl.signing import SigningKey
@@ -10,6 +11,8 @@ from starlette.testclient import TestClient
 
 from fishnet_cod.api.main import app
 
+
+ABSOLUTE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -21,6 +24,17 @@ def event_loop():
 def client():
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture(scope="module")
+def account():
+    return SOLAccount(generate_key())
+
+
+@pytest.fixture(scope="module")
+def big_csv():
+    with open(os.path.join(ABSOLUTE_PATH, "Binance_SOLBUSD_d.csv"), "rb") as f:
+        yield f.read()
 
 
 def login_with_signature(client, account: SOLAccount):
