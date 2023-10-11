@@ -5,6 +5,7 @@ from typing import TypeVar
 from fastapi import Depends
 from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager
 
+from ..core.conf import settings
 from ..core.model import Granularity
 
 T = TypeVar("T")
@@ -43,5 +44,8 @@ AuthorizedRouterDep = Depends(BearerWalletAuth(jwt_credentials_manager))
 
 
 def get_file_path(timeseries_id: str) -> Path:
-    file_path = Path(f"/app/data/timeseries/{timeseries_id}.parquet")
+    dir_path = Path(settings.DATA_PATH) / Path(f"timeseries")
+    if not dir_path.exists():
+        dir_path.mkdir(parents=True)
+    file_path = dir_path / Path(f"{timeseries_id}.parquet")
     return file_path

@@ -39,6 +39,7 @@ async def upload_timeseries(
     requests = {}
     data_series = {}
     for ts_req in req.timeseries:
+        ts_req.owner = ts_req.owner or user.address
         if ts_req.owner != user.address:
             raise HTTPException(
                 status_code=403,
@@ -75,7 +76,7 @@ async def upload_timeseries(
             data = pd.concat([old_data, data])
         data.to_parquet(file_path)
 
-    return [ts for ts in upserted_timeseries if not isinstance(ts, BaseException)]
+    return [ts for ts in upserted_timeseries.values() if not isinstance(ts, BaseException)]
 
 
 @router.post("/csv")

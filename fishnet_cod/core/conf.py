@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     VM_URL_HOST = "https://{hash_base32}.aleph.sh"
     """URL to the standard VM host"""
 
+    DATA_PATH = "/app/data"
+
     class Config:
         env_prefix = "FISHNET_"
         case_sensitive = False

@@ -8,7 +8,7 @@ timeseries data without having to upload it to a centralized server.
 **As of now, the system is still in development and not ready for production use. Do not upload sensitive data.**
 
 ## Structure
-### [fishnet_cod.core](./src/fishnet_cod/core)
+### [fishnet_cod.core](fishnet_cod/core)
 This module contains a common data model, built on the
 [Aleph Active Record SDK (AARS)](https://github.com/aleph-im/active-record-sdk), that is being used by the Fishnet API
 and Executor VMs. The data model is used to store and query `Datasets`, `Users` and `Permissions`.
@@ -18,14 +18,14 @@ upload Algorithms and request Executions, which were then processed by the Execu
 not available and will be re-implemented in the future, with a UX like [dask](https://dask.org/) and
 [substra](https://substra.ai/) in mind.
 
-### [fishnet_cod.api](./src/fishnet_cod/api)
+### [fishnet_cod.api](fishnet_cod/api)
 This module contains the API that is used to communicate with aleph.im's
 message channels. Currently, it still contains code to upload and store datasets, which will later be moved to
 its own `data_node` module.
 
 Users can generate `Views` of their datasets through the API, as previews for potential buyers.
 
-### [fishnet_cod.local_listener](./src/fishnet_cod/local_listener)
+### [fishnet_cod.local_listener](fishnet_cod/local_listener)
 Aleph.im offers a feature that allows VMs to listen to messages on a channel and react to them. This module contains a
 service that emulates this feature locally, and forwards the messages to the API.
 
@@ -94,7 +94,7 @@ poetry run pytest src/fishnet_cod/api/test.py
 | `FISHNET_MESSAGE_CHANNEL` | The Aleph channel to use, is superseded by `TEST_CHANNEL` | `string` | `None`  |
 | `FISHNET_DISABLE_AUTH`    | Whether mandatory authentication is disabled              | `bool`   | `False` |
 
-Further environment variables are defined in the [conf.py](./src/fishnet_cod/core/conf.py) file.
+Further environment variables are defined in the [conf.py](fishnet_cod/core/conf.py) file.
 Notice that the `FISHNET_` prefix is required for all environment variables listed there.
 
 
