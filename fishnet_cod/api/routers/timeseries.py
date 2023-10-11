@@ -81,7 +81,8 @@ async def upload_timeseries(
 
 @router.post("/csv")
 async def preprocess_timeseries_csv(
-    owner: str = Form(...), data_file: UploadFile = File(...)
+    user: JWTWalletAuthDep,
+    data_file: UploadFile = File(...),
 ) -> List[TimeseriesWithData]:
     """
     Preprocess a csv file with timeseries data. The csv file must have a header row with the following columns:
@@ -111,7 +112,7 @@ async def preprocess_timeseries_csv(
                     name=col,
                     desc=None,
                     data=data,
-                    owner=owner,
+                    owner=user.address,
                     min=df[col].min(),
                     max=df[col].max(),
                     avg=df[col].mean(),
