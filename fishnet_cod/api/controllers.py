@@ -244,7 +244,7 @@ async def generate_views(dataset: Dataset, view_params: List[PutViewRequest]):
                     startTime=start_time,
                     endTime=end_time,
                     granularity=view_req.granularity,
-                    columns=df.columns,
+                    columns=list(df.columns),
                     values=view_values,
                 ).save()
             )
