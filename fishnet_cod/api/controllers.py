@@ -27,7 +27,7 @@ async def request_permissions(
     user: JWTWalletAuthDep,
 ) -> Tuple[List[Permission], List[Permission], List[Timeseries]]:
     """
-    Request permissions for a dataset given an execution.
+    Request permissions for a dataset.
 
     Args:
         dataset: The dataset to request permissions for.
@@ -111,7 +111,7 @@ def get_harmonized_timeseries_df(
 
     # set the index to the python timestamp
     df.index = pd.to_datetime(df.index, unit="s")
-    df = df.pad()
+    df = df.ffill()
 
     return df
 
@@ -142,116 +142,142 @@ def load_data_df(file: UploadFile):
     return df
 
 
+async def merge_and_store_data(full_df: pd.DataFrame, update_values: bool = False):
+    for item_hash in full_df.columns:
+        file_path = get_file_path(item_hash)
+        existing_df = (
+            pd.read_parquet(file_path) if os.path.exists(file_path) else pd.DataFrame()
+        )
+        df = full_df[item_hash]
+        df = pd.concat([existing_df, df])
+        df = df[~df.index.duplicated(keep="last" if update_values else "first")]
+        df = df.sort_index()
+        df.to_parquet(file_path)
+        full_df[item_hash] = df
+    return full_df
+
+
 async def upsert_timeseries(
-    timeseries: List[PutTimeseriesRequest],
+    timeseries_requests: List[PutTimeseriesRequest],
     user: JWTWalletAuthDep,
-) -> List[Timeseries]:
-    timeseries_ids = [ts.item_hash for ts in timeseries if ts.item_hash is not None]
-    old_time_series = {
-        ts.item_hash: ts for ts in await Timeseries.fetch(timeseries_ids).all()
-    }
-    create_requests = {}
-    update_requests = {}
-    data = {}
-    for ts_req in timeseries:
-        ts_req.owner = ts_req.owner or user.address
-        if ts_req.owner != user.address:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot upload timeseries for other users",
-            )
-        data[ts_req.name] = pd.DataFrame(ts_req.data, columns=["Timestamp", ts_req.name])
-        values = data[ts_req.name][ts_req.name]
-        if old_time_series.get(ts_req.item_hash) is None:
-            ts = Timeseries(
-                **ts_req.dict(exclude={"data"}),
-                min=values.min(),
-                max=values.max(),
-                avg=values.mean(),
-                std=values.std(),
-                median=values.median(),
-            )
-            create_requests[ts.name] = ts.save()
+) -> Tuple[List[Timeseries], List[Timeseries]]:
+    """
+    Upsert timeseries. If the timeseries already exists, update the metadata. If the timeseries does not exist, create
+    it.
+
+    Args:
+        timeseries_requests: A list of timeseries metadata inputs.
+        user: The user requesting the timeseries.
+
+    Returns:
+        A list of updated and a list of new timeseries.
+    """
+    ts_ids_to_fetch = []
+    new_timeseries = []
+    for ts in timeseries_requests:
+        if ts.item_hash is None:
+            ts.owner = user.address
+            new_timeseries.append(ts)
         else:
-            ts = old_time_series[ts_req.item_hash]
-            if ts_req.owner != ts.owner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot overwrite timeseries that is not owned by you",
-                )
-            ts.name = ts_req.name
-            ts.desc = ts_req.desc
-            update_requests[ts_req.name] = ts.save()
+            ts_ids_to_fetch.append(ts.item_hash)
 
-    new_metadata = {
-        ts.name: ts for ts in await asyncio.gather(*create_requests.values())
-    }
+    existing_timeseries = await Timeseries.fetch(ts_ids_to_fetch).all()
 
-    # save data
-    for name, data in data.items():
-        file_path = get_file_path(metadata[name].item_hash)
-        # load old data if existent
-        if file_path.exists():
-            old_data = pd.read_parquet(file_path)
-            data = pd.concat([old_data, data])
-        data.to_parquet(file_path)
+    if len(existing_timeseries) != len(ts_ids_to_fetch):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{len(ts_ids_to_fetch) - len(existing_timeseries)} Timeseries do not exist, aborting",
+        )
 
-    return [ts for ts in metadata.values() if not isinstance(ts, BaseException)]
+    df = get_harmonized_timeseries_df(existing_timeseries, ColumnNameType.item_hash)
+
+    df = await merge_and_store_data(df, update_values=True)
+
+    new_df = pd.DataFrame()
+    for ts in new_timeseries:
+        new_df[ts.name] = pd.Series([value for timestamp, value in ts.data])
+
+    updated_timeseries, created_timeseries = await update_timeseries_metadata(
+        existing_df=df,
+        new_df=new_df,
+        existing_timeseries=existing_timeseries,
+        new_timeseries=new_timeseries,
+    )
+
+    for ts in created_timeseries:
+        new_df[ts.item_hash] = new_df[ts.name]
+        file_path = get_file_path(ts.item_hash)
+        new_df[[ts.item_hash]].to_parquet(file_path)
+
+    return updated_timeseries, created_timeseries
 
 
 async def update_timeseries_metadata(
-    df: pd.DataFrame,
-    metadata: Union[List[PutTimeseriesRequest]],
-    timeseries: Optional[List[Timeseries]],
-    user: JWTWalletAuthDep,
-) -> List[Timeseries]:
-    timeseries_by_name: Dict[str, Timeseries] = (
-        {ts.name: ts for ts in timeseries} if timeseries else {}
+    existing_df: pd.DataFrame,
+    new_df: pd.DataFrame,
+    existing_timeseries: List[Timeseries],
+    new_timeseries: List[PutTimeseriesRequest],
+) -> Tuple[List[Timeseries], List[Timeseries]]:
+    """
+    Args:
+        existing_df: A dataframe of existing timeseries by their item_hash.
+        new_df: A dataframe of new timeseries by their name.
+        existing_timeseries: A list of existing timeseries metadata objects.
+        new_timeseries: A list of new timeseries metadata inputs.
+
+    Returns:
+        A list of updated and a list of new timeseries.
+    """
+    new_by_name: Dict[str, PutTimeseriesRequest] = (
+        {ts.name: ts for ts in new_timeseries} if new_timeseries else {}
     )
-    metadata_by_item_hash = (
-        {ts.item_hash: ts for ts in metadata if ts.item_hash in metadata}
-        if metadata
-        else {}
-    )
-    metadata_by_name = (
-        {ts.name: ts for ts in metadata if ts.name in metadata} if metadata else {}
-    )
-    timeseries_requests = []
-    for col in df.columns:
+    create_timeseries_requests = []
+    for col in new_df.columns:
         try:
-            ts = timeseries_by_name.get(col)
-            if not ts:
-                md = metadata_by_name.get(col)
-                ts = Timeseries(
-                    item_hash=None,
-                    name=col,
-                    desc=md.desc if md else None,
-                    owner=user.address,
-                    min=df[col].min(),
-                    max=df[col].max(),
-                    avg=df[col].mean(),
-                    std=df[col].std(),
-                    median=df[col].median(),
-                )
-            else:
-                md = metadata_by_item_hash.get(str(ts.item_hash))
-                if md:
-                    ts.name = md.name if md.name else ts.name
-                    ts.desc = md.desc if md.desc else ts.desc
-                ts.min = df[col].min()
-                ts.max = df[col].max()
-                ts.avg = df[col].mean()
-                ts.std = df[col].std()
-                ts.median = df[col].median()
-            assert ts is not None
-            ts.name = col
-            timeseries_requests.append(ts.save())
+            metadata = new_by_name.get(col)
+            ts = Timeseries(
+                item_hash=None,
+                name=col,
+                desc=metadata.desc if metadata else None,
+                owner=metadata.owner,
+                min=new_df[col].min(),
+                max=new_df[col].max(),
+                avg=new_df[col].mean(),
+                std=new_df[col].std(),
+                median=new_df[col].median(),
+            )
+            create_timeseries_requests.append(ts.save())
         except (ValidationError, TypeError, ValueError) as e:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid data encountered in column {col}: {e}",
             )
-    return await asyncio.gather(*timeseries_requests)
+    created_timeseries = await asyncio.gather(*create_timeseries_requests)
+
+    existing_by_item_hash: Dict[str, Timeseries] = (
+        {ts.item_hash: ts for ts in existing_timeseries} if existing_timeseries else {}
+    )
+    update_timeseries_requests = []
+    for col in existing_df.columns:
+        try:
+            ts = existing_by_item_hash[col]
+            ts.min = existing_df[col].min()
+            ts.max = existing_df[col].max()
+            ts.avg = existing_df[col].mean()
+            ts.std = existing_df[col].std()
+            ts.median = existing_df[col].median()
+            if ts.changed:
+                update_timeseries_requests.append(ts.save())
+            else:
+                update_timeseries_requests.append(ts)
+        except (ValidationError, TypeError, ValueError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid data encountered in column {col}: {e}",
+            )
+    updated_timeseries = await asyncio.gather(*update_timeseries_requests)
+
+    return updated_timeseries, created_timeseries
 
 
 class DataFormat(Enum):
@@ -278,17 +304,6 @@ async def get_data_stream(df: pd.DataFrame, data_format: DataFormat = DataFormat
         raise HTTPException(status_code=400, detail="Unsupported data format")
     stream.seek(0)
     return media_type, stream
-
-
-async def merge_data(df: pd.DataFrame, file_path: Path, update_values: bool = False):
-    existing_df = (
-        pd.read_parquet(file_path) if os.path.exists(file_path) else pd.DataFrame()
-    )
-    df = pd.concat([existing_df, df])
-
-    df = df[~df.index.duplicated(keep="last" if update_values else "first")]
-    df = df.sort_index()
-    return df
 
 
 async def get_views_by_dataset(dataset: Dataset):

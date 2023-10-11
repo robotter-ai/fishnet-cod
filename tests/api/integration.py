@@ -38,6 +38,7 @@ def test_integration(client, big_csv):
         json=upload_dataset_req.dict(),
         headers={"Authorization": f"Bearer {owner_token}"},
     )
+    print(response.json())
     assert response.status_code == 200
     assert response.json()["dataset"]["item_hash"] is not None
 

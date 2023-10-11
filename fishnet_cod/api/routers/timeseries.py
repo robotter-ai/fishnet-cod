@@ -10,7 +10,7 @@ from starlette.responses import StreamingResponse
 
 from ...core.model import Timeseries, UserInfo
 from ..api_model import ColumnNameType, TimeseriesWithData, UploadTimeseriesRequest
-from ..controllers import get_harmonized_timeseries_df, upsert_timeseries
+from ..controllers import get_harmonized_timeseries_df, upsert_timeseries, load_data_df
 from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
@@ -29,10 +29,10 @@ async def upload_timeseries(
     """
     Upload a list of timeseries. If the passed timeseries has an `item_hash` and it already exists,
     it will be overwritten. If the timeseries does not exist, it will be created.
-    A list of the created/updated timeseries is returned. If the list is shorter than the passed list, then
-    it might be that a passed timeseries contained illegal data.
+    A list of the created/updated timeseries is returned.
     """
-    return await upsert_timeseries(req.timeseries, user.address)
+    updated_timeseries, created_timeseries = await upsert_timeseries(req.timeseries, user)
+    return updated_timeseries + created_timeseries
 
 
 @router.post("/csv")
@@ -45,17 +45,7 @@ async def preprocess_timeseries_csv(
     `item_hash`, `name`, `desc`, `data`. The `data` column must contain a json string with the timeseries data.
     The returned list of timeseries will not be persisted yet.
     """
-    if data_file.filename and not data_file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="File must be a csv file")
-    df = pd.read_csv(data_file.file)
-    # find the first column with a timestamp or ISO8601 date and use it as the index
-    for col in df.columns:
-        if "unnamed" in col.lower():
-            df = df.drop(columns=col)
-            continue
-        if "date" in col.lower() or "time" in col.lower():
-            df.index = pd.to_datetime(df[col])
-            df = df.drop(columns=col)
+    df = load_data_df(data_file)
     # create a timeseries object for each column
     timestamps = [dt.timestamp() for dt in df.index.to_pydatetime().tolist()]
     timeseries = []
@@ -99,7 +89,6 @@ async def download_timeseries_csv(
 
     If `compression` is set to `True`, the csv file will be compressed with gzip.
     """
-    # fetch required permissions
     timeseries = await Timeseries.fetch(timeseriesIDs).all()
     df = get_harmonized_timeseries_df(timeseries, column_names=column_names)
 
@@ -112,16 +101,15 @@ async def download_timeseries_csv(
         requests.append(user_info.save())
     await asyncio.gather(*requests)
 
-    # Create an in-memory text stream
     stream = io.StringIO()
-    # Write the DataFrame to the stream as CSV
+
     if compression:
         df.to_csv(stream, compression="gzip")
     else:
         df.to_csv(stream)
-    # Set the stream position to the start
+
     stream.seek(0)
-    # Create a streaming response with the stream and appropriate headers
+
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
 
     # Generate a hash from the timeseries IDs and use it as the filename

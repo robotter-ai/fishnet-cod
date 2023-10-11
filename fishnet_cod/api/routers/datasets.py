@@ -210,7 +210,8 @@ async def upload_dataset_with_timeseries(
             status_code=400,
             detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries instead.",
         )
-    timeseries = await upsert_timeseries(timeseries=req.timeseries, user=user)
+    updated_timeseries, created_timeseries = await upsert_timeseries(timeseries_requests=req.timeseries, user=user)
+    timeseries = updated_timeseries + created_timeseries
     req.dataset.timeseriesIDs = [
         str(ts.item_hash) for ts in timeseries
     ]
