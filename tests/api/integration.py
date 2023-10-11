@@ -1,5 +1,6 @@
 from typing import List
 
+import pytest
 from aleph.sdk.chains.sol import generate_key, SOLAccount
 
 from .conftest import login_with_signature
@@ -9,7 +10,7 @@ from fishnet_cod.api.api_model import (
     UploadDatasetRequest,
     UploadTimeseriesRequest, UploadDatasetTimeseriesRequest,
 )
-from fishnet_cod.core.model import PermissionStatus
+from fishnet_cod.core.model import PermissionStatus, Dataset
 
 
 def test_integration(client, big_csv):
@@ -29,7 +30,7 @@ def test_integration(client, big_csv):
     # create dataset
     upload_dataset_req = UploadDatasetTimeseriesRequest(
         dataset=UploadDatasetRequest(
-            name="Binance_SOLBUST_1d",
+            name="test",
         ),
         timeseries=timeseries,
     )
@@ -41,25 +42,41 @@ def test_integration(client, big_csv):
     print(response.json())
     assert response.status_code == 200
     assert response.json()["dataset"]["item_hash"] is not None
+    dataset = response.json()["dataset"]
 
-    # update timeseries
+    # add new timeseries
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
             PutTimeseriesRequest(name="test", data=[[1.0, 2.0], [3.0, 4.0]])
         ]
     )
-    req_body = upload_timeseries_req.dict()
-    print(req_body)
     response = client.put(
-        "/timeseries", json=req_body, headers={"Authorization": f"Bearer {owner_token}"}
+        "/timeseries", json=upload_timeseries_req.dict(), headers={"Authorization": f"Bearer {owner_token}"}
     )
     print(response.json())
     assert response.status_code == 200
     assert response.json()[0]["item_hash"] is not None
+    assert response.json()[0]["max"] == 4.0
     timeseries_id = response.json()[0]["item_hash"]
-    # - Upload dataset
+
+    # update said timeseries
+    upload_timeseries_req = UploadTimeseriesRequest(
+        timeseries=[
+            PutTimeseriesRequest(item_hash=timeseries_id, name="test", data=[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+        ]
+    )
+    response = client.put(
+        "/timeseries", json=upload_timeseries_req.dict(), headers={"Authorization": f"Bearer {owner_token}"}
+    )
+    print(response.json())
+    assert response.status_code == 200
+    assert response.json()[0]["item_hash"] == timeseries_id
+    assert response.json()[0]["max"] == 6.0
+
+    # add timeseries to dataset
     upload_dataset_req = UploadDatasetRequest(
-        name="test",
+        item_hash=dataset["item_hash"],
+        name="Binance_SOLBUST_1d",
         ownsAllTimeseries=True,
         timeseriesIDs=[timeseries_id],
     )
@@ -70,8 +87,9 @@ def test_integration(client, big_csv):
     )
     print(response.json())
     assert response.status_code == 200
-    assert response.json()["item_hash"] is not None
-    dataset_id = response.json()["item_hash"]
+    assert response.json()["item_hash"] == dataset["item_hash"]
+    assert timeseries_id in response.json()["timeseriesIDs"]
+    dataset_id = dataset["item_hash"]
 
     requestor = SOLAccount(generate_key())
     requestor_token = login_with_signature(client, requestor)

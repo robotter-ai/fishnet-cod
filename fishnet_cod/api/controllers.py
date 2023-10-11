@@ -87,12 +87,12 @@ async def merge_and_store_data(full_df: pd.DataFrame, update_values: bool = Fals
         existing_df = (
             pd.read_parquet(file_path) if os.path.exists(file_path) else pd.DataFrame()
         )
-        df = full_df[item_hash]
+        df = full_df[[item_hash]]
         df = pd.concat([existing_df, df])
         df = df[~df.index.duplicated(keep="last" if update_values else "first")]
         df = df.sort_index()
         df.to_parquet(file_path)
-        full_df[item_hash] = df
+        full_df[item_hash] = df[item_hash]
     return full_df
 
 
@@ -111,33 +111,35 @@ async def upsert_timeseries(
     Returns:
         A list of updated and a list of new timeseries.
     """
-    ts_ids_to_fetch = []
+    update_timeseries = []
     new_timeseries = []
     for ts in timeseries_requests:
         if ts.item_hash is None:
             ts.owner = user.address
             new_timeseries.append(ts)
         else:
-            ts_ids_to_fetch.append(ts.item_hash)
+            update_timeseries.append(ts)
 
-    existing_timeseries = await Timeseries.fetch(ts_ids_to_fetch).all()
+    existing_timeseries = await Timeseries.fetch([ts.item_hash for ts in update_timeseries]).all()
 
-    if len(existing_timeseries) != len(ts_ids_to_fetch):
+    if len(existing_timeseries) != len(update_timeseries):
         raise HTTPException(
             status_code=400,
-            detail=f"{len(ts_ids_to_fetch) - len(existing_timeseries)} Timeseries do not exist, aborting",
+            detail=f"{len(update_timeseries) - len(existing_timeseries)} Timeseries do not exist, aborting",
         )
 
-    df = get_harmonized_timeseries_df(existing_timeseries, ColumnNameType.item_hash)
+    update_df = pd.DataFrame()
+    for ts in update_timeseries:
+        update_df[ts.item_hash] = pd.Series([value for timestamp, value in ts.data])
 
-    df = await merge_and_store_data(df, update_values=True)
+    existing_df = await merge_and_store_data(update_df, update_values=True)
 
     new_df = pd.DataFrame()
     for ts in new_timeseries:
         new_df[ts.name] = pd.Series([value for timestamp, value in ts.data])
 
     updated_timeseries, created_timeseries = await update_timeseries_metadata(
-        existing_df=df,
+        existing_df=existing_df,
         new_df=new_df,
         existing_timeseries=existing_timeseries,
         new_timeseries=new_timeseries,
