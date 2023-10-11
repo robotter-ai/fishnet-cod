@@ -51,6 +51,7 @@ async def get_datasets(
     else:
         dataset_resp = Dataset.fetch_objects()
     datasets = await dataset_resp.page(page=page, page_size=page_size)
+    # TODO: Sometimes newly created datasets are not returned, race condition?
 
     if view_as:
         return await view_datasets_as(datasets, view_as)

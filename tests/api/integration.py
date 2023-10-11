@@ -127,7 +127,7 @@ def test_integration(client, big_csv):
     permission = response.json()[0]
     assert permission["status"] == PermissionStatus.REQUESTED
 
-    # - Get notifications
+    # get notifications
     response = client.get(
         f"/users/{owner.get_address()}/notifications",
         headers={"Authorization": f"Bearer {owner_token}"},
@@ -138,7 +138,7 @@ def test_integration(client, big_csv):
     assert isinstance(notifications, List)
     assert len(notifications) == 1
 
-    # - Approve permission
+    # approve permission
     permission_ids = [permission["item_hash"]]
 
     response = client.put(
@@ -150,3 +150,18 @@ def test_integration(client, big_csv):
     assert response.status_code == 200
     new_permission = response.json()["updatedPermissions"][0]
     assert new_permission["status"] == PermissionStatus.GRANTED
+
+    # sleep a second
+    import time
+
+    time.sleep(1)
+
+    # get datasets and view as requestor
+    response = client.get(
+        f"/datasets",
+        headers={"Authorization": f"Bearer {requestor_token}"},
+        params={"view_as": requestor.get_address()},
+    )
+    print(response.json())
+    assert response.status_code == 200
+    assert response.json()[0]["permission_status"] == "GRANTED"
