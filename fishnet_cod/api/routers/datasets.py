@@ -20,7 +20,7 @@ from ..api_model import (
 from ..controllers import (
     generate_views,
     get_dataset_permission_status,
-    view_datasets_as,
+    view_datasets_as, upsert_timeseries,
 )
 from ..utils import AuthorizedRouterDep
 from .timeseries import upload_timeseries
@@ -88,6 +88,8 @@ async def upload_dataset(
     Upload a dataset.
     If an `item_hash` is provided, it will update the dataset with that id.
     """
+    if not dataset_req.timeseriesIDs:
+        raise HTTPException(status_code=400, detail="No timeseries provided")
     timeseries = await Timeseries.fetch(dataset_req.timeseriesIDs).all()
     owns_all_timeseries = all([ts.owner == user.address for ts in timeseries])
     if dataset_req.item_hash is None:
@@ -187,13 +189,13 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
 
 @router.post("/upload/timeseries")
 async def upload_dataset_with_timeseries(
-    upload_dataset_timeseries_request: UploadDatasetTimeseriesRequest,
+    req: UploadDatasetTimeseriesRequest,
     user: JWTWalletAuthDep,
 ) -> UploadDatasetTimeseriesResponse:
     """
     Upload a dataset and timeseries at the same time.
     """
-    if upload_dataset_timeseries_request.dataset.item_hash is not None:
+    if req.dataset.item_hash is not None:
         raise HTTPException(
             status_code=400,
             detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets instead.",
@@ -201,24 +203,19 @@ async def upload_dataset_with_timeseries(
     if any(
         [
             ts.item_hash is not None
-            for ts in upload_dataset_timeseries_request.timeseries
+            for ts in req.timeseries
         ]
     ):
         raise HTTPException(
             status_code=400,
             detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries instead.",
         )
-    timeseries = await upload_timeseries(
-        req=UploadTimeseriesRequest(
-            timeseries=upload_dataset_timeseries_request.timeseries
-        ),
-        user=user,
-    )
-    upload_dataset_timeseries_request.dataset.timeseriesIDs = [
+    timeseries = await upsert_timeseries(timeseries=req.timeseries, user=user)
+    req.dataset.timeseriesIDs = [
         str(ts.item_hash) for ts in timeseries
     ]
     dataset = await upload_dataset(
-        dataset_req=upload_dataset_timeseries_request.dataset, user=user
+        dataset_req=req.dataset, user=user
     )
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,

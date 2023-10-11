@@ -34,7 +34,7 @@ Index(UserInfo, "address")
 Index(UserInfo, "username")
 
 
-class TimeseriesItem(BaseModel):
+class PutTimeseriesRequest(BaseModel):
     item_hash: Optional[str]
     name: str
     owner: Optional[str]
@@ -43,7 +43,7 @@ class TimeseriesItem(BaseModel):
 
 
 class UploadTimeseriesRequest(BaseModel):
-    timeseries: List[TimeseriesItem]
+    timeseries: List[PutTimeseriesRequest]
 
 
 class TimeseriesWithData(Timeseries):
@@ -60,7 +60,7 @@ class UploadDatasetRequest(BaseModel):
     item_hash: Optional[str]
     name: str
     desc: Optional[str]
-    timeseriesIDs: List[str]
+    timeseriesIDs: Optional[List[str]]
     price: Optional[str] = None
 
 
@@ -85,7 +85,7 @@ class GrantDatasetPermissionsRequest(RequestDatasetPermissionsRequest):
 
 class UploadDatasetTimeseriesRequest(BaseModel):
     dataset: UploadDatasetRequest
-    timeseries: List[TimeseriesItem]
+    timeseries: List[PutTimeseriesRequest]
 
 
 class UploadDatasetTimeseriesResponse(BaseModel):

@@ -17,7 +17,7 @@ from .api_model import (
     DatasetResponse,
     PutViewRequest,
     PutViewResponse,
-    TimeseriesItem,
+    PutTimeseriesRequest,
 )
 from .utils import get_file_path, granularity_to_interval
 
@@ -142,9 +142,66 @@ def load_data_df(file: UploadFile):
     return df
 
 
-async def update_timeseries(
+async def upsert_timeseries(
+    timeseries: List[PutTimeseriesRequest],
+    user: JWTWalletAuthDep,
+) -> List[Timeseries]:
+    timeseries_ids = [ts.item_hash for ts in timeseries if ts.item_hash is not None]
+    old_time_series = {
+        ts.item_hash: ts for ts in await Timeseries.fetch(timeseries_ids).all()
+    }
+    create_requests = {}
+    update_requests = {}
+    data = {}
+    for ts_req in timeseries:
+        ts_req.owner = ts_req.owner or user.address
+        if ts_req.owner != user.address:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot upload timeseries for other users",
+            )
+        data[ts_req.name] = pd.DataFrame(ts_req.data, columns=["Timestamp", ts_req.name])
+        values = data[ts_req.name][ts_req.name]
+        if old_time_series.get(ts_req.item_hash) is None:
+            ts = Timeseries(
+                **ts_req.dict(exclude={"data"}),
+                min=values.min(),
+                max=values.max(),
+                avg=values.mean(),
+                std=values.std(),
+                median=values.median(),
+            )
+            create_requests[ts.name] = ts.save()
+        else:
+            ts = old_time_series[ts_req.item_hash]
+            if ts_req.owner != ts.owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot overwrite timeseries that is not owned by you",
+                )
+            ts.name = ts_req.name
+            ts.desc = ts_req.desc
+            update_requests[ts_req.name] = ts.save()
+
+    new_metadata = {
+        ts.name: ts for ts in await asyncio.gather(*create_requests.values())
+    }
+
+    # save data
+    for name, data in data.items():
+        file_path = get_file_path(metadata[name].item_hash)
+        # load old data if existent
+        if file_path.exists():
+            old_data = pd.read_parquet(file_path)
+            data = pd.concat([old_data, data])
+        data.to_parquet(file_path)
+
+    return [ts for ts in metadata.values() if not isinstance(ts, BaseException)]
+
+
+async def update_timeseries_metadata(
     df: pd.DataFrame,
-    metadata: Union[List[TimeseriesItem]],
+    metadata: Union[List[PutTimeseriesRequest]],
     timeseries: Optional[List[Timeseries]],
     user: JWTWalletAuthDep,
 ) -> List[Timeseries]:

@@ -5,19 +5,46 @@ from aleph.sdk.chains.sol import generate_key, SOLAccount
 from .conftest import login_with_signature
 from fishnet_cod.api.api_model import (
     RequestDatasetPermissionsRequest,
-    TimeseriesItem,
+    PutTimeseriesRequest,
     UploadDatasetRequest,
-    UploadTimeseriesRequest,
+    UploadTimeseriesRequest, UploadDatasetTimeseriesRequest,
 )
 from fishnet_cod.core.model import PermissionStatus
 
 
-def test_integration(client):
+def test_integration(client, big_csv):
     owner = SOLAccount(generate_key())
     owner_token = login_with_signature(client, owner)
+
+    # prepare csv
+    response = client.post(
+        "/timeseries/csv",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        files={"data_file": ("test.csv", big_csv, "text/csv")},
+    )
+    assert response.status_code == 200
+    assert response.json() is not None
+    timeseries = response.json()
+
+    # create dataset
+    upload_dataset_req = UploadDatasetTimeseriesRequest(
+        dataset=UploadDatasetRequest(
+            name="Binance_SOLBUST_1d",
+        ),
+        timeseries=timeseries,
+    )
+    response = client.post(
+        "/datasets/upload/timeseries",
+        json=upload_dataset_req.dict(),
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["dataset"]["item_hash"] is not None
+
+    # update timeseries
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            TimeseriesItem(name="test", data=[[1.0, 2.0], [3.0, 4.0]])
+            PutTimeseriesRequest(name="test", data=[[1.0, 2.0], [3.0, 4.0]])
         ]
     )
     req_body = upload_timeseries_req.dict()
