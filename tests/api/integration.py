@@ -112,7 +112,6 @@ def test_integration(client, big_csv):
         json=generate_view_req,
         headers={"Authorization": f"Bearer {owner_token}"},
     )
-    print(response.json())
     assert response.status_code == 200
     assert response.json()["views"][0]["item_hash"] is not None
     assert response.json()["views"][0]["item_hash"] in response.json()["dataset"]["viewIDs"]
@@ -143,6 +142,14 @@ def test_integration(client, big_csv):
     assert isinstance(notifications, List)
     assert len(notifications) == 1
 
+    # try download timeseries data but refuse
+    response = client.post(
+        f"/timeseries/csv/download",
+        json=[low_timeseries["item_hash"], high_timeseries["item_hash"]],
+        headers={"Authorization": f"Bearer {requestor_token}"},
+    )
+    assert response.status_code == 403
+
     # approve permission
     permission_ids = [permission["item_hash"]]
 
@@ -167,6 +174,15 @@ def test_integration(client, big_csv):
         headers={"Authorization": f"Bearer {requestor_token}"},
         params={"view_as": requestor.get_address()},
     )
-    print(response.json())
     assert response.status_code == 200
     assert response.json()[0]["permission_status"] == "GRANTED"
+
+    time.sleep(1)
+
+    # download timeseries data
+    response = client.post(
+        f"/timeseries/csv/download",
+        json=[low_timeseries["item_hash"], high_timeseries["item_hash"]],
+        headers={"Authorization": f"Bearer {requestor_token}"},
+    )
+    assert response.status_code == 200

@@ -9,7 +9,7 @@ from starlette.responses import StreamingResponse
 
 from ...core.model import Timeseries, UserInfo
 from ..api_model import ColumnNameType, TimeseriesWithData, UploadTimeseriesRequest
-from ..controllers import get_harmonized_timeseries_df, upsert_timeseries, load_data_df
+from ..controllers import get_harmonized_timeseries_df, upsert_timeseries, load_data_df, check_access
 from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
@@ -73,9 +73,31 @@ async def preprocess_timeseries_csv(
     return timeseries
 
 
+@router.post("/data/download")
+async def download_timeseries_data(
+    timeseriesIDs: List[str],
+    user: JWTWalletAuthDep,
+) -> List[TimeseriesWithData]:
+    """
+    Download a list of timeseries with their data. The data is attached to each timeseries object.
+    """
+    timeseries = await Timeseries.fetch(timeseriesIDs).all()
+    await check_access(timeseries, user)
+
+    df = get_harmonized_timeseries_df(timeseries)
+    return [
+        TimeseriesWithData(
+            **ts.dict(),
+            data=[(int(dt.timestamp()), value) for dt, value in df[ts.item_hash].iteritems()],
+        )
+        for ts in timeseries
+    ]
+
+
 @router.post("/csv/download")
 async def download_timeseries_csv(
     timeseriesIDs: List[str],
+    user: JWTWalletAuthDep,
     column_names: ColumnNameType = ColumnNameType.name,
     compression: bool = False,
 ) -> StreamingResponse:
@@ -89,6 +111,8 @@ async def download_timeseries_csv(
     If `compression` is set to `True`, the csv file will be compressed with gzip.
     """
     timeseries = await Timeseries.fetch(timeseriesIDs).all()
+    await check_access(timeseries, user)
+
     df = get_harmonized_timeseries_df(timeseries, column_names=column_names)
 
     # increase download count
