@@ -15,7 +15,6 @@ from ..api_model import (
     UploadDatasetRequest,
     UploadDatasetTimeseriesRequest,
     UploadDatasetTimeseriesResponse,
-    UploadTimeseriesRequest,
 )
 from ..controllers import (
     generate_views,
@@ -23,7 +22,6 @@ from ..controllers import (
     view_datasets_as, upsert_timeseries,
 )
 from ..utils import AuthorizedRouterDep
-from .timeseries import upload_timeseries
 
 router = APIRouter(
     prefix="/datasets",

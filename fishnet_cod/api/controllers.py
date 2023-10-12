@@ -1,6 +1,5 @@
 import asyncio
 import os
-from enum import Enum
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -76,7 +75,7 @@ def load_data_df(file: UploadFile):
             df = df.drop(columns=col)
             continue
         if "date" in col.lower() or "time" in col.lower():
-            df.index = pd.to_datetime(df[col])
+            df.index = pd.to_datetime(df[col], infer_datetime_format=True)
             df = df.drop(columns=col)
     return df
 
@@ -130,13 +129,14 @@ async def upsert_timeseries(
 
     update_df = pd.DataFrame()
     for ts in update_timeseries:
-        update_df[ts.item_hash] = pd.Series([value for timestamp, value in ts.data])
-
+        update_df = concat_timeseries(ts, update_df, column_names=ColumnNameType.item_hash)
+    update_df = update_df.sort_index()
+    update_df.ffill(inplace=True)
     existing_df = await merge_and_store_data(update_df, update_values=True)
 
     new_df = pd.DataFrame()
     for ts in new_timeseries:
-        new_df[ts.name] = pd.Series([value for timestamp, value in ts.data])
+        new_df = concat_timeseries(ts, new_df, column_names=ColumnNameType.name)
 
     updated_timeseries, created_timeseries = await update_timeseries_metadata(
         existing_df=existing_df,
@@ -151,6 +151,21 @@ async def upsert_timeseries(
         new_df[[ts.item_hash]].to_parquet(file_path)
 
     return updated_timeseries, created_timeseries
+
+
+def concat_timeseries(ts, update_df, column_names: ColumnNameType = ColumnNameType.item_hash):
+    update_df = pd.concat(
+        [
+            update_df,
+            pd.DataFrame(
+                [value for timestamp, value in ts.data],
+                index=[pd.to_datetime(timestamp, unit="s") for timestamp, value in ts.data],
+                columns=[ts.item_hash if column_names == ColumnNameType.item_hash else ts.name],
+            ),
+        ],
+        axis=1,
+    )
+    return update_df
 
 
 async def update_timeseries_metadata(
@@ -229,7 +244,14 @@ async def generate_views(dataset: Dataset, view_params: List[PutViewRequest]):
     view_requests = []
     for view_req in view_params:
         df = full_df[view_req.timeseriesIDs].copy()
+        timeseries = await Timeseries.fetch(view_req.timeseriesIDs).all()
         end_time, start_time, view_values = await calculate_view(df, view_req)
+        columns = []
+        for ts_item_hash in view_values.keys():
+            timeseries_name = next(
+                ts.name for ts in timeseries if ts.item_hash == ts_item_hash
+            )
+            columns.append(timeseries_name)
 
         if views_map.get(view_req.item_hash):
             old_view = views_map[view_req.item_hash]
@@ -244,7 +266,7 @@ async def generate_views(dataset: Dataset, view_params: List[PutViewRequest]):
                     startTime=start_time,
                     endTime=end_time,
                     granularity=view_req.granularity,
-                    columns=list(df.columns),
+                    columns=list(columns),
                     values=view_values,
                 ).save()
             )
@@ -260,9 +282,12 @@ async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
     # filter by time window
     if view_req.startTime is not None:
         start_date = pd.to_datetime(view_req.startTime, unit="s")
+        print(df.index)
+        print(start_date)
         df = df[df.index >= start_date]
     if view_req.endTime is not None:
         end_date = pd.to_datetime(view_req.endTime, unit="s")
+        print(end_date)
         df = df[df.index <= end_date]
     # normalize and round values
     df = (df - df.min()) / (df.max() - df.min())

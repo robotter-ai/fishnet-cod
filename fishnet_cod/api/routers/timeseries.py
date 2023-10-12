@@ -2,7 +2,6 @@ import asyncio
 import io
 from typing import List
 
-import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi_walletauth import JWTWalletAuthDep
 from pydantic import ValidationError

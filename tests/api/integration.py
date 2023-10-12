@@ -102,6 +102,8 @@ def test_integration(client, big_csv):
         PutViewRequest(
             timeseriesIDs=[low_timeseries["item_hash"], high_timeseries["item_hash"]],
             granularity=Granularity.YEAR.value,
+            startTime=1586476800,
+            endTime=1693612800
         ).dict()
     ]
     print(generate_view_req)
@@ -114,6 +116,9 @@ def test_integration(client, big_csv):
     assert response.status_code == 200
     assert response.json()["views"][0]["item_hash"] is not None
     assert response.json()["views"][0]["item_hash"] in response.json()["dataset"]["viewIDs"]
+    assert response.json()["views"][0]["columns"] == ["Low", "High"]
+    assert response.json()["views"][0]["values"] is not None
+    assert len(response.json()["views"][0]["values"][low_timeseries["item_hash"]]) > 0
 
     # request permission
     request_permission_req = RequestDatasetPermissionsRequest(timeseriesIDs=[])
