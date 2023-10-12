@@ -293,7 +293,7 @@ async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
     df = (df - df.min()) / (df.max() - df.min())
     # drop points according to granularity
     df = df.resample(granularity_to_interval(view_req.granularity)).mean().dropna()
-    df.round(2)
+    df.round(2, inplace=True)
 
     view_values = {
         str(col): [
