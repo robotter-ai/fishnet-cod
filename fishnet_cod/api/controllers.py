@@ -282,12 +282,9 @@ async def calculate_view(df: pd.DataFrame, view_req: PutViewRequest):
     # filter by time window
     if view_req.startTime is not None:
         start_date = pd.to_datetime(view_req.startTime, unit="s")
-        print(df.index)
-        print(start_date)
         df = df[df.index >= start_date]
     if view_req.endTime is not None:
         end_date = pd.to_datetime(view_req.endTime, unit="s")
-        print(end_date)
         df = df[df.index <= end_date]
     # normalize and round values
     df = (df - df.min()) / (df.max() - df.min())
