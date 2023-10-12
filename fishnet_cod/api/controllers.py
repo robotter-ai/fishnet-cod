@@ -7,7 +7,6 @@ from fastapi import HTTPException, UploadFile
 from fastapi_walletauth.middleware import JWTWalletAuthDep
 from pydantic import ValidationError
 
-from core.model import Dataset, Permission, PermissionStatus
 from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from .api_model import (
     ColumnNameType,
