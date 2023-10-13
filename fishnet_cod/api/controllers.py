@@ -385,15 +385,19 @@ async def check_access(timeseries, user):
         for ts in timeseries:
             if ts.owner != user.address:
                 permitted = False
-                for permission in permissions:
-                    if permission.timeseriesID == ts.item_hash and permission.status == PermissionStatus.GRANTED:
-                        permitted = True
-                        break
-                    elif permission.datasetID and permission.status == PermissionStatus.GRANTED:
-                        dataset = [dataset for dataset in datasets if permission.datasetID == dataset.item_hash][0]
-                        if ts.item_hash in dataset.timeseriesIDs:
+                dataset = [dataset for dataset in datasets if ts.item_hash in dataset.timeseriesIDs][0]
+                if dataset.price == "0":
+                    permitted = True
+                else:
+                    for permission in permissions:
+                        if permission.timeseriesID == ts.item_hash and permission.status == PermissionStatus.GRANTED:
                             permitted = True
                             break
+                        elif permission.datasetID and permission.status == PermissionStatus.GRANTED:
+                            dataset = [dataset for dataset in datasets if permission.datasetID == dataset.item_hash][0]
+                            if ts.item_hash in dataset.timeseriesIDs:
+                                permitted = True
+                                break
                 if not permitted:
                     raise HTTPException(status_code=403, detail="You do not own all timeseries.")
     return timeseries_ids
