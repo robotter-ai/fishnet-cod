@@ -2,7 +2,7 @@ from itertools import chain
 from pathlib import Path
 from typing import TypeVar
 
-from fastapi import Depends
+from fastapi import Depends, UploadFile
 from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager
 
 from ..core.conf import settings
@@ -49,3 +49,21 @@ def get_file_path(timeseries_id: str) -> Path:
         dir_path.mkdir(parents=True)
     file_path = dir_path / Path(f"{timeseries_id}.parquet")
     return file_path
+
+
+def find_first_row_with_comma(file: UploadFile) -> int:
+    """
+    Find the first row in a csv file that contains a comma.
+    """
+    for i, line in enumerate(file.file):
+        if b"," in line:
+            return i
+    raise ValueError("No comma found in file")
+
+
+def is_timestamp_column(col: str) -> bool:
+    """
+    Check if a column name is a timestamp column.
+    """
+    col = col.lower()
+    return "date" in col or "time" in col or "unix" in col or "timestamp" in col

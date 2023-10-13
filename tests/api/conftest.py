@@ -14,6 +14,7 @@ from fishnet_cod.api.main import app
 
 ABSOLUTE_PATH = os.path.dirname(os.path.abspath(__file__))
 
+
 @pytest.fixture(scope="session")
 def event_loop():
     yield app.aars.session.http_session.loop
@@ -34,6 +35,12 @@ def account():
 @pytest.fixture(scope="module")
 def big_csv():
     with open(os.path.join(ABSOLUTE_PATH, "Binance_SOLBUSD_d.csv"), "rb") as f:
+        yield f.read()
+
+
+@pytest.fixture(scope="module")
+def ugly_big_csv():
+    with open(os.path.join(ABSOLUTE_PATH, "Binance_BTCBUSD_d.csv"), "rb") as f:
         yield f.read()
 
 

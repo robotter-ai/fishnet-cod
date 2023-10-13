@@ -16,7 +16,7 @@ from .api_model import (
     PutViewResponse,
     PutTimeseriesRequest,
 )
-from .utils import get_file_path, granularity_to_interval
+from .utils import get_file_path, granularity_to_interval, find_first_row_with_comma, is_timestamp_column
 
 
 async def get_dataset_df(
@@ -58,7 +58,9 @@ def load_data_df(file: UploadFile):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Please provide a filename")
     if file.filename.endswith(".csv"):
-        df = pd.read_csv(file.file)
+        row = find_first_row_with_comma(file)
+        file.file.seek(0)
+        df = pd.read_csv(file.file, skiprows=row)
     elif file.filename.endswith(".parquet"):
         df = pd.read_parquet(file.file)
     elif file.filename.endswith(".feather"):
@@ -74,9 +76,17 @@ def load_data_df(file: UploadFile):
         if "unnamed" in col.lower():
             df = df.drop(columns=col)
             continue
-        if "date" in col.lower() or "time" in col.lower():
+        if is_timestamp_column(col):
             df.index = pd.to_datetime(df[col], infer_datetime_format=True)
             df = df.drop(columns=col)
+        # non-numeric values are not supported and dropped
+        elif df[col].dtype == object:
+            df = df.drop(columns=col)
+    if df.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid columns found in file",
+        )
     return df
 
 

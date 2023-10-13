@@ -10,7 +10,7 @@ from fishnet_cod.api.api_model import (
     UploadDatasetRequest,
     UploadTimeseriesRequest, UploadDatasetTimeseriesRequest, PutViewRequest,
 )
-from fishnet_cod.core.model import PermissionStatus, Dataset, Granularity
+from fishnet_cod.core.model import PermissionStatus, Granularity
 
 
 def test_integration(client, big_csv):
