@@ -201,6 +201,8 @@ async def update_timeseries_metadata(
                 avg=new_df[col].mean(),
                 std=new_df[col].std(),
                 median=new_df[col].median(),
+                earliest=int(new_df[col].index.min().timestamp()),
+                latest=int(new_df[col].index.max().timestamp()),
             )
             create_timeseries_requests.append(ts.save())
         except (ValidationError, TypeError, ValueError) as e:
@@ -222,6 +224,8 @@ async def update_timeseries_metadata(
             ts.avg = existing_df[col].mean()
             ts.std = existing_df[col].std()
             ts.median = existing_df[col].median()
+            ts.earliest = int(existing_df[col].index.min().timestamp())
+            ts.latest = int(existing_df[col].index.max().timestamp())
             if ts.changed:
                 update_timeseries_requests.append(ts.save())
             else:
@@ -385,8 +389,8 @@ async def check_access(timeseries, user):
         for ts in timeseries:
             if ts.owner != user.address:
                 permitted = False
-                dataset = [dataset for dataset in datasets if ts.item_hash in dataset.timeseriesIDs][0]
-                if dataset.price == "0":
+                dataset = next((dataset for dataset in datasets if ts.item_hash in dataset.timeseriesIDs), None)
+                if dataset and dataset.price == "0":
                     permitted = True
                 else:
                     for permission in permissions:

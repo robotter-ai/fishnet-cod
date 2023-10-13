@@ -73,6 +73,8 @@ def test_integration(client, big_csv):
     assert response.status_code == 200
     assert response.json()[0]["item_hash"] == timeseries_id
     assert response.json()[0]["max"] == 6.0
+    assert response.json()[0]["earliest"] == 1
+    assert response.json()[0]["latest"] == 5
 
     # add timeseries to dataset
     upload_dataset_req = UploadDatasetRequest(

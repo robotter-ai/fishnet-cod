@@ -23,6 +23,8 @@ class Timeseries(Record):
     avg: Optional[float]
     std: Optional[float]
     median: Optional[float]
+    earliest: Optional[int]
+    latest: Optional[int]
 
 
 class Granularity(str, Enum):
