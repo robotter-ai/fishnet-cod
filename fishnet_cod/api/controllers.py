@@ -16,7 +16,8 @@ from .api_model import (
     PutViewResponse,
     PutTimeseriesRequest,
 )
-from .utils import get_file_path, granularity_to_interval, find_first_row_with_comma, is_timestamp_column
+from .utils import get_file_path, granularity_to_interval, find_first_row_with_comma, is_timestamp_column, \
+    determine_decimal_places
 
 
 async def get_dataset_df(
@@ -201,16 +202,17 @@ async def update_timeseries_metadata(
     for col in new_df.columns:
         try:
             metadata = new_by_name.get(col)
+            decimals = determine_decimal_places(new_df[col])
             ts = Timeseries(
                 item_hash=None,
                 name=col,
                 desc=metadata.desc if metadata else None,
                 owner=metadata.owner,
-                min=new_df[col].min(),
-                max=new_df[col].max(),
-                avg=new_df[col].mean(),
-                std=new_df[col].std(),
-                median=new_df[col].median(),
+                min=new_df[col].min().round(decimals),
+                max=new_df[col].max().round(decimals),
+                avg=new_df[col].mean().round(decimals),
+                std=new_df[col].std().round(decimals),
+                median=new_df[col].median().round(decimals),
                 earliest=int(new_df[col].index.min().timestamp()),
                 latest=int(new_df[col].index.max().timestamp()),
             )
@@ -229,11 +231,12 @@ async def update_timeseries_metadata(
     for col in existing_df.columns:
         try:
             ts = existing_by_item_hash[col]
-            ts.min = existing_df[col].min()
-            ts.max = existing_df[col].max()
-            ts.avg = existing_df[col].mean()
-            ts.std = existing_df[col].std()
-            ts.median = existing_df[col].median()
+            decimals = determine_decimal_places(existing_df[col])
+            ts.min = existing_df[col].min().round(decimals)
+            ts.max = existing_df[col].max().round(decimals)
+            ts.avg = existing_df[col].mean().round(decimals)
+            ts.std = existing_df[col].std().round(decimals)
+            ts.median = existing_df[col].median().round(decimals)
             ts.earliest = int(existing_df[col].index.min().timestamp())
             ts.latest = int(existing_df[col].index.max().timestamp())
             if ts.changed:

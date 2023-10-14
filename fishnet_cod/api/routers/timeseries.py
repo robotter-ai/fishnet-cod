@@ -10,7 +10,7 @@ from starlette.responses import StreamingResponse
 from ...core.model import Timeseries, UserInfo
 from ..api_model import ColumnNameType, TimeseriesWithData, UploadTimeseriesRequest
 from ..controllers import get_harmonized_timeseries_df, upsert_timeseries, load_data_df, check_access
-from ..utils import AuthorizedRouterDep
+from ..utils import AuthorizedRouterDep, determine_decimal_places
 
 router = APIRouter(
     prefix="/timeseries",
@@ -51,6 +51,9 @@ async def preprocess_timeseries_csv(
     for col in df.columns:
         try:
             data = [(timestamps[i], value) for i, value in enumerate(df[col].tolist())]
+            # calculate a good number to round with, based on the min and max values
+            decimals = determine_decimal_places(df[col])
+
             timeseries.append(
                 TimeseriesWithData(
                     item_hash=None,
@@ -58,11 +61,13 @@ async def preprocess_timeseries_csv(
                     desc=None,
                     data=data,
                     owner=user.address,
-                    min=df[col].min(),
-                    max=df[col].max(),
-                    avg=df[col].mean(),
-                    std=df[col].std(),
-                    median=df[col].median(),
+                    min=df[col].min().round(decimals),
+                    max=df[col].max().round(decimals),
+                    avg=df[col].mean().round(decimals),
+                    std=df[col].std().round(decimals),
+                    median=df[col].median().round(decimals),
+                    earliest=timestamps[0],
+                    latest=timestamps[-1],
                 )
             )
         except ValidationError:

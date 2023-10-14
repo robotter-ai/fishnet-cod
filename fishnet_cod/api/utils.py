@@ -1,7 +1,9 @@
 from itertools import chain
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, Union, List
 
+import numpy as np
+import pandas as pd
 from fastapi import Depends, UploadFile
 from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager
 
@@ -67,3 +69,24 @@ def is_timestamp_column(col: str) -> bool:
     """
     col = col.lower()
     return "date" in col or "time" in col or "unix" in col or "timestamp" in col
+
+
+def determine_decimal_places(data: Union[pd.Series, List[float]]):
+    """
+    Determine the number of decimal places to round to based on the magnitude of the data.
+    Args:
+        data (iterable): Iterable containing the data values.
+    Returns:
+        int: Number of decimal places to round to.
+    """
+    if len(data) == 0:
+        return 0  # No data, no decimal places
+    # Find the maximum magnitude (power of 10) of the data
+    max_magnitude = int(np.floor(np.log10(np.abs(max(data)))))
+    # Determine the number of decimal places based on the magnitude
+    if max_magnitude >= 0:
+        # If the magnitude is non-negative, round to 2 decimal places
+        return 2
+    else:
+        # If the magnitude is negative, round to -max_magnitude + 2 decimal places
+        return -max_magnitude + 2
