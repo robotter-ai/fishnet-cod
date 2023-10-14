@@ -66,8 +66,8 @@ async def preprocess_timeseries_csv(
                     avg=df[col].mean().round(decimals),
                     std=df[col].std().round(decimals),
                     median=df[col].median().round(decimals),
-                    earliest=timestamps[0],
-                    latest=timestamps[-1],
+                    earliest=timestamps[-1],
+                    latest=timestamps[0],
                 )
             )
         except ValidationError:
