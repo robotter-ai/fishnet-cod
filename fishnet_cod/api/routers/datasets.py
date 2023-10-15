@@ -14,12 +14,12 @@ from ..api_model import (
     PutViewResponse,
     UploadDatasetRequest,
     UploadDatasetTimeseriesRequest,
-    UploadDatasetTimeseriesResponse,
+    UploadDatasetTimeseriesResponse, TimeseriesWithData,
 )
 from ..controllers import (
     generate_views,
     get_dataset_permission_status,
-    view_datasets_as, upsert_timeseries,
+    view_datasets_as, upsert_timeseries, check_access, get_harmonized_timeseries_df,
 )
 from ..utils import AuthorizedRouterDep
 
@@ -232,6 +232,30 @@ async def get_dataset_timeseries(dataset_id: str) -> List[Timeseries]:
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return await Timeseries.fetch(dataset.timeseriesIDs).all()
+
+
+@router.get("/{dataset_id}/timeseries/data")
+async def get_dataset_timeseries_with_data(
+    dataset_id: str,
+    user: JWTWalletAuthDep,
+) -> List[Timeseries]:
+    """
+    Get all timeseries for a given dataset.
+    """
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
+    await check_access(timeseries, user)
+
+    df = get_harmonized_timeseries_df(timeseries)
+    return [
+        TimeseriesWithData(
+            **ts.dict(),
+            data=[(int(dt.timestamp()), value) for dt, value in df[ts.item_hash].iteritems()],
+        )
+        for ts in timeseries
+    ]
 
 
 @router.get("/{dataset_id}/views")
