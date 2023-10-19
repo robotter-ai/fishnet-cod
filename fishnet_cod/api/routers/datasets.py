@@ -4,7 +4,9 @@ from typing import Awaitable, List, Optional, Union
 from aars.utils import PageableRequest, PageableResponse
 from fastapi import APIRouter, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep
+from starlette.responses import StreamingResponse
 
+from .timeseries import download_timeseries_csv
 from ...core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from ..api_model import (
     Attribute,
@@ -256,6 +258,27 @@ async def get_dataset_timeseries_with_data(
         )
         for ts in timeseries
     ]
+
+
+@router.get("/{dataset_id}/timeseries/csv")
+async def get_dataset_timeseries_csv(
+    dataset_id: str,
+    user: JWTWalletAuthDep,
+) -> StreamingResponse:
+    """
+    Get all timeseries for a given dataset.
+    """
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
+    stream = await download_timeseries_csv(
+        timeseriesIDs=[ts.item_hash for ts in timeseries],
+        user=user,
+    )
+    dataset.downloads = dataset.downloads + 1 if dataset.downloads else 1
+    await dataset.save()
+    return stream
 
 
 @router.get("/{dataset_id}/views")

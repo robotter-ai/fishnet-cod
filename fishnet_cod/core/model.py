@@ -52,6 +52,7 @@ class Dataset(Record):
     desc: Optional[str]
     viewIDs: Optional[List[str]]
     price: Optional[str]
+    downloads: Optional[int] = 0
 
 
 class PermissionStatus(str, Enum):
