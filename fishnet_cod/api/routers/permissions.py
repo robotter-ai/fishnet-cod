@@ -16,7 +16,6 @@ router = APIRouter(
     prefix="/permissions",
     tags=["permissions"],
     responses={404: {"description": "Not found"}},
-    dependencies=[AuthorizedRouterDep],
 )
 
 

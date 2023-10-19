@@ -16,7 +16,6 @@ router = APIRouter(
     prefix="/timeseries",
     tags=["timeseries"],
     responses={404: {"description": "Not found"}},
-    dependencies=[AuthorizedRouterDep],
 )
 
 

@@ -29,7 +29,6 @@ router = APIRouter(
     prefix="/datasets",
     tags=["datasets"],
     responses={404: {"description": "Not found"}},
-    dependencies=[AuthorizedRouterDep],
 )
 
 
