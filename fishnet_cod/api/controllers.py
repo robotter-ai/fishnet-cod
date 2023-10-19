@@ -1,4 +1,5 @@
 import asyncio
+import io
 import os
 from typing import Dict, List, Tuple
 
@@ -6,7 +7,9 @@ import pandas as pd
 from fastapi import HTTPException, UploadFile
 from fastapi_walletauth.middleware import JWTWalletAuthDep
 from pydantic import ValidationError
+from starlette.responses import StreamingResponse
 
+from core.model import UserInfo
 from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from .api_model import (
     ColumnNameType,
@@ -418,3 +421,23 @@ async def check_access(timeseries, user):
                 if not permitted:
                     raise HTTPException(status_code=403, detail="You do not own all timeseries.")
     return timeseries_ids
+
+
+async def increase_user_downloads(owners):
+    user_infos = await UserInfo.filter(address__in=owners).all()
+    requests = []
+    for user_info in user_infos:
+        user_info.downloads = user_info.downloads + 1 if user_info.downloads else 1
+        requests.append(user_info.save())
+    await asyncio.gather(*requests)
+
+
+async def create_csv_streaming_response(df, compression=False):
+    stream = io.StringIO()
+    if compression:
+        df.to_csv(stream, compression="gzip")
+    else:
+        df.to_csv(stream)
+    stream.seek(0)
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    return response
