@@ -61,24 +61,6 @@ async def get_datasets(
         ]
 
 
-@router.post("/getByIDs")
-async def get_datasets_by_ids(
-    dataset_ids: List[str], view_as: Optional[str] = None
-) -> List[DatasetResponse]:
-    """
-    Get all datasets by their ids. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
-    If `view_as` is not given, the permission status will be `none` for all datasets.
-    """
-    datasets = await Dataset.fetch(dataset_ids).all()
-    if view_as:
-        return await view_datasets_as(datasets, view_as)
-    else:
-        return [
-            DatasetResponse(**dataset.dict(), permission_status=None)
-            for dataset in datasets
-        ]
-
-
 @router.put("")
 async def upload_dataset(
     dataset_req: UploadDatasetRequest,
