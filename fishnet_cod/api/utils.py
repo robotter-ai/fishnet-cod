@@ -1,11 +1,14 @@
 from itertools import chain
 from pathlib import Path
-from typing import TypeVar, Union, List
+from typing import TypeVar, Union, List, Annotated, Optional, Generic, Callable, Any, Awaitable
 
 import numpy as np
 import pandas as pd
 from fastapi import Depends, UploadFile
+from fastapi_walletauth import JWTWalletCredentials
+from fastapi_walletauth.manager import JWTCredentialsManager
 from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_manager
+from starlette.requests import Request
 
 from ..core.conf import settings
 from ..core.model import Granularity
@@ -90,3 +93,21 @@ def determine_decimal_places(data: Union[pd.Series, List[float]]):
     else:
         # If the magnitude is negative, round to -max_magnitude + 2 decimal places
         return -max_magnitude + 2
+
+
+class ConditionalJWTWalletAuth(BearerWalletAuth[JWTWalletCredentials]):
+    def __init__(
+        self,
+        manager: JWTCredentialsManager,
+        condition: Callable[[Request], Awaitable[bool]],
+    ):
+        self.condition = condition
+        super().__init__(
+            manager=manager,
+        )
+
+    async def __call__(self, request: Request) -> Optional[JWTWalletCredentials]:
+        if await self.condition(request):
+            return await super().__call__(request)
+        else:
+            return None

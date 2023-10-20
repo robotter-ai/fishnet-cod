@@ -1,12 +1,12 @@
 import asyncio
-from typing import Awaitable, List, Optional, Union
+from typing import Awaitable, List, Optional, Union, Annotated
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import APIRouter, HTTPException
-from fastapi_walletauth import JWTWalletAuthDep
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi_walletauth import JWTWalletAuthDep, JWTWalletCredentials
+from fastapi_walletauth.middleware import jwt_credentials_manager
 from starlette.responses import StreamingResponse
 
-from .timeseries import download_timeseries_csv
 from ...core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from ..api_model import (
     Attribute,
@@ -21,9 +21,10 @@ from ..api_model import (
 from ..controllers import (
     generate_views,
     get_dataset_permission_status,
-    view_datasets_as, upsert_timeseries, check_access, get_harmonized_timeseries_df,
+    view_datasets_as, upsert_timeseries, check_access, get_harmonized_timeseries_df, create_csv_streaming_response,
+    increase_user_downloads,
 )
-from ..utils import AuthorizedRouterDep
+from ..utils import AuthorizedRouterDep, ConditionalJWTWalletAuth
 
 router = APIRouter(
     prefix="/datasets",
@@ -241,10 +242,27 @@ async def get_dataset_timeseries_with_data(
     ]
 
 
+async def does_dataset_cost(dataset_id: str) -> bool:
+    dataset = await Dataset.fetch(dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return dataset.price is not None and float(dataset.price) > 0
+
+
+OnlyIfDatasetCosts = Annotated[
+    Optional[JWTWalletCredentials], Depends(
+        ConditionalJWTWalletAuth(
+            jwt_credentials_manager,
+            lambda request: does_dataset_cost(request.path_params["dataset_id"]),
+        )
+    )
+]
+
+
 @router.get("/{dataset_id}/timeseries/csv")
 async def get_dataset_timeseries_csv(
     dataset_id: str,
-    user: JWTWalletAuthDep,
+    user: OnlyIfDatasetCosts,
 ) -> StreamingResponse:
     """
     Get all timeseries for a given dataset.
@@ -252,13 +270,23 @@ async def get_dataset_timeseries_csv(
     dataset = await Dataset.fetch(dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
+
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
-    stream = await download_timeseries_csv(
-        timeseriesIDs=[ts.item_hash for ts in timeseries],
-        user=user,
-    )
+
+    if user:
+        await check_access(timeseries, user)
+
+    owners = {ts.owner for ts in timeseries}
     dataset.downloads = dataset.downloads + 1 if dataset.downloads else 1
-    await dataset.save()
+    await asyncio.gather(
+        increase_user_downloads(owners),
+        dataset.save()
+    )
+
+    stream = await create_csv_streaming_response(timeseries, compression=False)
+    response = StreamingResponse(stream, media_type="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename={dataset.name}.csv"
+
     return stream
 
 
