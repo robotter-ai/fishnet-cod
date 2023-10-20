@@ -1,16 +1,18 @@
 from typing import List
 
-import pytest
-from aleph.sdk.chains.sol import generate_key, SOLAccount
+from aleph.sdk.chains.sol import SOLAccount, generate_key
+
+from fishnet_cod.api.api_model import (
+    PutTimeseriesRequest,
+    PutViewRequest,
+    RequestDatasetPermissionsRequest,
+    UploadDatasetRequest,
+    UploadDatasetTimeseriesRequest,
+    UploadTimeseriesRequest,
+)
+from fishnet_cod.core.model import Granularity, PermissionStatus
 
 from .conftest import login_with_signature
-from fishnet_cod.api.api_model import (
-    RequestDatasetPermissionsRequest,
-    PutTimeseriesRequest,
-    UploadDatasetRequest,
-    UploadTimeseriesRequest, UploadDatasetTimeseriesRequest, PutViewRequest,
-)
-from fishnet_cod.core.model import PermissionStatus, Granularity
 
 
 def test_integration(client, big_csv):
@@ -47,12 +49,12 @@ def test_integration(client, big_csv):
 
     # add new timeseries
     upload_timeseries_req = UploadTimeseriesRequest(
-        timeseries=[
-            PutTimeseriesRequest(name="test", data=[[1.0, 2.0], [3.0, 4.0]])
-        ]
+        timeseries=[PutTimeseriesRequest(name="test", data=[[1.0, 2.0], [3.0, 4.0]])]
     )
     response = client.put(
-        "/timeseries", json=upload_timeseries_req.dict(), headers={"Authorization": f"Bearer {owner_token}"}
+        "/timeseries",
+        json=upload_timeseries_req.dict(),
+        headers={"Authorization": f"Bearer {owner_token}"},
     )
     print(response.json())
     assert response.status_code == 200
@@ -63,11 +65,17 @@ def test_integration(client, big_csv):
     # update said timeseries
     upload_timeseries_req = UploadTimeseriesRequest(
         timeseries=[
-            PutTimeseriesRequest(item_hash=timeseries_id, name="test", data=[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+            PutTimeseriesRequest(
+                item_hash=timeseries_id,
+                name="test",
+                data=[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+            )
         ]
     )
     response = client.put(
-        "/timeseries", json=upload_timeseries_req.dict(), headers={"Authorization": f"Bearer {owner_token}"}
+        "/timeseries",
+        json=upload_timeseries_req.dict(),
+        headers={"Authorization": f"Bearer {owner_token}"},
     )
     print(response.json())
     assert response.status_code == 200
@@ -105,7 +113,7 @@ def test_integration(client, big_csv):
             timeseriesIDs=[low_timeseries["item_hash"], high_timeseries["item_hash"]],
             granularity=Granularity.YEAR.value,
             startTime=1586476800,
-            endTime=1693612800
+            endTime=1693612800,
         ).dict()
     ]
     print(generate_view_req)
@@ -116,7 +124,10 @@ def test_integration(client, big_csv):
     )
     assert response.status_code == 200
     assert response.json()["views"][0]["item_hash"] is not None
-    assert response.json()["views"][0]["item_hash"] in response.json()["dataset"]["viewIDs"]
+    assert (
+        response.json()["views"][0]["item_hash"]
+        in response.json()["dataset"]["viewIDs"]
+    )
     assert response.json()["views"][0]["columns"] == ["Low", "High"]
     assert response.json()["views"][0]["values"] is not None
     assert len(response.json()["views"][0]["values"][low_timeseries["item_hash"]]) > 0
@@ -145,9 +156,13 @@ def test_integration(client, big_csv):
     assert len(notifications) == 1
 
     # try download timeseries data but refuse
-    response = client.post(
-        f"/timeseries/csv/download",
-        json=[low_timeseries["item_hash"], high_timeseries["item_hash"]],
+    response = client.get(
+        f"/timeseries/csv",
+        params={
+            "timeseriesIDs": ",".join(
+                [low_timeseries["item_hash"], high_timeseries["item_hash"]]
+            )
+        },
         headers={"Authorization": f"Bearer {requestor_token}"},
     )
     assert response.status_code == 403
@@ -182,9 +197,13 @@ def test_integration(client, big_csv):
     time.sleep(1)
 
     # download timeseries data
-    response = client.post(
-        f"/timeseries/csv/download",
-        json=[low_timeseries["item_hash"], high_timeseries["item_hash"]],
+    response = client.get(
+        f"/timeseries/csv",
+        params={
+            "timeseriesIDs": ",".join(
+                [low_timeseries["item_hash"], high_timeseries["item_hash"]]
+            )
+        },
         headers={"Authorization": f"Bearer {requestor_token}"},
     )
     assert response.status_code == 200

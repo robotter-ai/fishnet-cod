@@ -7,9 +7,15 @@ from starlette.responses import StreamingResponse
 
 from ...core.model import Timeseries
 from ..api_model import ColumnNameType, TimeseriesWithData, UploadTimeseriesRequest
-from ..controllers import get_harmonized_timeseries_df, upsert_timeseries, load_data_df, check_access, \
-    increase_user_downloads, create_csv_streaming_response
-from ..utils import AuthorizedRouterDep, determine_decimal_places
+from ..controllers import (
+    check_access,
+    create_csv_streaming_response,
+    get_harmonized_timeseries_df,
+    increase_user_downloads,
+    load_data_df,
+    upsert_timeseries,
+)
+from ..utils import determine_decimal_places
 
 router = APIRouter(
     prefix="/timeseries",
@@ -28,7 +34,9 @@ async def upload_timeseries(
     it will be overwritten. If the timeseries does not exist, it will be created.
     A list of the created/updated timeseries is returned.
     """
-    updated_timeseries, created_timeseries = await upsert_timeseries(req.timeseries, user)
+    updated_timeseries, created_timeseries = await upsert_timeseries(
+        req.timeseries, user
+    )
     return updated_timeseries + created_timeseries
 
 
@@ -92,7 +100,10 @@ async def download_timeseries_data(
     return [
         TimeseriesWithData(
             **ts.dict(),
-            data=[(int(dt.timestamp()), value) for dt, value in df[ts.item_hash].iteritems()],
+            data=[
+                (int(dt.timestamp()), value)
+                for dt, value in df[ts.item_hash].iteritems()
+            ],
         )
         for ts in timeseries
     ]

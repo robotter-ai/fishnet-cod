@@ -9,18 +9,29 @@ from fastapi_walletauth.middleware import JWTWalletAuthDep
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
-from core.model import UserInfo
-from ..core.model import Dataset, Permission, PermissionStatus, Timeseries, View
+from ..core.model import (
+    Dataset,
+    Permission,
+    PermissionStatus,
+    Timeseries,
+    UserInfo,
+    View,
+)
 from .api_model import (
     ColumnNameType,
     DatasetPermissionStatus,
     DatasetResponse,
+    PutTimeseriesRequest,
     PutViewRequest,
     PutViewResponse,
-    PutTimeseriesRequest,
 )
-from .utils import get_file_path, granularity_to_interval, find_first_row_with_comma, is_timestamp_column, \
-    determine_decimal_places
+from .utils import (
+    determine_decimal_places,
+    find_first_row_with_comma,
+    get_file_path,
+    granularity_to_interval,
+    is_timestamp_column,
+)
 
 
 async def get_dataset_df(
@@ -133,7 +144,9 @@ async def upsert_timeseries(
         else:
             update_timeseries.append(ts)
 
-    existing_timeseries = await Timeseries.fetch([ts.item_hash for ts in update_timeseries]).all()
+    existing_timeseries = await Timeseries.fetch(
+        [ts.item_hash for ts in update_timeseries]
+    ).all()
 
     if len(existing_timeseries) != len(update_timeseries):
         raise HTTPException(
@@ -143,7 +156,9 @@ async def upsert_timeseries(
 
     update_df = pd.DataFrame()
     for ts in update_timeseries:
-        update_df = concat_timeseries(ts, update_df, column_names=ColumnNameType.item_hash)
+        update_df = concat_timeseries(
+            ts, update_df, column_names=ColumnNameType.item_hash
+        )
     update_df = update_df.sort_index()
     update_df.ffill(inplace=True)
     existing_df = await merge_and_store_data(update_df, update_values=True)
@@ -161,20 +176,28 @@ async def upsert_timeseries(
 
     for ts in created_timeseries:
         new_df[ts.item_hash] = new_df[ts.name]
-        file_path = get_file_path(ts.item_hash)
+        file_path = get_file_path(str(ts.item_hash))
         new_df[[ts.item_hash]].to_parquet(file_path)
 
     return updated_timeseries, created_timeseries
 
 
-def concat_timeseries(ts, update_df, column_names: ColumnNameType = ColumnNameType.item_hash):
+def concat_timeseries(
+    ts, update_df, column_names: ColumnNameType = ColumnNameType.item_hash
+):
     update_df = pd.concat(
         [
             update_df,
             pd.DataFrame(
                 [value for timestamp, value in ts.data],
-                index=[pd.to_datetime(timestamp, unit="s") for timestamp, value in ts.data],
-                columns=[ts.item_hash if column_names == ColumnNameType.item_hash else ts.name],
+                index=[
+                    pd.to_datetime(timestamp, unit="s") for timestamp, value in ts.data
+                ],
+                columns=[
+                    ts.item_hash
+                    if column_names == ColumnNameType.item_hash
+                    else ts.name
+                ],
             ),
         ],
         axis=1,
@@ -204,7 +227,9 @@ async def update_timeseries_metadata(
     create_timeseries_requests = []
     for col in new_df.columns:
         try:
-            metadata = new_by_name.get(col)
+            metadata = new_by_name[col]
+            assert metadata.item_hash is None
+            assert metadata.owner is not None
             decimals = determine_decimal_places(new_df[col])
             ts = Timeseries(
                 item_hash=None,
@@ -228,7 +253,7 @@ async def update_timeseries_metadata(
     created_timeseries = await asyncio.gather(*create_timeseries_requests)
 
     existing_by_item_hash: Dict[str, Timeseries] = (
-        {ts.item_hash: ts for ts in existing_timeseries} if existing_timeseries else {}
+        {str(ts.item_hash): ts for ts in existing_timeseries} if existing_timeseries else {}
     )
     update_timeseries_requests = []
     for col in existing_df.columns:
@@ -393,33 +418,59 @@ def get_dataset_permission_status(
 async def check_access(timeseries, user):
     timeseries_ids = [ts.item_hash for ts in timeseries]
     if any(ts.owner != user.address for ts in timeseries):
-        datasets = [dataset for dataset_list in [
-            await Dataset.fetch_objects().all()
-        ] for dataset in dataset_list if any(ts.item_hash in dataset.timeseriesIDs for ts in timeseries)]
+        datasets = [
+            dataset
+            for dataset_list in [await Dataset.fetch_objects().all()]
+            for dataset in dataset_list
+            if any(ts.item_hash in dataset.timeseriesIDs for ts in timeseries)
+        ]
 
-        permissions = await Permission.filter(
-            timeseriesID__in=timeseries_ids, requestor=user.address
-        ).all() + await Permission.filter(
-            datasetID__in=[dataset.item_hash for dataset in datasets], requestor=user.address
-        ).all()
+        permissions = (
+            await Permission.filter(
+                timeseriesID__in=timeseries_ids, requestor=user.address
+            ).all()
+            + await Permission.filter(
+                datasetID__in=[dataset.item_hash for dataset in datasets],
+                requestor=user.address,
+            ).all()
+        )
         for ts in timeseries:
             if ts.owner != user.address:
                 permitted = False
-                dataset = next((dataset for dataset in datasets if ts.item_hash in dataset.timeseriesIDs), None)
+                dataset = next(
+                    (
+                        dataset
+                        for dataset in datasets
+                        if ts.item_hash in dataset.timeseriesIDs
+                    ),
+                    None,
+                )
                 if dataset and dataset.price == "0":
                     permitted = True
                 else:
                     for permission in permissions:
-                        if permission.timeseriesID == ts.item_hash and permission.status == PermissionStatus.GRANTED:
+                        if (
+                            permission.timeseriesID == ts.item_hash
+                            and permission.status == PermissionStatus.GRANTED
+                        ):
                             permitted = True
                             break
-                        elif permission.datasetID and permission.status == PermissionStatus.GRANTED:
-                            dataset = [dataset for dataset in datasets if permission.datasetID == dataset.item_hash][0]
+                        elif (
+                            permission.datasetID
+                            and permission.status == PermissionStatus.GRANTED
+                        ):
+                            dataset = [
+                                dataset
+                                for dataset in datasets
+                                if permission.datasetID == dataset.item_hash
+                            ][0]
                             if ts.item_hash in dataset.timeseriesIDs:
                                 permitted = True
                                 break
                 if not permitted:
-                    raise HTTPException(status_code=403, detail="You do not own all timeseries.")
+                    raise HTTPException(
+                        status_code=403, detail="You do not own all timeseries."
+                    )
     return timeseries_ids
 
 

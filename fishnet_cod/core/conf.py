@@ -59,6 +59,7 @@ if settings.CONFIG_CHANNEL is None:
 
 settings.API_MESSAGE_FILTER[0]["channel"] = settings.MESSAGE_CHANNEL
 
+
 # parse keys from hex, base58 or uint8 array
 def parse_key(key: str) -> str:
     if key.startswith("0x"):

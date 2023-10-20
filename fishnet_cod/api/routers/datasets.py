@@ -1,8 +1,8 @@
 import asyncio
-from typing import Awaitable, List, Optional, Union, Annotated
+from typing import Annotated, Awaitable, List, Optional, Union
 
 from aars.utils import PageableRequest, PageableResponse
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi_walletauth import JWTWalletAuthDep, JWTWalletCredentials
 from fastapi_walletauth.middleware import jwt_credentials_manager
 from starlette.responses import StreamingResponse
@@ -14,17 +14,22 @@ from ..api_model import (
     FungibleAssetStandard,
     PutViewRequest,
     PutViewResponse,
+    TimeseriesWithData,
     UploadDatasetRequest,
     UploadDatasetTimeseriesRequest,
-    UploadDatasetTimeseriesResponse, TimeseriesWithData,
+    UploadDatasetTimeseriesResponse,
 )
 from ..controllers import (
+    check_access,
+    create_csv_streaming_response,
     generate_views,
     get_dataset_permission_status,
-    view_datasets_as, upsert_timeseries, check_access, get_harmonized_timeseries_df, create_csv_streaming_response,
+    get_harmonized_timeseries_df,
     increase_user_downloads,
+    upsert_timeseries,
+    view_datasets_as,
 )
-from ..utils import AuthorizedRouterDep, ConditionalJWTWalletAuth
+from ..utils import ConditionalJWTWalletAuth
 
 router = APIRouter(
     prefix="/datasets",
@@ -183,24 +188,17 @@ async def upload_dataset_with_timeseries(
             status_code=400,
             detail="Cannot use this POST endpoint to update a dataset. Use PUT /datasets instead.",
         )
-    if any(
-        [
-            ts.item_hash is not None
-            for ts in req.timeseries
-        ]
-    ):
+    if any([ts.item_hash is not None for ts in req.timeseries]):
         raise HTTPException(
             status_code=400,
             detail="Cannot use this POST endpoint to update timeseries. Use PUT /timeseries instead.",
         )
-    updated_timeseries, created_timeseries = await upsert_timeseries(timeseries_requests=req.timeseries, user=user)
-    timeseries = updated_timeseries + created_timeseries
-    req.dataset.timeseriesIDs = [
-        str(ts.item_hash) for ts in timeseries
-    ]
-    dataset = await upload_dataset(
-        dataset_req=req.dataset, user=user
+    updated_timeseries, created_timeseries = await upsert_timeseries(
+        timeseries_requests=req.timeseries, user=user
     )
+    timeseries = updated_timeseries + created_timeseries
+    req.dataset.timeseriesIDs = [str(ts.item_hash) for ts in timeseries]
+    dataset = await upload_dataset(dataset_req=req.dataset, user=user)
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
         timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
@@ -236,7 +234,10 @@ async def get_dataset_timeseries_with_data(
     return [
         TimeseriesWithData(
             **ts.dict(),
-            data=[(int(dt.timestamp()), value) for dt, value in df[ts.item_hash].iteritems()],
+            data=[
+                (int(dt.timestamp()), value)
+                for dt, value in df[ts.item_hash].iteritems()
+            ],
         )
         for ts in timeseries
     ]
@@ -250,12 +251,13 @@ async def does_dataset_cost(dataset_id: str) -> bool:
 
 
 OnlyIfDatasetCosts = Annotated[
-    Optional[JWTWalletCredentials], Depends(
+    Optional[JWTWalletCredentials],
+    Depends(
         ConditionalJWTWalletAuth(
             jwt_credentials_manager,
             lambda request: does_dataset_cost(request.path_params["dataset_id"]),
         )
-    )
+    ),
 ]
 
 
@@ -278,10 +280,7 @@ async def get_dataset_timeseries_csv(
 
     owners = {ts.owner for ts in timeseries}
     dataset.downloads = dataset.downloads + 1 if dataset.downloads else 1
-    await asyncio.gather(
-        increase_user_downloads(owners),
-        dataset.save()
-    )
+    await asyncio.gather(increase_user_downloads(owners), dataset.save())
 
     stream = await create_csv_streaming_response(timeseries, compression=False)
     response = StreamingResponse(stream, media_type="text/csv")

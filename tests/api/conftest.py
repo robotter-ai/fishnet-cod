@@ -4,13 +4,11 @@ import os
 import base58
 import pytest
 from aleph.sdk.chains.sol import SOLAccount, generate_key
-
 from fastapi_walletauth.common import SupportedChains
 from nacl.signing import SigningKey
 from starlette.testclient import TestClient
 
 from fishnet_cod.api.main import app
-
 
 ABSOLUTE_PATH = os.path.dirname(os.path.abspath(__file__))
 

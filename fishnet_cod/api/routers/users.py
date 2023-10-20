@@ -10,7 +10,6 @@ from ..api_model import (
     PermissionRequestNotification,
     PutUserInfo,
 )
-from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/users",

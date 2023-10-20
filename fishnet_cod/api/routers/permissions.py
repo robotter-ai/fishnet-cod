@@ -10,7 +10,6 @@ from ..api_model import (
     RequestDatasetPermissionsRequest,
     UpdatedPermissionsResponse,
 )
-from ..utils import AuthorizedRouterDep
 
 router = APIRouter(
     prefix="/permissions",
