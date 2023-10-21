@@ -62,7 +62,7 @@ Uvicorn is used to run ASGI compatible web applications, such as the `app`
 web application from the example above. You need to specify it the name of the
 Python module to use and the name of the app:
 ```shell
-python -m uvicorn src.fishnet_cod.api.main:app --reload
+python -m uvicorn fishnet_cod.api.main:app --reload
 ```
 
 Then open the app in a web browser on http://localhost:8000
