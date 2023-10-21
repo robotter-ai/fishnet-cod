@@ -1,13 +1,6 @@
 from itertools import chain
 from pathlib import Path
-from typing import (
-    Awaitable,
-    Callable,
-    List,
-    Optional,
-    TypeVar,
-    Union,
-)
+from typing import Awaitable, Callable, List, Optional, TypeVar, Union
 
 import numpy as np
 import pandas as pd

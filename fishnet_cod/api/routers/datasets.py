@@ -10,6 +10,7 @@ from starlette.responses import StreamingResponse
 from ...core.model import Dataset, Permission, PermissionStatus, Timeseries, View
 from ..api_model import (
     Attribute,
+    ColumnNameType,
     DatasetResponse,
     FungibleAssetStandard,
     PutViewRequest,
@@ -275,14 +276,16 @@ async def get_dataset_timeseries_csv(
 
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
 
+    df = get_harmonized_timeseries_df(timeseries, column_names=ColumnNameType.name)
+
     if user:
         await check_access(timeseries, user)
 
     owners = {ts.owner for ts in timeseries}
     dataset.downloads = dataset.downloads + 1 if dataset.downloads else 1
-    await asyncio.gather(increase_user_downloads(owners), dataset.save())
+    await asyncio.gather(increase_user_downloads(list(owners)), dataset.save())
 
-    stream = await create_csv_streaming_response(timeseries, compression=False)
+    stream = await create_csv_streaming_response(df, compression=False)
     response = StreamingResponse(stream, media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={dataset.name}.csv"
 

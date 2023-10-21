@@ -253,7 +253,9 @@ async def update_timeseries_metadata(
     created_timeseries = await asyncio.gather(*create_timeseries_requests)
 
     existing_by_item_hash: Dict[str, Timeseries] = (
-        {str(ts.item_hash): ts for ts in existing_timeseries} if existing_timeseries else {}
+        {str(ts.item_hash): ts for ts in existing_timeseries}
+        if existing_timeseries
+        else {}
     )
     update_timeseries_requests = []
     for col in existing_df.columns:
@@ -415,7 +417,7 @@ def get_dataset_permission_status(
     raise Exception("Should not reach here")
 
 
-async def check_access(timeseries, user):
+async def check_access(timeseries: List[Timeseries], user: JWTWalletAuthDep):
     timeseries_ids = [ts.item_hash for ts in timeseries]
     if any(ts.owner != user.address for ts in timeseries):
         datasets = [
@@ -474,7 +476,7 @@ async def check_access(timeseries, user):
     return timeseries_ids
 
 
-async def increase_user_downloads(owners):
+async def increase_user_downloads(owners: List[str]):
     user_infos = await UserInfo.filter(address__in=owners).all()
     requests = []
     for user_info in user_infos:
@@ -483,7 +485,7 @@ async def increase_user_downloads(owners):
     await asyncio.gather(*requests)
 
 
-async def create_csv_streaming_response(df, compression=False):
+async def create_csv_streaming_response(df: pd.DataFrame, compression=False):
     stream = io.StringIO()
     if compression:
         df.to_csv(stream, compression="gzip")

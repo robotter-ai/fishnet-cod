@@ -132,7 +132,7 @@ async def download_timeseries_csv(
     df = get_harmonized_timeseries_df(timeseries, column_names=column_names)
 
     # increase download count
-    owners = {ts.owner for ts in timeseries}
+    owners = list({ts.owner for ts in timeseries})
     await increase_user_downloads(owners)
 
     response = await create_csv_streaming_response(df, compression)
