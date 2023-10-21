@@ -84,8 +84,8 @@ async def preprocess_timeseries_csv(
     return timeseries
 
 
-@router.get("/data")
-async def download_timeseries_data(
+@router.get("/json")
+async def download_timeseries_json(
     timeseriesIDs: str,
     user: JWTWalletAuthDep,
 ) -> List[TimeseriesWithData]:

@@ -216,7 +216,7 @@ async def get_dataset_timeseries(dataset_id: str) -> List[Timeseries]:
     return await Timeseries.fetch(dataset.timeseriesIDs).all()
 
 
-@router.get("/{dataset_id}/timeseries/data")
+@router.get("/{dataset_id}/timeseries/json")
 async def get_dataset_timeseries_with_data(
     dataset_id: str,
     user: JWTWalletAuthDep,
