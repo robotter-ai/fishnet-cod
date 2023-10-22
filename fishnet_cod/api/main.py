@@ -96,18 +96,25 @@ async def fishnet_event(event: PostMessage):
             "UserInfo",
             "View",
         ]:
-            print(f"Received event: {event.content.type} - {event.item_hash}")
+            logger.info(f"Received event: {event.content.type} - {event.item_hash}")
             if Record.is_indexed(event.item_hash):
                 return
             cls: Record = globals()[event.content.type]
             record = await cls.from_post(event)
         else:  # amend
+            logger.info(f"Received amend event: {event.content.type} - {event.item_hash}")
             record = await Record.fetch(event.content.ref).first()
+            logger.info(f"Amending record: {record.item_hash}")
+
             if record is None:
-                logger.error(f"Invalid amend event: {event}")
+                logger.error(f"No record found for amend event: {event.json()}")
                 return
         assert record
         for inx in record.get_indices():
-            inx.add_record(record)
+            try:
+                inx.add_record(record)
+            except Exception as e:
+                logger.error(f"Error adding record: {record.item_hash} to index: {inx}")
+                logger.error(e)
     except ValidationError as e:
         logger.error(f"Invalid event: {e}")
