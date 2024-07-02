@@ -8,6 +8,8 @@ from fastapi_walletauth import WalletAuth
 from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
+from src.fishnet_cod.api.controller import load_data_df
+
 from ..common import OptionalWalletAuthDep, get_harmonized_timeseries_df, OptionalWalletAuth
 from ...core.model import Timeseries, Permission, UserInfo
 from ..api_model import UploadTimeseriesRequest, ColumnNameType
@@ -37,7 +39,8 @@ async def upload_timeseries(
                 status_code=403,
                 detail="Cannot upload timeseries for other users",
             )
-    ids_to_fetch = [ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
+    ids_to_fetch = [
+        ts.item_hash for ts in req.timeseries if ts.item_hash is not None]
     requests = []
     old_time_series = (
         {ts.item_hash: ts for ts in await Timeseries.fetch(ids_to_fetch).all()}
@@ -64,36 +67,27 @@ async def upload_timeseries(
 
 @router.post("/csv")
 async def upload_timeseries_csv(
-    owner: str = Form(...), data_file: UploadFile = File(...)
+        user: Annotated[Optional[WalletAuth], Depends(OptionalWalletAuth)], data_file: UploadFile = File(...)
 ) -> List[Timeseries]:
     """
     Upload a csv file with timeseries data. The csv file must have a header row with the following columns:
     `item_hash`, `name`, `desc`, `data`. The `data` column must contain a json string with the timeseries data.
     """
-    if data_file.filename and not data_file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="File must be a csv file")
-    df = pd.read_csv(data_file.file)
-    # find the first column with a timestamp or ISO8601 date and use it as the index
-    for col in df.columns:
-        if "unnamed" in col.lower():
-            df = df.drop(columns=col)
-            continue
-        if "date" in col.lower() or "time" in col.lower():
-            df.index = pd.to_datetime(df[col])
-            df = df.drop(columns=col)
+    df = load_data_df(data_file)
     # create a timeseries object for each column
     timestamps = [dt.timestamp() for dt in df.index.to_pydatetime().tolist()]
     timeseries = []
     for col in df.columns:
         try:
-            data = [(timestamps[i], value) for i, value in enumerate(df[col].tolist())]
+            data = [(timestamps[i], value)
+                    for i, value in enumerate(df[col].tolist())]
             timeseries.append(
                 Timeseries(
                     item_hash=None,
                     name=col,
                     desc=None,
                     data=data,
-                    owner=owner,
+                    owner=user.address,
                     min=df[col].min(),
                     max=df[col].max(),
                     avg=df[col].mean(),
@@ -147,7 +141,8 @@ async def download_timeseries_csv(
     # Set the stream position to the start
     stream.seek(0)
     # Create a streaming response with the stream and appropriate headers
-    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response = StreamingResponse(
+        iter([stream.getvalue()]), media_type="text/csv")
 
     # Generate a hash from the timeseries IDs and use it as the filename
     filename = hash("".join(timeseriesIDs))
