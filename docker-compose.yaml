@@ -3,11 +3,13 @@ version: '3'
 services:
   api:
     build:
-      context: ./src/fishnet_cod/api
+      context: fishnet_cod/api
     ports:
       - "8000:8000"
     networks:
       - fishnet_network
+    volumes:
+      - storage:/app/data
     environment:
       - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
       - FISHNET_MESSAGES_KEY=<enter-your-private-key-here>
@@ -16,7 +18,7 @@ services:
     depends_on:
       - api
     build:
-      context: ./src/fishnet_cod/local_listener
+      context: fishnet_cod/local_listener
     ports:
       - "8001:8000"
     networks:
@@ -49,6 +51,10 @@ services:
       - ALEPH_CHANNEL=FISHNET_DEMO_BERLIN_1
       - RPC=<enter-your-RPC-url-here>
       - PORT=50825
+
+
+volumes:
+  storage:
 
 
 networks:
