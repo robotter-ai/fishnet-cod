@@ -27,14 +27,7 @@ class Settings(BaseSettings):
         {
             "channel": MESSAGE_CHANNEL,
             "type": "POST",
-            "post_type": [
-                "Permission",
-                "Dataset",
-                "Timeseries",
-                "View",
-                "UserInfo",
-                "amend",
-            ],
+            "post_type": ["Permission"],
         }
     ]
     """Filter for the messages to listen to for the API"""
