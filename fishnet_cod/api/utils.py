@@ -1,3 +1,4 @@
+import asyncio
 from itertools import chain
 from pathlib import Path
 from typing import Awaitable, Callable, List, Optional, TypeVar, Union
@@ -11,7 +12,7 @@ from fastapi_walletauth.middleware import BearerWalletAuth, jwt_credentials_mana
 from starlette.requests import Request
 
 from ..core.conf import settings
-from ..core.model import Granularity
+from ..core.model import Granularity, Permission
 
 T = TypeVar("T")
 
@@ -111,3 +112,13 @@ class ConditionalJWTWalletAuth(BearerWalletAuth[JWTWalletCredentials]):
             return await super().__call__(request)
         else:
             return None
+
+async def fetch_permissions(dataset_id: str, timeseries_ids: List[str], view_as: Optional[str]) -> List[Permission]:
+    if view_as:
+        resp = await asyncio.gather(
+            Permission.filter(timeseriesID__in=timeseries_ids, requestor=view_as).all(),
+            Permission.filter(datasetID=dataset_id, requestor=view_as).all(),
+        )
+        permissions = [item for sublist in resp for item in sublist]
+        return permissions
+    return []

@@ -30,7 +30,7 @@ from ..controllers import (
     upsert_timeseries,
     view_datasets_as,
 )
-from ..utils import ConditionalJWTWalletAuth
+from ..utils import ConditionalJWTWalletAuth, fetch_permissions
 
 router = APIRouter(
     prefix="/datasets",
@@ -57,15 +57,19 @@ async def get_datasets(
     else:
         dataset_resp = Dataset.fetch_objects()
     datasets = await dataset_resp.page(page=page, page_size=page_size)
-    # TODO: Sometimes newly created datasets are not returned, race condition?
+    
+    async def fetch_dataset_with_permissions(dataset):
+        ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
+        permissions = await fetch_permissions(dataset.item_hash, ts_ids, view_as)
+        return DatasetResponse(
+            **dataset.dict(),
+            permission_status=get_dataset_permission_status(dataset, permissions) if view_as else None
+        )
 
     if view_as:
-        return await view_datasets_as(datasets, view_as)
+        return await asyncio.gather(*[fetch_dataset_with_permissions(dataset) for dataset in datasets])
     else:
-        return [
-            DatasetResponse(**dataset.dict(), permission_status=None)
-            for dataset in datasets
-        ]
+        return [DatasetResponse(**dataset.dict(), permission_status=None) for dataset in datasets]
 
 
 @router.put("")
@@ -107,9 +111,7 @@ async def upload_dataset(
 
 
 @router.get("/{dataset_id}")
-async def get_dataset(
-    dataset_id: str, view_as: Optional[str] = None
-) -> DatasetResponse:
+async def get_dataset(dataset_id: str, view_as: Optional[str] = None) -> DatasetResponse:
     """
     Get a dataset by its id.
     """
@@ -117,19 +119,13 @@ async def get_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="No Dataset found")
 
-    if view_as:
-        ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
-        resp = await asyncio.gather(
-            Permission.filter(timeseriesID__in=ts_ids, requestor=view_as).all(),
-            Permission.filter(datasetID=dataset_id, requestor=view_as).all(),
-        )
-        permissions = [item for sublist in resp for item in sublist]
-        return DatasetResponse(
-            **dataset.dict(),
-            permission_status=get_dataset_permission_status(dataset, permissions),
-        )
+    ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
+    permissions = await fetch_permissions(dataset_id, ts_ids, view_as)
 
-    return DatasetResponse(**dataset.dict(), permission_status=None)
+    return DatasetResponse(
+        **dataset.dict(),
+        permission_status=get_dataset_permission_status(dataset, permissions) if view_as else None,
+    )
 
 
 @router.get("/{dataset_id}/permissions")
