@@ -40,6 +40,20 @@ services:
       - FISHNET_MESSAGE_CHANNEL=${FISHNET_MESSAGE_CHANNEL}
       - MESSAGES_KEY=${MESSAGES_KEY}
       - API_URL=http://api:8000
+  
+  marketplace:
+    image: ricardocr987/solana-server:latest
+    ports:
+      - "3001:3001"
+    networks:
+      - fishnet_network
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+      - RPC_KEY=${RPC_KEY}
+      - MESSAGES_SIGNER=${MESSAGES_SIGNER}
+      - FISHNET_CHANNEL=${FISHNET_CHANNEL}
+      - ALEPH_SERVER=${ALEPH_SERVER}
 
 volumes:
   timeseries:
