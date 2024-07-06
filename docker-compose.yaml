@@ -3,59 +3,46 @@ version: '3'
 services:
   api:
     build:
-      context: fishnet_cod/api
+      context: .
+      target: apiservice
     ports:
       - "8000:8000"
     networks:
       - fishnet_network
     volumes:
-      - storage:/app/data
+      - timeseries:/app/timeseries
     environment:
-      - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
-      - FISHNET_MESSAGES_KEY=<enter-your-private-key-here>
+      - FISHNET_MESSAGE_CHANNEL=${FISHNET_MESSAGE_CHANNEL}
+      - FISHNET_MESSAGES_KEY=${MESSAGES_KEY}
+      - FASTAPI_WALLETAUTH_APP=${FASTAPI_WALLETAUTH_APP}
+      - FASTAPI_WALLETAUTH_PRIVATE_KEY=${FASTAPI_WALLETAUTH_PRIVATE_KEY}
+      - MESSAGE_CHANNEL=${MESSAGE_CHANNEL}
+      - FISHNET_MESSAGE_CHANNEL=${FISHNET_MESSAGE_CHANNEL}
+      - MESSAGES_KEY=${MESSAGES_KEY}
+      - API_URL=http://api:8000
 
   local_listener:
     depends_on:
       - api
     build:
-      context: fishnet_cod/local_listener
+      context: .
+      target: listenerservice
     ports:
       - "8001:8000"
     networks:
       - fishnet_network
     environment:
+      - FISHNET_MESSAGE_CHANNEL=${FISHNET_MESSAGE_CHANNEL}
+      - FISHNET_MESSAGES_KEY=${MESSAGES_KEY}
+      - FASTAPI_WALLETAUTH_APP=${FASTAPI_WALLETAUTH_APP}
+      - FASTAPI_WALLETAUTH_PRIVATE_KEY=${FASTAPI_WALLETAUTH_PRIVATE_KEY}
+      - MESSAGE_CHANNEL=${MESSAGE_CHANNEL}
+      - FISHNET_MESSAGE_CHANNEL=${FISHNET_MESSAGE_CHANNEL}
+      - MESSAGES_KEY=${MESSAGES_KEY}
       - API_URL=http://api:8000
-      - FISHNET_MESSAGE_CHANNEL=FISHNET_DEMO_BERLIN_1
-
-  indexer:
-    image: dipfit/fishnet-indexer:latest
-    ports:
-      - "8002:8080"
-    networks:
-      - fishnet_network
-    environment:
-      - SOLANA_RPC=<enter-your-RPC-url-here>
-      - SPL_TOKEN_MINTS=kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6
-      - NODE_OPTIONS=--max-old-space-size=4096
-      - SOLANA_MAIN_PUBLIC_RPC=https://api.mainnet-beta.solana.com
-
-  marketplace:
-    image: dipfit/fishnet-marketplace:latest
-    ports:
-      - "8003:50825"
-    networks:
-      - fishnet_network
-    environment:
-      - MESSAGES_KEY=<enter-your-private-key-here>
-      - INDEXER_API=http://indexer:8080
-      - ALEPH_CHANNEL=FISHNET_DEMO_BERLIN_1
-      - RPC=<enter-your-RPC-url-here>
-      - PORT=50825
-
 
 volumes:
-  storage:
-
+  timeseries:
 
 networks:
   fishnet_network:
