@@ -49,7 +49,7 @@ AuthorizedRouterDep = Depends(BearerWalletAuth(jwt_credentials_manager))
 
 
 def get_file_path(timeseries_id: str) -> Path:
-    dir_path = Path(settings.DATA_PATH) / Path(f"timeseries")
+    dir_path = Path(f"timeseries")
     if not dir_path.exists():
         dir_path.mkdir(parents=True)
     file_path = dir_path / Path(f"{timeseries_id}.parquet")
