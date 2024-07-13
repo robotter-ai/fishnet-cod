@@ -60,10 +60,17 @@ async def get_datasets(
         dataset_resp = Dataset.filter(owner=by)
     else:
         dataset_resp = Dataset.fetch_objects()
+
+    all_datasets = await dataset_resp.all()
     
-    total_count = len(await dataset_resp.all())
+    if search:
+        all_datasets = [dataset for dataset in all_datasets if search.lower() in dataset.name.lower()]
+
+    total_count = len(all_datasets)
     
-    datasets = await dataset_resp.page(page=page, page_size=page_size)
+    start = (page - 1) * page_size
+    end = start + page_size
+    datasets = all_datasets[start:end]
 
     async def fetch_dataset_with_permissions(dataset):
         ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
@@ -83,7 +90,6 @@ async def get_datasets(
         "page": page,
         "data": data
     }
-
 
 @router.put("")
 async def upload_dataset(
