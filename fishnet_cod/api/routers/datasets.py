@@ -1,3 +1,5 @@
+from fastapi import APIRouter, Query
+from typing import Optional, List, Union
 import asyncio
 from typing import Annotated, Awaitable, List, Optional, Union
 
@@ -43,21 +45,33 @@ router = APIRouter(
 async def get_datasets(
     view_as: Optional[str] = None,
     by: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-) -> List[DatasetResponse]:
+) -> dict:
     """
     Get all datasets. Returns a list of tuples of datasets and their permission status for the given `view_as` user.
     If `view_as` is not given, the permission status will be `none` for all datasets.
     If `by` is given, it will return all datasets owned by that user.
     """
     dataset_resp: Union[PageableRequest[Dataset], PageableResponse[Dataset]]
+    
     if by:
         dataset_resp = Dataset.filter(owner=by)
     else:
         dataset_resp = Dataset.fetch_objects()
-    datasets = await dataset_resp.page(page=page, page_size=page_size)
+
+    all_datasets = await dataset_resp.all()
     
+    if search:
+        all_datasets = [dataset for dataset in all_datasets if search.lower() in dataset.name.lower()]
+
+    total_count = len(all_datasets)
+    
+    start = (page - 1) * page_size
+    end = start + page_size
+    datasets = all_datasets[start:end]
+
     async def fetch_dataset_with_permissions(dataset):
         ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
         permissions = await fetch_permissions(dataset.item_hash, ts_ids, view_as)
@@ -67,10 +81,15 @@ async def get_datasets(
         )
 
     if view_as:
-        return await asyncio.gather(*[fetch_dataset_with_permissions(dataset) for dataset in datasets])
+        data = await asyncio.gather(*[fetch_dataset_with_permissions(dataset) for dataset in datasets])
     else:
-        return [DatasetResponse(**dataset.dict(), permission_status=None) for dataset in datasets]
+        data = [DatasetResponse(**dataset.dict(), permission_status=None) for dataset in datasets]
 
+    return {
+        "total": total_count,
+        "page": page,
+        "data": data
+    }
 
 @router.put("")
 async def upload_dataset(
@@ -124,7 +143,8 @@ async def get_dataset(dataset_id: str, view_as: Optional[str] = None) -> Dataset
 
     return DatasetResponse(
         **dataset.dict(),
-        permission_status=get_dataset_permission_status(dataset, permissions) if view_as else None,
+        permission_status=get_dataset_permission_status(
+            dataset, permissions) if view_as else None,
     )
 
 
@@ -138,11 +158,13 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
         raise HTTPException(status_code=404, detail="No Dataset found")
     ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
     matched_permission_records = [
-        Permission.filter(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
+        Permission.filter(timeseriesID=ts_id,
+                          status=PermissionStatus.GRANTED).all()
         for ts_id in ts_ids
     ] + [Permission.filter(datasetID=dataset_id, status=PermissionStatus.GRANTED).all()]
     records = await asyncio.gather(*matched_permission_records)
-    permission_records = [element for row in records for element in row if element]
+    permission_records = [
+        element for row in records for element in row if element]
 
     return permission_records
 
@@ -167,7 +189,8 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
         attributes=[
             Attribute(trait_type="Owner", value=dataset.owner),
             Attribute(trait_type="Last Updated", value=dataset.timestamp),
-            Attribute(trait_type="Columns", value=str(len(dataset.timeseriesIDs))),
+            Attribute(trait_type="Columns", value=str(
+                len(dataset.timeseriesIDs))),
         ],
     )
 
@@ -198,7 +221,8 @@ async def upload_dataset_with_timeseries(
     dataset = await upload_dataset(dataset_req=req.dataset, user=user)
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
-        timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
+        timeseries=[ts for ts in timeseries if not isinstance(
+            ts, BaseException)],
     )
 
 
@@ -252,7 +276,8 @@ OnlyIfDatasetCosts = Annotated[
     Depends(
         ConditionalJWTWalletAuth(
             jwt_credentials_manager,
-            lambda request: does_dataset_cost(request.path_params["dataset_id"]),
+            lambda request: does_dataset_cost(
+                request.path_params["dataset_id"]),
         )
     ),
 ]
@@ -272,7 +297,8 @@ async def get_dataset_timeseries_csv(
 
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
 
-    df = get_harmonized_timeseries_df(timeseries, column_names=ColumnNameType.name)
+    df = get_harmonized_timeseries_df(
+        timeseries, column_names=ColumnNameType.name)
 
     if user:
         await check_access(timeseries, user)
