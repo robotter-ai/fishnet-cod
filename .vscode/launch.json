@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: FastAPI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "fishnet_cod.api.main:app",
+                "--reload"
+            ],
+            "jinja": true,
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        },
+    ]
+}
