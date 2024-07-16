@@ -63,7 +63,8 @@ async def get_datasets(
         permissions = await fetch_permissions(dataset.item_hash, ts_ids, view_as)
         return DatasetResponse(
             **dataset.dict(),
-            permission_status=get_dataset_permission_status(dataset, permissions) if view_as else None
+            permission_status=get_dataset_permission_status(
+                dataset, permissions) if view_as else None
         )
 
     if view_as:
@@ -124,7 +125,8 @@ async def get_dataset(dataset_id: str, view_as: Optional[str] = None) -> Dataset
 
     return DatasetResponse(
         **dataset.dict(),
-        permission_status=get_dataset_permission_status(dataset, permissions) if view_as else None,
+        permission_status=get_dataset_permission_status(
+            dataset, permissions) if view_as else None,
     )
 
 
@@ -138,11 +140,13 @@ async def get_dataset_permissions(dataset_id: str) -> List[Permission]:
         raise HTTPException(status_code=404, detail="No Dataset found")
     ts_ids = [ts_id for ts_id in dataset.timeseriesIDs]
     matched_permission_records = [
-        Permission.filter(timeseriesID=ts_id, status=PermissionStatus.GRANTED).all()
+        Permission.filter(timeseriesID=ts_id,
+                          status=PermissionStatus.GRANTED).all()
         for ts_id in ts_ids
     ] + [Permission.filter(datasetID=dataset_id, status=PermissionStatus.GRANTED).all()]
     records = await asyncio.gather(*matched_permission_records)
-    permission_records = [element for row in records for element in row if element]
+    permission_records = [
+        element for row in records for element in row if element]
 
     return permission_records
 
@@ -167,7 +171,8 @@ async def get_dataset_metaplex_dataset(dataset_id: str) -> FungibleAssetStandard
         attributes=[
             Attribute(trait_type="Owner", value=dataset.owner),
             Attribute(trait_type="Last Updated", value=dataset.timestamp),
-            Attribute(trait_type="Columns", value=str(len(dataset.timeseriesIDs))),
+            Attribute(trait_type="Columns", value=str(
+                len(dataset.timeseriesIDs))),
         ],
     )
 
@@ -198,7 +203,8 @@ async def upload_dataset_with_timeseries(
     dataset = await upload_dataset(dataset_req=req.dataset, user=user)
     return UploadDatasetTimeseriesResponse(
         dataset=dataset,
-        timeseries=[ts for ts in timeseries if not isinstance(ts, BaseException)],
+        timeseries=[ts for ts in timeseries if not isinstance(
+            ts, BaseException)],
     )
 
 
@@ -217,7 +223,7 @@ async def get_dataset_timeseries(dataset_id: str) -> List[Timeseries]:
 async def get_dataset_timeseries_with_data(
     dataset_id: str,
     user: JWTWalletAuthDep,
-) -> List[Timeseries]:
+) -> List[TimeseriesWithData]:
     """
     Get all timeseries for a given dataset.
     """
@@ -228,16 +234,21 @@ async def get_dataset_timeseries_with_data(
     await check_access(timeseries, user)
 
     df = get_harmonized_timeseries_df(timeseries)
-    return [
-        TimeseriesWithData(
-            **ts.dict(),
-            data=[
-                (int(dt.timestamp()), value)
-                for dt, value in df[ts.item_hash].iteritems()
-            ],
+
+    result = []
+    for ts in timeseries:
+        data = [
+            (int(dt.timestamp()), value)
+            for dt, value in df[ts.item_hash].items()
+        ]
+        result.append(
+            TimeseriesWithData(
+                **ts.dict(),
+                data=data,
+            )
         )
-        for ts in timeseries
-    ]
+
+    return result
 
 
 async def does_dataset_cost(dataset_id: str) -> bool:
@@ -252,7 +263,8 @@ OnlyIfDatasetCosts = Annotated[
     Depends(
         ConditionalJWTWalletAuth(
             jwt_credentials_manager,
-            lambda request: does_dataset_cost(request.path_params["dataset_id"]),
+            lambda request: does_dataset_cost(
+                request.path_params["dataset_id"]),
         )
     ),
 ]
@@ -272,7 +284,8 @@ async def get_dataset_timeseries_csv(
 
     timeseries = await Timeseries.fetch(dataset.timeseriesIDs).all()
 
-    df = get_harmonized_timeseries_df(timeseries, column_names=ColumnNameType.name)
+    df = get_harmonized_timeseries_df(
+        timeseries, column_names=ColumnNameType.name)
 
     if user:
         await check_access(timeseries, user)
