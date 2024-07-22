@@ -17,9 +17,13 @@ jobs:
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
+        username: root
+        key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          whoami
-          ls -al
+          cd ./fishnet-cod
+          git fetch --all
+          git checkout ${{ github.ref_name }}
+          docker-compose pull
+          docker-compose up --build -d
+          EOF
