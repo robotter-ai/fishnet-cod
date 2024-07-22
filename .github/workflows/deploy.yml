@@ -26,4 +26,4 @@ jobs:
           git checkout ${{ github.ref_name }}
           docker-compose pull
           docker-compose up --build -d
-          EOF
+          
